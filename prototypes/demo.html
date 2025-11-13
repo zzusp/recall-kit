@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="filename" content="dev-knowledge-platform.html">
+    <title>Recall Kit - AI开发踩坑记录检索平台</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a0ca3;
+            --secondary: #ff6b35;
+            --accent: #4cc9f0;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --light: #f8f9fa;
+            --dark: #2d3436;
+            --gray: #636e72;
+            --border: #dfe6e9;
+            --card-bg: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
+            color: var(--dark);
+            min-height: 100vh;
+            padding: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* 页面容器样式 */
+        .page-container {
+            width: 1440px;
+            height: 900px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+            overflow: overlay;
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        /* 导航栏样式 */
+        .navbar {
+            padding: 1.5rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 28px;
+            color: var(--primary);
+        }
+
+        .logo-text {
+            font-family: 'Poppins', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-link {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 500;
+            color: var(--dark);
+            text-decoration: none;
+            position: relative;
+            padding: 8px 0;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+        }
+
+        .nav-link.active {
+            color: var(--primary);
+        }
+
+        .nav-link.active::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(67, 97, 238, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: #e05a2a;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255, 107, 53, 0.4);
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+            padding: 1.8rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        /* 内容区域 */
+        .content {
+            padding: 2rem 3rem;
+        }
+
+        .hero-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: var(--gray);
+            margin-bottom: 2.5rem;
+            max-width: 700px;
+            line-height: 1.6;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 2rem 1.5rem;
+            border-radius: 16px;
+            background: var(--card-bg);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .feature-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(to bottom right, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--dark);
+        }
+
+        .feature-desc {
+            color: var(--gray);
+            line-height: 1.6;
+        }
+
+        /* 搜索页样式 */
+        .search-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 3rem 0;
+        }
+
+        .search-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 3rem;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 18px 25px;
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            font-size: 1.1rem;
+            outline: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 4px 20px rgba(67, 97, 238, 0.2);
+        }
+
+        /* 列表页样式 */
+        .filter-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 1rem 1.5rem;
+            background: var(--card-bg);
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .list-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .tag-list {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            background: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tag:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .tag.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .knowledge-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .knowledge-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .knowledge-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+            color: var(--dark);
+        }
+
+        .knowledge-meta {
+            display: flex;
+            gap: 15px;
+            color: var(--gray);
+            font-size: 0.9rem;
+            margin-top: auto;
+            padding-top: 1rem;
+        }
+
+        /* 登录页样式 */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            padding: 2rem;
+        }
+
+        .login-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+            padding: 3rem;
+            max-width: 500px;
+            width: 100%;
+            /* text-align: center; */
+            border-top: 4px solid var(--primary);
+        }
+
+        .login-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .login-icon {
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.8rem;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 16px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        /* 页脚样式 */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray);
+            font-size: 0.9rem;
+            margin-top: auto;
+            background: white;
+            /* position: absolute; */
+            bottom: 0;
+            left: 0;
+            right: 0;
+            border-top: 1px solid var(--border);
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 1480px) {
+            .page-container {
+                width: 100%;
+                height: auto;
+                min-height: 900px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .knowledge-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .hero-title {
+                font-size: 2.5rem;
+            }
+            
+            .hero-subtitle {
+                font-size: 1.2rem;
+            }
+            
+            .navbar {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 首页 -->
+    <div class="page-container">
+        <div class="navbar">
+            <div class="logo">
+                <i class="fas fa-brain logo-icon"></i>
+                <div class="logo-text">Recall Kit</div>
+            </div>
+            <div class="nav-links">
+                <a href="#" class="nav-link active">首页</a>
+                <a href="#search" class="nav-link">搜索</a>
+                <a href="#list" class="nav-link">知识库</a>
+                <a href="#login" class="nav-link">登录</a>
+            </div>
+            <div>
+                <a href="#login" class="btn btn-secondary">管理员登录</a>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="hero-section">
+                <h1 class="hero-title">AI开发踩坑记录检索平台</h1>
+                <p class="hero-subtitle">记录、分享、复用开发经验，让每一次踩坑都成为团队的智慧财富</p>
+                <div style="display: flex; gap: 15px; margin-top: 1.5rem;">
+                    <a href="#search" class="btn btn-primary">
+                        <i class="fas fa-search"></i> 立即搜索
+                    </a>
+                    <a href="#list" class="btn btn-secondary">
+                        <i class="fas fa-book-open"></i> 浏览知识库
+                    </a>
+                </div>
+            </div>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <h3 class="feature-title">经验分类标签</h3>
+                    <p class="feature-desc">归类AI开发踩坑经验，支持Vue、React、Next.js、Python、Java等主流技术栈分类</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-bug"></i>
+                    </div>
+                    <h3 class="feature-title">报错日志管理</h3>
+                    <p class="feature-desc">记录并分析报错日志，快速定位问题根源</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <h3 class="feature-title">解决方案中心</h3>
+                    <p class="feature-desc">共享最佳实践和解决方案，避免重复踩坑</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h3 class="feature-title">AI智能辅助</h3>
+                    <p class="feature-desc">AI大模型调用，提升问题解决效率</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h3 class="feature-title">数据分析</h3>
+                    <p class="feature-desc">知识库使用分析，优化团队学习路径</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3 class="feature-title">权限管理</h3>
+                    <p class="feature-desc">灵活的权限控制，保护团队知识资产</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            Recall Kit © 2023 | AI开发踩坑记录检索平台
+        </div>
+    </div>
+
+    <!-- 搜索页 -->
+    <div class="page-container" id="search">
+        <div class="navbar">
+            <div class="logo">
+                <i class="fas fa-brain logo-icon"></i>
+                <div class="logo-text">Recall Kit</div>
+            </div>
+            <div class="nav-links">
+                <a href="#" class="nav-link">首页</a>
+                <a href="#search" class="nav-link active">搜索</a>
+                <a href="#list" class="nav-link">知识库</a>
+                <a href="#login" class="nav-link">登录</a>
+            </div>
+            <div>
+                <a href="#login" class="btn btn-secondary">管理员登录</a>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="card" style="margin-bottom: 2rem;">
+                <h2 class="search-title">
+                    <i class="fas fa-search"></i> 知识检索
+                </h2>
+                
+                <div style="text-align: center; color: var(--gray); margin-bottom: 1.5rem; max-width: 600px; margin: 0 auto 2rem;">
+                    输入报错信息、技术关键词或问题描述，快速找到解决方案
+                </div>
+                
+                <div style="display: flex; gap: 15px;">
+                    <input type="text" class="form-input" placeholder="输入报错信息、技术关键词或问题描述..." style="flex: 1;">
+                    <button class="btn btn-primary">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+                
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 1.5rem;">
+                    <span class="tag tag-vue">Vue.js</span>
+                    <span class="tag tag-react">React</span>
+                    <span class="tag tag-node">Node.js</span>
+                    <span class="tag tag-python">Python</span>
+                    <span class="tag tag-java">Java</span>
+                    <span class="tag tag-ts">TypeScript</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">搜索结果 (24条)</div>
+                    <div style="color: var(--gray);">关于 "Node.js EACCES"</div>
+                </div>
+                
+                <div style="margin-top: 1.5rem;">
+                    <div class="knowledge-card">
+                        <div class="knowledge-title">
+                            <i class="fas fa-file-alt" style="color: var(--primary); margin-right: 8px;"></i>
+                            解决Node.js EACCES权限错误
+                        </div>
+                        <p style="margin: 12px 0; color: var(--gray);">
+                            当在Node.js中遇到EACCES: permission denied错误时，通常是由于文件系统权限问题导致的。本文将提供5种解决方案...
+                        </p>
+                        <div class="knowledge-meta">
+                            <span><i class="fas fa-tag"></i> Node.js</span>
+                            <span><i class="fas fa-user"></i> 张工程师</span>
+                            <span><i class="fas fa-eye"></i> 428次浏览</span>
+                        </div>
+                    </div>
+                    
+                    <div style="height: 1px; background: var(--border); margin: 2rem 0;"></div>
+                    
+                    <div class="knowledge-card">
+                        <div class="knowledge-title">
+                            <i class="fas fa-code" style="color: var(--accent); margin-right: 8px;"></i>
+                            NPM全局安装权限问题解决方法
+                        </div>
+                        <p style="margin: 12px 0; color: var(--gray);">
+                            在Linux或Mac系统上使用npm install -g时可能遇到EACCES错误，本教程将指导您如何更改npm默认目录...
+                        </p>
+                        <div class="knowledge-meta">
+                            <span><i class="fas fa-tag"></i> Node.js</span>
+                            <span><i class="fas fa-user"></i> 李前端</span>
+                            <span><i class="fas fa-eye"></i> 312次浏览</span>
+                        </div>
+                    </div>
+                    
+                    <div style="height: 1px; background: var(--border); margin: 2rem 0;"></div>
+                    
+                    <div class="knowledge-card">
+                        <div class="knowledge-title">
+                            <i class="fas fa-server" style="color: var(--secondary); margin-right: 8px;"></i>
+                            生产环境下的Node.js权限管理
+                        </div>
+                        <p style="margin: 12px 0; color: var(--gray);">
+                            在生产环境中运行Node.js应用时，适当的权限管理至关重要。本文介绍如何使用最小权限原则和安全上下文...
+                        </p>
+                        <div class="knowledge-meta">
+                            <span><i class="fas fa-tag"></i> Node.js</span>
+                            <span><i class="fas fa-user"></i> 王运维</span>
+                            <span><i class="fas fa-eye"></i> 198次浏览</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: center; margin-top: 2rem;">
+                    <button class="btn" style="padding: 10px 24px; background: var(--light);">
+                        <i class="fas fa-ellipsis-h"></i> 加载更多结果
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            Recall Kit © 2023 | AI开发踩坑记录检索平台
+        </div>
+    </div>
+
+    <!-- 列表页 -->
+    <div class="page-container" id="list">
+        <div class="navbar">
+            <div class="logo">
+                <i class="fas fa-brain logo-icon"></i>
+                <div class="logo-text">Recall Kit</div>
+            </div>
+            <div class="nav-links">
+                <a href="#" class="nav-link">首页</a>
+                <a href="#search" class="nav-link">搜索</a>
+                <a href="#list" class="nav-link active">知识库</a>
+                <a href="#login" class="nav-link">登录</a>
+            </div>
+            <div>
+                <a href="#login" class="btn btn-secondary">管理员登录</a>
+            </div>
+        </div>
+        
+        <div class="content">
+            <h2 class="list-title">
+                <i class="fas fa-book"></i> 知识库列表
+            </h2>
+            
+            <div class="card" style="margin-bottom: 2rem;">
+                <div class="filter-bar">
+                    <div class="tag-list">
+                        <span class="tag tag-vue active">Vue.js</span>
+                        <span class="tag tag-react">React</span>
+                        <span class="tag tag-node">Node.js</span>
+                        <span class="tag tag-python">Python</span>
+                        <span class="tag tag-java">Java</span>
+                    </div>
+                    
+                    <div>
+                        <input type="text" class="form-input" placeholder="搜索知识条目..." style="width: 300px;">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="knowledge-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Vue3编译错误: Unexpected token</div>
+                        <span class="tag tag-vue">Vue</span>
+                    </div>
+                    <p style="margin: 12px 0; color: var(--gray);">
+                        解决Vue3项目编译时出现的"Unexpected token"错误，常见于JSX语法和TypeScript配置问题...
+                    </p>
+                    <div class="knowledge-meta">
+                        <span><i class="fas fa-user"></i> 李前端</span>
+                        <span><i class="fas fa-eye"></i> 342次浏览</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Python异步编程死锁问题</div>
+                        <span class="tag tag-python">Python</span>
+                    </div>
+                    <p style="margin: 12px 0; color: var(--gray);">
+                        如何识别和解决Python异步编程中的死锁问题，使用asyncio库的调试技巧...
+                    </p>
+                    <div class="knowledge-meta">
+                        <span><i class="fas fa-user"></i> 张工程师</span>
+                        <span><i class="fas fa-eye"></i> 286次浏览</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Node.js EACCES权限错误解决方案</div>
+                        <span class="tag tag-node">Node.js</span>
+                    </div>
+                    <p style="margin: 12px 0; color: var(--gray);">
+                        解决Node.js中常见的EACCES权限错误，包括文件权限设置和NPM配置调整...
+                    </p>
+                    <div class="knowledge-meta">
+                        <span><i class="fas fa-user"></i> 王运维</span>
+                        <span><i class="fas fa-eye"></i> 421次浏览</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">React Hooks常见问题及解决</div>
+                        <span class="tag tag-react">React</span>
+                    </div>
+                    <p style="margin: 12px 0; color: var(--gray);">
+                        React Hooks使用中的常见陷阱和解决方案，避免无限循环和状态不一致问题...
+                    </p>
+                    <div class="knowledge-meta">
+                        <span><i class="fas fa-user"></i> 赵前端</span>
+                        <span><i class="fas fa-eye"></i> 378次浏览</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">MySQL连接池优化实践</div>
+                        <span class="tag" style="background: rgba(67,97,238,0.15); color: var(--primary);">数据库</span>
+                    </div>
+                    <p style="margin: 12px 0; color: var(--gray);">
+                        如何优化MySQL连接池配置以提高高并发下的数据库性能，避免连接泄漏...
+                    </p>
+                    <div class="knowledge-meta">
+                        <span><i class="fas fa-user"></i> 陈后端</span>
+                        <span><i class="fas fa-eye"></i> 254次浏览</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Java Spring Boot启动优化</div>
+                        <span class="tag tag-java">Java</span>
+                    </div>
+                    <p style="margin: 12px 0; color: var(--gray);">
+                        减少Spring Boot应用启动时间的方法和技巧，延迟初始化与配置优化...
+                    </p>
+                    <div class="knowledge-meta">
+                        <span><i class="fas fa-user"></i> 刘开发</span>
+                        <span><i class="fas fa-eye"></i> 297次浏览</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 2rem;">
+                <button class="btn" style="padding: 10px 20px; background: var(--light);">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button class="btn" style="padding: 10px 20px; background: var(--primary); color: white;">1</button>
+                <button class="btn" style="padding: 10px 20px; background: var(--light);">2</button>
+                <button class="btn" style="padding: 10px 20px; background: var(--light);">3</button>
+                <button class="btn" style="padding: 10px 20px; background: var(--light);">4</button>
+                <button class="btn" style="padding: 10px 20px; background: var(--light);">
+                    <i class="fas fa-ellipsis-h"></i>
+                </button>
+                <button class="btn" style="padding: 10px 20px; background: var(--light);">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="footer">
+            Recall Kit © 2023 | AI开发踩坑记录检索平台
+        </div>
+    </div>
+
+    <!-- 登录页 -->
+    <div class="page-container" id="login">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-title">
+                    <div class="login-icon">
+                        <i class="fas fa-user-lock"></i>
+                    </div>
+                    <span>管理员登录</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">用户名/邮箱</label>
+                    <input type="text" class="form-input" placeholder="输入您的用户名或邮箱">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-input" placeholder="输入您的密码">
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 1.5rem 0;">
+                    <div>
+                        <input type="checkbox" id="remember">
+                        <label for="remember" style="margin-left: 6px;">记住我</label>
+                    </div>
+                    <a href="#" style="color: var(--primary); font-weight: 600;">忘记密码？</a>
+                </div>
+                
+                <button class="btn btn-primary" style="width: 100%; display: block; padding: 14px; font-size: 16px;">
+                    <i class="fas fa-sign-in-alt"></i> 登录
+                </button>
+                
+                <div style="text-align: center; margin-top: 1.5rem; color: var(--gray);">
+                    还没有账号？ <a href="#" style="color: var(--primary); font-weight: 600;">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 简单的交互效果
+        document.addEventListener('DOMContentLoaded', function() {
+            // 标签切换效果
+            document.querySelectorAll('.tag').forEach(tag => {
+                tag.addEventListener('click', function() {
+                    if(!this.classList.contains('active')) {
+                        if(this.closest('.tag-list')) {
+                            document.querySelectorAll('.tag-list .tag').forEach(t => t.classList.remove('active'));
+                        }
+                        this.classList.add('active');
+                    }
+                });
+            });
+            
+            // 卡片悬停效果增强
+            document.querySelectorAll('.card').forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-8px)';
+                });
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                });
+            });
+            
+            // 按钮水波纹效果
+            document.querySelectorAll('.btn').forEach(btn => {
+                btn.addEventListener('mousedown', function(e) {
+                    const x = e.offsetX;
+                    const y = e.offsetY;
+                    const ripple = document.createElement('span');
+                    
+                    ripple.classList.add('ripple');
+                    ripple.style.left = x + 'px';
+                    ripple.style.top = y + 'px';
+                    
+                    this.appendChild(ripple);
+                    
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 500);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

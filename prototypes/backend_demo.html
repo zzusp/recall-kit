@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="filename" content="dev-knowledge-platform.html">
+    <title>Recall Kit - AI开发踩坑记录检索平台</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a0ca3;
+            --secondary: #ff6b35;
+            --accent: #4cc9f0;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --light: #f8f9fa;
+            --dark: #2d3436;
+            --gray: #636e72;
+            --border: #dfe6e9;
+            --card-bg: #ffffff;
+            --sidebar-bg: #1e2a3a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
+            color: var(--dark);
+            min-height: 100vh;
+            display: flex;
+            flex-wrap: wrap;
+            padding: 2rem;
+            gap: 2rem;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* 页面容器样式 */
+        .page-container {
+            width: 1440px;
+            height: 900px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            margin-bottom: 2rem;
+        }
+
+        /* 导航和页面内容通用样式 */
+        .navbar {
+            padding: 1.5rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 28px;
+            color: var(--primary);
+        }
+
+        .logo-text {
+            font-family: 'Poppins', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-link {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 500;
+            color: var(--dark);
+            text-decoration: none;
+            position: relative;
+            padding: 8px 0;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+        }
+
+        .nav-link.active {
+            color: var(--primary);
+        }
+
+        .nav-link.active::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        .content {
+            padding: 2rem 3rem;
+            overflow-y: auto;
+            width: 100%;
+        }
+
+        /* 侧边导航 */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            padding: 2rem 1rem;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-item.active {
+            background: var(--primary);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        /* 按钮样式 */
+        .btn {
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(67, 97, 238, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: #e05a2a;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255, 107, 53, 0.4);
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+            padding: 1.8rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .page-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .page-title-icon {
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        /* 首页样式 */
+        .hero-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: var(--gray);
+            margin-bottom: 2.5rem;
+            max-width: 700px;
+            line-height: 1.6;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 2rem 1.5rem;
+            border-radius: 16px;
+            background: var(--card-bg);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .feature-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(to bottom right, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--dark);
+        }
+
+        .feature-desc {
+            color: var(--gray);
+            line-height: 1.6;
+        }
+
+        /* 表格样式 */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+
+        th, td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--dark);
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+
+        tr:hover {
+            background-color: rgba(67, 97, 238, 0.03);
+        }
+        
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.8rem;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 16px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        /* 标签样式 */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .tag-vue {
+            background: rgba(65, 184, 131, 0.15);
+            color: #41b883;
+        }
+
+        .tag-python {
+            background: rgba(53, 114, 165, 0.15);
+            color: #3572a5;
+        }
+
+        .tag-node {
+            background: rgba(131, 197, 82, 0.15);
+            color: #83c552;
+        }
+
+        .tag-java {
+            background: rgba(236, 118, 38, 0.15);
+            color: #ec7626;
+        }
+
+        .tag-react {
+            background: rgba(97, 218, 251, 0.15);
+            color: #61dafb;
+        }
+
+        .tag-ts {
+            background: rgba(49, 120, 198, 0.15);
+            color: #3178c6;
+        }
+
+        /* 图表容器 */
+        .chart-container {
+            height: 300px;
+            width: 100%;
+            margin: 1.5rem 0;
+        }
+
+        /* 网格布局 */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        /* 状态标记 */
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: rgba(243, 156, 18, 0.15);
+            color: var(--warning);
+        }
+
+        .status-approved {
+            background: rgba(46, 204, 113, 0.15);
+            color: var(--success);
+        }
+
+        .status-rejected {
+            background: rgba(231, 76, 60, 0.15);
+            color: var(--danger);
+        }
+
+        /* 页脚 */
+        .footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--gray);
+            font-size: 14px;
+            border-top: 1px solid var(--border);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 后台管理系统首页 -->
+    <div class="page-container">
+        <div class="sidebar">
+            <div class="logo" style="justify-content: center; margin-bottom: 2.5rem;">
+                <i class="fas fa-brain logo-icon"></i>
+                <div class="logo-text">管理面板</div>
+            </div>
+            
+            <div class="nav-menu">
+                <div class="nav-item active">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>控制面板</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>数据审核</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-edit"></i>
+                    <span>数据编辑</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-cog"></i>
+                    <span>系统设置</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>统计分析</span>
+                </div>
+                
+                <div class="nav-item" style="margin-top: auto;">
+                    <i class="fas fa-user-circle"></i>
+                    <span>管理员账号</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div class="page-title">
+                    <div class="page-title-icon">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
+                    <span>控制面板</span>
+                </div>
+                <div>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-plus"></i> 新建条目
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid-3">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">知识条目</div>
+                        <i class="fas fa-book" style="font-size: 24px; color: var(--primary);"></i>
+                    </div>
+                    <div style="font-size: 36px; font-weight: 700; color: var(--primary);">1,248</div>
+                    <div style="color: var(--gray); margin-top: 8px;">+42条 比上月</div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">已解决报错</div>
+                        <i class="fas fa-check-circle" style="font-size: 24px; color: var(--success);"></i>
+                    </div>
+                    <div style="font-size: 36px; font-weight: 700; color: var(--success);">896</div>
+                    <div style="color: var(--gray); margin-top: 8px;">+18% 解决率</div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">待审核条目</div>
+                        <i class="fas fa-clipboard-list" style="font-size: 24px; color: var(--warning);"></i>
+                    </div>
+                    <div style="font-size: 36px; font-weight: 700; color: var(--warning);">28</div>
+                    <div style="color: var(--gray); margin-top: 8px;">需要您审核</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">知识库统计</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" style="padding: 6px 12px; background: var(--light);">7天</button>
+                        <button class="btn" style="padding: 6px 12px; background: var(--primary); color: white;">30天</button>
+                        <button class="btn" style="padding: 6px 12px; background: var(--light);">90天</button>
+                    </div>
+                </div>
+                <div class="chart-container" id="home-chart"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">最近更新</div>
+                    <i class="fas fa-history" style="color: var(--secondary);"></i>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>标题</th>
+                            <th>分类</th>
+                            <th>作者</th>
+                            <th>更新日期</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>TypeScript类型推断优化</td>
+                            <td><span class="tag tag-ts">TypeScript</span></td>
+                            <td>赵前端</td>
+                            <td>2023-10-15</td>
+                            <td><span class="status-badge status-approved">已发布</span></td>
+                        </tr>
+                        <tr>
+                            <td>Docker网络配置详解</td>
+                            <td><span class="tag" style="background: rgba(13,183,235,0.15); color: #0db7eb;">Docker</span></td>
+                            <td>刘运维</td>
+                            <td>2023-10-14</td>
+                            <td><span class="status-badge status-pending">待审核</span></td>
+                        </tr>
+                        <tr>
+                            <td>React性能优化技巧</td>
+                            <td><span class="tag tag-react">React</span></td>
+                            <td>钱工程师</td>
+                            <td>2023-10-13</td>
+                            <td><span class="status-badge status-approved">已发布</span></td>
+                        </tr>
+                        <tr>
+                            <td>Python Pandas内存优化</td>
+                            <td><span class="tag tag-python">Python</span></td>
+                            <td>张数据</td>
+                            <td>2023-10-12</td>
+                            <td><span class="status-badge status-approved">已发布</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据审核页 -->
+    <div class="page-container">
+        <div class="sidebar">
+            <div class="logo" style="justify-content: center; margin-bottom: 2.5rem;">
+                <i class="fas fa-brain logo-icon"></i>
+                <div class="logo-text">管理面板</div>
+            </div>
+            
+            <div class="nav-menu">
+                <div class="nav-item">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>控制面板</span>
+                </div>
+                <div class="nav-item active">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>数据审核</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-edit"></i>
+                    <span>数据编辑</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-cog"></i>
+                    <span>系统设置</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>统计分析</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div class="page-title">
+                    <div class="page-title-icon">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <span>数据审核</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" style="background: var(--light);">全部</button>
+                    <button class="btn" style="background: var(--primary); color: white;">待审核</button>
+                    <button class="btn" style="background: var(--light);">已审核</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">审核队列</div>
+                    <div style="color: var(--gray);">共 28 条待审核记录</div>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>标题</th>
+                            <th>分类</th>
+                            <th>提交人</th>
+                            <th>提交时间</th>
+                            <th>审核状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Python异步编程死锁问题</td>
+                            <td><span class="tag tag-python">Python</span></td>
+                            <td>张工程师</td>
+                            <td>2023-10-14 14:23</td>
+                            <td><span class="status-badge status-pending">人工审核</span></td>
+                            <td>
+                                <button class="btn" style="padding: 6px 12px; background: var(--success); color: white;">
+                                    <i class="fas fa-check"></i> 通过
+                                </button>
+                                <button class="btn" style="padding: 6px 12px; background: var(--danger); color: white;">
+                                    <i class="fas fa-times"></i> 拒绝
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Vue路由守卫权限控制</td>
+                            <td><span class="tag tag-vue">Vue</span></td>
+                            <td>李前端</td>
+                            <td>2023-10-13 09:45</td>
+                            <td><span class="status-badge status-pending">AI审核中</span></td>
+                            <td>
+                                <button class="btn" style="padding: 6px 12px; background: var(--light);">
+                                    <i class="fas fa-eye"></i> 预览
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>TypeScript复杂类型推断</td>
+                            <td><span class="tag tag-ts">TypeScript</span></td>
+                            <td>赵前端</td>
+                            <td>2023-10-12 16:12</td>
+                            <td><span class="status-badge status-pending">人工审核</span></td>
+                            <td>
+                                <button class="btn" style="padding: 6px 12px; background: var(--success); color: white;">
+                                    <i class="fas fa-check"></i> 通过
+                                </button>
+                                <button class="btn" style="padding: 6px 12px; background: var(--danger); color: white;">
+                                    <i class="fas fa-times"></i> 拒绝
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Docker容器网络配置</td>
+                            <td><span class="tag" style="background: rgba(13, 183, 235, 0.15); color: #0db7eb;">Docker</span></td>
+                            <td>刘运维</td>
+                            <td>2023-10-11 11:30</td>
+                            <td><span class="status-badge status-pending">AI审核中</span></td>
+                            <td>
+                                <button class="btn" style="padding: 6px 12px; background: var(--light);">
+                                    <i class="fas fa-eye"></i> 预览
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据编辑页 -->
+    <div class="page-container">
+        <div class="sidebar">
+            <div class="logo" style="justify-content: center; margin-bottom: 2.5rem;">
+                <i class="fas fa-brain logo-icon"></i>
+                <div class="logo-text">管理面板</div>
+            </div>
+            
+            <div class="nav-menu">
+                <div class="nav-item">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>控制面板</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>数据审核</span>
+                </div>
+                <div class="nav-item active">
+                    <i class="fas fa-edit"></i>
+                    <span>数据编辑</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-cog"></i>
+                    <span>系统设置</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div class="page-title">
+                    <div class="page-title-icon">
+                        <i class="fas fa-edit"></i>
+                    </div>
+                    <span>编辑知识条目</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary">
+                        <i class="fas fa-save"></i> 保存草稿
+                    </button>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-check"></i> 发布
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid-2" style="margin-bottom: 2rem;">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">基本信息</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">标题</label>
+                        <input type="text" class="form-input" value="Node.js EACCES权限错误解决方案">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">分类标签</label>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tag-node">Node.js</span>
+                            <span class="tag" style="background: rgba(67,97,238,0.15); color: var(--primary);">部署</span>
+                            <span class="tag" style="background: rgba(255,107,53,0.15); color: var(--secondary);">错误处理</span>
+                            <button class="btn" style="padding: 0 10px;"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">描述摘要</label>
+                        <textarea class="form-input" style="height: 120px;">解决Node.js中常见的EACCES权限错误，包括文件权限设置和NPM配置调整。适用于Linux、macOS和Windows系统。</textarea>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">内容编辑</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">错误描述</label>
+                        <textarea class="form-input" style="height: 100px;">当在Node.js应用或命令行工具中遇到类似错误：Error: EACCES: permission denied, access '/usr/local/lib/node_modules'，通常是由于文件系统权限问题导致的。</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">解决方案</label>
+                        <textarea class="form-input" style="height: 160px;">1. 使用管理员权限运行命令：sudo npm install -g 包名\n2. 更改npm默认安装目录权限\n3. 使用nvm管理Node.js版本\n4. 修复全局包目录的所有权\n5. 使用-yarn替代npm</textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">附加信息</div>
+                </div>
+                
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">关联技术栈</label>
+                        <select class="form-input" multiple style="height: 120px;">
+                            <option selected>Node.js</option>
+                            <option>NPM</option>
+                            <option>Linux</option>
+                            <option>macOS</option>
+                            <option>Windows</option>
+                            <option>权限管理</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">附件上传</label>
+                        <div style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center;">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
+                            <p style="color: var(--gray);">将文件拖放到此处或点击上传</p>
+                            <button class="btn" style="margin-top: 1rem;">
+                                <i class="fas fa-folder-open"></i> 选择文件
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 系统设置页 -->
+    <div class="page-container">
+        <div class="sidebar">
+            <div class="logo" style="justify-content: center; margin-bottom: 2.5rem;">
+                <i class="fas fa-brain logo-icon"></i>
+                <div class="logo-text">管理面板</div>
+            </div>
+            
+            <div class="nav-menu">
+                <div class="nav-item">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>控制面板</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>数据审核</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-cog"></i>
+                    <span>系统设置</span>
+                </div>
+                <div class="nav-item active">
+                    <i class="fas fa-robot"></i>
+                    <span>AI集成</span>
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-plug"></i>
+                    <span>MCP服务</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div class="page-title">
+                    <div class="page-title-icon">
+                        <i class="fas fa-cog"></i>
+                    </div>
+                    <span>系统设置</span>
+                </div>
+                <div>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-save"></i> 保存设置
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">AI审核设置</div>
+                        <i class="fas fa-robot" style="color: var(--accent);"></i>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">API密钥</label>
+                        <input type="password" class="form-input" value="sk-********************">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">API地址</label>
+                        <input type="text" class="form-input" value="https://api.openai.com/v1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">模型选择</label>
+                        <select class="form-input">
+                            <option>gpt-4</option>
+                            <option selected>gpt-3.5-turbo</option>
+                            <option>text-davinci-003</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">审核阈值</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="range" class="form-input" min="0" max="100" value="80" style="flex: 1;">
+                            <span>80%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">MCP服务配置</div>
+                        <i class="fas fa-plug" style="color: var(--secondary);"></i>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">API端点</label>
+                        <input type="text" class="form-input" value="https://api.Recall Kit.com/mcp/v1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">访问凭证</label>
+                        <input type="password" class="form-input" value="mcp_********************">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">服务状态</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="display: flex; align-items: center;">
+                                <div style="width: 12px; height: 12px; background: var(--success); border-radius: 50%; margin-right: 8px;"></div>
+                                <span>运行中</span>
+                            </div>
+                            <button class="btn" style="padding: 6px 12px; background: var(--light);">重启服务</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">请求限制</label>
+                        <div style="display: flex; gap: 12px;">
+                            <input type="text" class="form-input" value="1000">
+                            <select class="form-input">
+                                <option>每秒钟</option>
+                                <option>每分钟</option>
+                                <option selected>每天</option>
+                                <option>每周</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">系统高级设置</div>
+                    <i class="fas fa-sliders-h" style="color: var(--dark);"></i>
+                </div>
+                
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label class="form-label">自动同步频率</label>
+                        <select class="form-input">
+                            <option>15分钟</option>
+                            <option>30分钟</option>
+                            <option selected>1小时</option>
+                            <option>6小时</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">数据保留策略</label>
+                        <select class="form-input">
+                            <option>保留3个月</option>
+                            <option>保留6个月</option>
+                            <option selected>保留1年</option>
+                            <option>永久保留</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">日志级别</label>
+                        <select class="form-input">
+                            <option>Debug</option>
+                            <option>Info</option>
+                            <option selected>Warning</option>
+                            <option>Error</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1.5rem;">
+                    <label class="form-label">功能开关</label>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--light); border-radius: 8px;">
+                            <div>AI自动审核</div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--light); border-radius: 8px;">
+                            <div>邮件通知</div>
+                            <label class="switch">
+                                <input type="checkbox">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--light); border-radius: 8px;">
+                            <div>自动备份</div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--light); border-radius: 8px;">
+                            <div>API访问日志</div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 首页图表初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 首页统计图表
+            let homeChart = echarts.init(document.getElementById('home-chart'));
+            homeChart.setOption({
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['新增条目', '解决问题'],
+                    bottom: 0
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    top: '5%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['10/08', '10/09', '10/10', '10/11', '10/12', '10/13', '10/14']
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [
+                    {
+                        name: '新增条目',
+                        type: 'bar',
+                        barGap: 0,
+                        itemStyle: {
+                            color: '#4361ee'
+                        },
+                        data: [12, 18, 15, 24, 9, 17, 22]
+                    },
+                    {
+                        name: '解决问题',
+                        type: 'bar',
+                        itemStyle: {
+                            color: '#4cc9f0'
+                        },
+                        data: [8, 15, 10, 18, 11, 14, 20]
+                    }
+                ]
+            });
+            
+            // 简单的交互效果
+            document.querySelectorAll('.tag').forEach(tag => {
+                tag.addEventListener('click', function() {
+                    if(!this.classList.contains('active')) {
+                        if(this.closest('.tag-list')) {
+                            document.querySelectorAll('.tag-list .tag').forEach(t => t.classList.remove('active'));
+                        }
+                        this.classList.add('active');
+                    }
+                });
+            });
+
+            document.querySelectorAll('input[type="range"]').forEach(range => {
+                range.addEventListener('input', function() {
+                    this.nextElementSibling.textContent = this.value + '%';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
