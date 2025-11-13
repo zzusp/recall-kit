@@ -1,0 +1,33 @@
+{
+  "name": "recall-kit",
+  "version": "1.0.0",
+  "description": "Experience sharing platform with MCP protocol support",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:mcp-server\"",
+    "dev:web": "cd web && npm run dev",
+    "dev:mcp-server": "cd mcp-server && npm run dev",
+    "build": "concurrently \"npm run build:web\" \"npm run build:mcp-server\" \"npm run build:mcp-client\"",
+    "build:web": "cd web && npm run build",
+    "build:mcp-server": "cd mcp-server && npm run build",
+    "build:mcp-client": "cd mcp-client && npm run build",
+    "test": "concurrently \"npm run test:web\" \"npm run test:mcp-server\" \"npm run test:mcp-client\"",
+    "test:web": "cd web && npm run test",
+    "test:mcp-server": "cd mcp-server && npm run test",
+    "test:mcp-client": "cd mcp-client && npm run test",
+    "lint": "concurrently \"npm run lint:web\" \"npm run lint:mcp-server\" \"npm run lint:mcp-client\"",
+    "lint:web": "cd web && npm run lint",
+    "lint:mcp-server": "cd mcp-server && npm run lint",
+    "lint:mcp-client": "cd mcp-client && npm run lint",
+    "setup": "npm install && cd web && npm install && cd ../mcp-server && npm install && cd ../mcp-client && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "workspaces": [
+    "web",
+    "mcp-server", 
+    "mcp-client"
+  ]
+}
