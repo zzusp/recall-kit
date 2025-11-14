@@ -6,7 +6,7 @@
 ## 前置要求
 
 - Node.js 20.x LTS
-- pnpm 8.x
+- npm 10+
 - Supabase账户
 - Git
 
@@ -22,7 +22,14 @@ cd recall-kit
 ### 2. 安装依赖
 
 ```bash
-pnpm install
+# 根目录（仅用于共享脚本）
+npm install
+
+# Web项目
+cd web && npm install
+
+# MCP Server
+cd ../mcp-server && npm install
 ```
 
 ### 3. 配置Supabase
@@ -81,7 +88,7 @@ VALUES (
 ### 启动所有服务（开发模式）
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 这将启动：
@@ -93,13 +100,13 @@ pnpm dev
 ```bash
 # Web项目（Next.js全栈，包含search和admin）
 cd web
-pnpm dev
+npm run dev
 # 访问 http://localhost:3000 (search模块)
 # 访问 http://localhost:3000/admin (admin模块)
 
 # MCP Server
 cd mcp-server
-pnpm dev
+npm run dev
 ```
 
 ## 项目结构说明
@@ -111,7 +118,6 @@ recall-kit/
 │   ├── src/api/         # Next.js API Routes（后端API）
 │   └── src/components/  # React组件
 ├── mcp-server/          # MCP Server项目（独立服务）
-├── mcp-client/          # MCP Client项目（客户端工具）
 ├── supabase/            # Supabase配置和迁移（共享）
 └── tests/               # 测试文件
 ```
@@ -132,24 +138,24 @@ git checkout -b feature/your-feature-name
 
 ```bash
 # 运行所有测试
-pnpm test
+npm run test
 
 # 运行特定模块的测试
 cd web
-pnpm test
+npm test
 ```
 
 ### 4. 代码检查
 
 ```bash
 # ESLint检查
-pnpm lint
+npm run lint
 
 # 类型检查
-pnpm type-check
+npm run type-check
 
 # 格式化代码
-pnpm format
+npm run format
 ```
 
 ### 5. 提交代码
@@ -165,7 +171,7 @@ git push origin feature/your-feature-name
 ### 构建所有模块
 
 ```bash
-pnpm build
+npm run build
 ```
 
 ### 单独构建
@@ -173,15 +179,11 @@ pnpm build
 ```bash
 # Web项目
 cd web
-pnpm build
+npm run build
 
 # MCP Server
 cd mcp-server
-pnpm build
-
-# MCP Client
-cd mcp-client
-pnpm build
+npm run build
 ```
 
 ## 部署
@@ -205,23 +207,6 @@ Next.js会自动处理前端页面和后端API Routes的部署。
 cd mcp-server
 docker build -t recall-kit-mcp-server .
 docker run -p 3001:3001 recall-kit-mcp-server
-```
-
-### MCP Client分发
-
-发布为npm包供用户安装：
-
-```bash
-cd mcp-client
-npm publish
-```
-
-用户安装后可以在本地使用MCP Client与MCP Server通信。
-
-用户安装：
-```bash
-npm install -g @recall-kit/mcp-client
-recall-kit-client init
 ```
 
 ## 环境变量说明
@@ -258,7 +243,7 @@ SUPABASE_ANON_KEY=...
 - 是否有足够的权限
 - 迁移文件是否按顺序执行
 
-### 3. MCP Client无法连接Server
+### 3. 第三方MCP客户端无法连接Server
 
 检查：
 - MCP Server是否已启动

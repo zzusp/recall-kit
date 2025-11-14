@@ -9,6 +9,9 @@
             "env": {
                 "DEFAULT_MINIMUM_TOKENS": "6000"
             }
+        },
+        "recall-kit": {
+            "url": "http://localhost:3001/mcp"
         }
     }
 }

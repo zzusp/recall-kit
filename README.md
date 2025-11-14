@@ -22,8 +22,8 @@ A platform for sharing and reusing AI interaction experiences through MCP protoc
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm 8+
+- Node.js 20+
+- npm 10+
 - Supabase account
 
 ### Installation
@@ -34,31 +34,37 @@ git clone <repository-url>
 cd recall-kit
 ```
 
-2. Install dependencies:
+2. Install root tools (仅用于并行脚本):
 ```bash
-pnpm install
+npm install
 ```
 
-3. Set up environment variables:
+3. Install project dependencies:
+```bash
+cd web && npm install
+cd ../mcp-server && npm install
+```
+
+4. Set up environment variables:
 ```bash
 cp .env.example .env.local
 # Edit .env.local with your Supabase credentials
 ```
 
-4. Set up Supabase:
+5. Set up Supabase:
 - Create a new Supabase project
 - Run database migrations:
 ```bash
 supabase db reset
 ```
 
-5. Start development servers:
+6. Start development servers:
 ```bash
 # Start web app
-pnpm run dev:web
+npm run dev:web
 
 # Start MCP server (in separate terminal)
-pnpm run dev:mcp-server
+npm run dev:mcp-server
 ```
 
 ## Project Structure
@@ -67,7 +73,6 @@ pnpm run dev:mcp-server
 recall-kit/
 ├── web/                 # Next.js web application
 ├── mcp-server/          # MCP protocol server
-├── mcp-client/          # MCP client (to be implemented)
 ├── supabase/           # Database migrations
 ├── docs/               # Documentation
 └── prototypes/         # Design prototypes
@@ -123,12 +128,12 @@ Agents can submit new experiences:
 
 ### Running Tests
 ```bash
-pnpm test
+npm run test
 ```
 
 ### Building for Production
 ```bash
-pnpm build
+npm run build
 ```
 
 ### Database Migrations

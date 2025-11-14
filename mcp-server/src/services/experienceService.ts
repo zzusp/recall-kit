@@ -43,19 +43,52 @@ export class ExperienceService {
       sort
     });
 
+    // If keywords are provided, first get the experience_ids that match
+    let experienceIds: string[] | undefined;
+    if (keywords.length > 0) {
+      // Normalize keywords (lowercase and trim) to match how they're stored
+      const normalizedKeywords = keywords.map(k => k.toLowerCase().trim());
+      
+      // Query experience_keywords to find matching experience_ids
+      const { data: keywordMatches, error: keywordError } = await this.supabase
+        .from('experience_keywords')
+        .select('experience_id')
+        .in('keyword', normalizedKeywords);
+
+      if (keywordError) {
+        console.error('Error querying keywords:', keywordError);
+        throw new Error(`Failed to query keywords: ${keywordError.message}`);
+      }
+
+      // Extract unique experience_ids
+      if (keywordMatches && keywordMatches.length > 0) {
+        experienceIds = [...new Set(keywordMatches.map((k: any) => k.experience_id))];
+        console.log(`Found ${experienceIds.length} experiences matching keywords:`, normalizedKeywords);
+      } else {
+        // No matches found, return empty result
+        console.log('No experiences found matching keywords:', normalizedKeywords);
+        return [];
+      }
+    }
+
     let query = this.supabase
       .from('experience_records')
       .select(`
         *,
         experience_keywords:experience_keywords(keyword)
       `)
-      .eq('status', 'published')
-      .range(offset, offset + limit - 1);
+      .eq('status', 'published');
 
     // Apply keyword filtering if provided
-    if (keywords.length > 0) {
-      query = query.in('experience_keywords.keyword', keywords);
+    if (experienceIds && experienceIds.length > 0) {
+      query = query.in('id', experienceIds);
+    } else if (keywords.length > 0) {
+      // If keywords were provided but no matches found, return empty
+      return [];
     }
+
+    // Apply range after filtering
+    query = query.range(offset, offset + limit - 1);
 
     // Apply sorting
     switch (sort) {
@@ -107,16 +140,16 @@ export class ExperienceService {
     }
 
     for (const exp of experiences) {
-      const { error } = await this.supabase
-        .from('experience_records')
+      const { error } = await (this.supabase
+        .from('experience_records') as any)
         .update({
           query_count: (exp as any).query_count + 1,
           updated_at: new Date().toISOString()
         })
-        .eq('id', exp.id);
+        .eq('id', (exp as any).id);
 
       if (error) {
-        console.error(`Failed to update query count for experience ${exp.id}:`, error.message);
+        console.error(`Failed to update query count for experience ${(exp as any).id}:`, error.message);
       }
     }
   }
@@ -141,12 +174,12 @@ export class ExperienceService {
     // Insert keywords
     if (keywords.length > 0) {
       const keywordRecords = keywords.map(keyword => ({
-        experience_id: experienceData.id,
+        experience_id: (experienceData as any).id,
         keyword: keyword.toLowerCase().trim()
       }));
 
-      const { error: keywordError } = await this.supabase
-        .from('experience_keywords')
+      const { error: keywordError } = await (this.supabase
+        .from('experience_keywords') as any)
         .insert(keywordRecords);
 
       if (keywordError) {
@@ -155,6 +188,6 @@ export class ExperienceService {
       }
     }
 
-    return experienceData.id;
+    return (experienceData as any).id;
   }
 }

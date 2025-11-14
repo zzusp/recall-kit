@@ -93,8 +93,8 @@ export class RankingService {
 
     // 使用update替代upsert，逐个更新记录
     for (const update of updates) {
-      const { error: updateError } = await this.supabase
-        .from('experience_records')
+      const { error: updateError } = await (this.supabase
+        .from('experience_records') as any)
         .update({ relevance_score: update.relevance_score })
         .eq('id', update.id);
 

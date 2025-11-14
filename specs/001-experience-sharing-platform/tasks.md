@@ -49,7 +49,7 @@ Phase 8 (Polish)
 **前置条件**: 无  
 **验收标准**: 
 - 根目录存在 `package.json`, `tsconfig.json` (可选，用于统一管理)
-- 创建 `web/`, `mcp-server/`, `mcp-client/`, `supabase/`, `tests/`, `docs/` 目录
+- 创建 `web/`, `mcp-server/`, `supabase/`, `tests/`, `docs/` 目录
 - 项目结构符合架构设计
 
 **实现路径**: 
@@ -92,20 +92,20 @@ Phase 8 (Polish)
 
 ---
 
-### T004 [P0] 创建MCP Client项目结构
-**描述**: 初始化mcp-client项目，配置TypeScript和基础依赖  
+### T004 [P0] 拆分Web与MCP Server依赖管理
+**描述**: 确保 `web/` 与 `mcp-server/` 各自维护独立的package管理与安装流程  
 **估时**: 1h  
 **前置条件**: T001  
 **验收标准**:
-- `mcp-client/package.json` 存在
-- TypeScript配置正确
-- 项目结构符合架构设计
-- 基础目录结构创建完成
+- 根目录 `package.json` 不再声明 workspaces 或已删除模块的脚本
+- `web/package.json` 与 `mcp-server/package.json` 拥有完整 scripts 与依赖
+- 在 `web/`、`mcp-server/` 目录分别执行 `npm install` 均能成功
+- 根目录提供可选的辅助脚本（如并行启动），但不依赖workspace特性
 
 **实现路径**:
-- `mcp-client/package.json`
-- `mcp-client/tsconfig.json`
-- 创建 `mcp-client/src/` 目录结构
+- `package.json` (根)
+- `web/package.json`
+- `mcp-server/package.json`
 
 ---
 
@@ -172,7 +172,7 @@ Phase 8 (Polish)
 
 ---
 
-## Phase 3: User Story 1 - Agent通过MCP Client查询相关经验 (P1)
+## Phase 3: User Story 1 - Agent通过MCP接口查询相关经验 (P1)
 
 ### T009 [P1] [US1] 创建MCP Server项目结构
 **描述**: 初始化mcp-server项目，配置TypeScript和依赖  
@@ -261,40 +261,40 @@ Phase 8 (Polish)
 
 ---
 
-## Phase 4: User Story 2 - Agent通过MCP Client保存新经验 (P1)
+## Phase 4: User Story 2 - Agent通过MCP接口保存新经验 (P1)
 
-### T014 [P1] [US2] 实现代码脱敏服务
-**描述**: 实现context字段中代码片段的脱敏处理  
+### T014 [P1] [US2] 实现服务器端代码脱敏服务
+**描述**: 在 MCP Server 中实现 context 字段的代码脱敏处理，防止敏感信息入库  
 **估时**: 5h  
-**前置条件**: T004  
+**前置条件**: T009  
 **验收标准**:
-- `mcp-client/src/utils/sanitizer.ts` 存在
-- 移除API密钥、密码、token等敏感信息
+- `mcp-server/src/services/sanitizerService.ts` 存在
+- 支持移除API密钥、密码、token等敏感信息
 - 变量名匿名化
 - 移除硬编码URL和IP地址
 - 移除个人信息
 - 单元测试覆盖所有脱敏规则
 
 **实现路径**:
-- `mcp-client/src/utils/sanitizer.ts`
-- `tests/unit/mcp-client/sanitizer.test.ts`
+- `mcp-server/src/services/sanitizerService.ts`
+- `tests/unit/mcp-server/sanitizerService.test.ts`
 
 ---
 
-### T015 [P1] [US2] 实现MCP Client总结服务
-**描述**: 实现经验总结功能，提取关键信息  
+### T015 [P1] [US2] 实现MCP Server经验总结服务
+**描述**: 在服务器端集成AI总结逻辑，提取经验记录的标题、问题、根本原因与解决方案  
 **估时**: 4h  
 **前置条件**: T014  
 **验收标准**:
-- `mcp-client/src/services/summaryService.ts` 存在
-- 提取问题描述、根本原因、解决方案、上下文
+- `mcp-server/src/services/summaryService.ts` 存在
+- 能够根据原始输入提取问题描述、根本原因、解决方案、上下文
 - 如果context包含代码，自动调用脱敏服务
-- 返回格式符合MCP Client协议
+- 返回格式符合 `mcp-server-api.md` 契约
 - 单元测试通过
 
 **实现路径**:
-- `mcp-client/src/services/summaryService.ts`
-- `tests/unit/mcp-client/summaryService.test.ts`
+- `mcp-server/src/services/summaryService.ts`
+- `tests/unit/mcp-server/summaryService.test.ts`
 
 ---
 
@@ -339,22 +339,20 @@ Phase 8 (Polish)
 
 ---
 
-### T018 [P1] [US2] 实现MCP Client提交服务
-**描述**: 实现MCP Client的提交功能，包括用户确认  
+### T018 [P1] [US2] 实现MCP提交端到端测试
+**描述**: 针对submit_experience工具编写端到端测试，确保总结、脱敏、存储链路可靠  
 **估时**: 3h  
 **前置条件**: T015, T017  
 **验收标准**:
-- `mcp-client/src/services/submitService.ts` 存在
-- 总结经验后提示用户确认
-- 用户确认后提交到MCP Server
-- 处理提交成功/失败情况
+- 通过MCP SDK或官方示例客户端发起提交请求
+- 服务器端正确执行总结、脱敏和关键字生成流程
+- 提交成功/失败返回值符合契约
 - 错误处理完善
 - 集成测试通过
 
 **实现路径**:
-- `mcp-client/src/services/submitService.ts`
-- `mcp-client/src/client/mcpClient.ts`
-- `tests/integration/mcp-client/submitService.test.ts`
+- `tests/integration/mcp-server/submitExperience.e2e.test.ts`
+- `mcp-server/src/mcp/submitHandler.ts`
 
 ---
 

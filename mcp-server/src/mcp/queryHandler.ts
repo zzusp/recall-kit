@@ -26,22 +26,35 @@ export interface QueryExperienceResult {
   has_more: boolean;
 }
 
-export async function initQueryHandler(supabase: SupabaseClient) {
+export interface QueryHandlerOptions {
+  defaultLimit?: number;
+  maxLimit?: number;
+}
+
+export async function initQueryHandler(
+  supabase: SupabaseClient,
+  options?: QueryHandlerOptions,
+) {
   const experienceService = new ExperienceService(supabase);
   const rankingService = new RankingService(supabase);
+  const handlerDefaultLimit = Math.min(
+    Math.max(options?.defaultLimit ?? 3, 1),
+    options?.maxLimit ?? 100,
+  );
+  const handlerMaxLimit = Math.max(options?.maxLimit ?? 100, 1);
 
   return async function queryHandler(params: QueryExperienceParams): Promise<QueryExperienceResult> {
     try {
       const {
         keywords = [],
-        limit = 10,
+        limit = handlerDefaultLimit,
         offset = 0,
         sort = 'relevance'
       } = params;
 
       // Validate parameters
-      if (limit < 1 || limit > 100) {
-        throw new Error('Limit must be between 1 and 100');
+      if (limit < 1 || limit > handlerMaxLimit) {
+        throw new Error(`Limit must be between 1 and ${handlerMaxLimit}`);
       }
 
       if (offset < 0) {
@@ -60,21 +73,26 @@ export async function initQueryHandler(supabase: SupabaseClient) {
       
       console.log('Query results count:', experiences.length);
 
-      // Update relevance scores based on this query
+      // Update relevance scores based on this query (fire-and-forget, don't block response)
       if (keywords.length > 0) {
-        rankingService.updateRelevanceScores(
-          experiences.map(exp => exp.id),
-          keywords
-        ).catch(error => {
-          console.error('Failed to update relevance scores:', error);
+        // Use setImmediate to ensure this doesn't block the response
+        setImmediate(() => {
+          rankingService.updateRelevanceScores(
+            experiences.map(exp => exp.id),
+            keywords
+          ).catch(error => {
+            console.error('Failed to update relevance scores:', error);
+          });
         });
       }
 
-      // Update query counts asynchronously
-      experienceService.updateQueryCount(experiences.map(exp => exp.id))
-        .catch(error => {
-          console.error('Failed to update query counts:', error);
-        });
+      // Update query counts asynchronously (fire-and-forget, don't block response)
+      setImmediate(() => {
+        experienceService.updateQueryCount(experiences.map(exp => exp.id))
+          .catch(error => {
+            console.error('Failed to update query counts:', error);
+          });
+      });
 
       // Transform response
       const result: QueryExperienceResult = {

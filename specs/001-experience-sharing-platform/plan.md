@@ -5,7 +5,7 @@
 
 ## Summary
 
-构建一个经验分享平台，通过MCP协议让Agent自动查询和保存与AI交互的经验，减少重复对话和token浪费。平台包含四个核心模块：检索模块（Web界面）、管理模块（后台管理）、MCP Server（API服务）、MCP Client（Agent端客户端）。技术栈采用Node.js + Next.js 15 (全栈) + Supabase，实现全栈应用。
+构建一个经验分享平台，通过MCP协议让Agent自动查询和保存与AI交互的经验，减少重复对话和token浪费。平台包含三个核心模块：检索模块（Web界面）、管理模块（后台管理，和检索共用Next.js应用）、MCP Server（Agent端API服务）。技术栈采用Node.js + Next.js 15 (全栈) + Supabase，实现全栈应用。
 
 ## Technical Context
 
@@ -18,7 +18,6 @@
 **Primary Dependencies**: 
 - **Web项目**: Next.js 15.x, React 18.x, TypeScript 5.x, Tailwind CSS 3.x, Zustand 4.x, @supabase/supabase-js 2.x
 - **MCP Server**: Node.js 20.x, TypeScript 5.x, MCP SDK, @supabase/supabase-js 2.x, Express.js 4.x
-- **MCP Client**: Node.js 20.x, TypeScript 5.x, MCP SDK
 - **数据库**: Supabase (PostgreSQL 15+)
 - **AI服务**: OpenAI API / Anthropic Claude API (用于经验总结和查询优化)
 - **数据脱敏**: 自定义脱敏服务（基于正则表达式和AST解析）
@@ -28,12 +27,11 @@
 **Testing**: 
 - **Web项目**: Jest + React Testing Library + Playwright (Next.js内置测试支持)
 - **MCP Server**: Jest + Supertest
-- **MCP Client**: Jest
 - **E2E**: Playwright
 
 **Target Platform**: 
 - Web应用（浏览器）
-- Node.js运行时（MCP Server和Client）
+- Node.js运行时（MCP Server）
 
 **Project Type**: Web application (frontend + backend + MCP services)
 
@@ -59,7 +57,7 @@
 
 ### 架构原则检查
 
-- ✅ **模块化设计**: 四个独立模块（检索、管理、MCP Server、MCP Client）清晰分离
+- ✅ **模块化设计**: 三个模块（检索/管理Web应用、MCP Server、Supabase）清晰分离
 - ✅ **技术栈一致性**: 统一使用TypeScript，前后端类型共享
 - ✅ **数据安全**: Supabase RLS策略 + 代码脱敏处理
 - ✅ **性能优化**: 数据库索引优化 + 前端懒加载 + 查询结果分页
@@ -93,8 +91,7 @@ specs/001-experience-sharing-platform/
 ├── quickstart.md        # Phase 1 output (快速开始指南)
 └── contracts/           # Phase 1 output (API契约文档)
     ├── mcp-server-api.md
-    ├── web-api.md
-    └── mcp-client-protocol.md
+    └── web-api.md
 ```
 
 ### Source Code (repository root)
@@ -187,49 +184,21 @@ recall-kit/
 │
 ├── mcp-server/                   # MCP Server项目（独立项目）
 │   ├── src/
-│   │   ├── handlers/             # MCP请求处理器
+│   │   ├── mcp/                  # MCP协议处理器
 │   │   │   ├── queryHandler.ts   # 查询请求处理
-│   │   │   └── submitHandler.ts  # 提交请求处理
+│   │   │   ├── submitHandler.ts  # 提交请求处理
+│   │   │   └── index.ts          # MCP入口
 │   │   ├── services/             # 业务逻辑服务
 │   │   │   ├── experienceService.ts
-│   │   │   ├── searchService.ts
 │   │   │   ├── rankingService.ts
 │   │   │   └── aiService.ts      # AI服务（关键字生成）
-│   │   ├── backend/              # MCP后端服务
-│   │   │   ├── routes/           # Express路由（如需要HTTP接口）
+│   │   ├── http/                 # 可选HTTP接口（Express）
+│   │   │   ├── routes/
 │   │   │   ├── middleware/
-│   │   │   └── services/         # 后端业务逻辑
+│   │   │   └── services/
 │   │   ├── utils/                # 工具函数
-│   │   │   ├── mcpProtocol.ts    # MCP协议处理
-│   │   │   └── validation.ts     # 请求验证
 │   │   ├── types/                # TypeScript类型定义
-│   │   │   ├── experience.ts
-│   │   │   ├── mcp.ts
-│   │   │   └── index.ts
 │   │   └── index.ts              # 入口文件
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── README.md
-│
-├── mcp-client/                   # MCP Client（客户端工具，独立项目）
-│   ├── src/
-│   │   ├── client/               # MCP客户端核心
-│   │   │   ├── mcpClient.ts
-│   │   │   └── protocol.ts
-│   │   ├── services/             # 业务逻辑
-│   │   │   ├── queryService.ts
-│   │   │   ├── submitService.ts
-│   │   │   └── summaryService.ts
-│   │   ├── utils/                # 工具函数
-│   │   │   ├── sanitizer.ts      # 代码脱敏
-│   │   │   └── formatter.ts
-│   │   ├── types/                # TypeScript类型定义
-│   │   │   ├── experience.ts
-│   │   │   ├── mcp.ts
-│   │   │   └── index.ts
-│   │   └── index.ts
-│   ├── cli/                      # CLI工具
-│   │   └── index.ts
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── README.md
@@ -266,9 +235,7 @@ recall-kit/
 **Structure Decision**: 采用多项目结构，包含三个独立项目：
 1. **`web/`** - Web项目（前端+后端），包含search和admin两个应用模块
 2. **`mcp-server/`** - MCP Server项目（独立服务），包含MCP协议处理和自己的后端服务
-3. **`mcp-client/`** - MCP Client项目（客户端工具），安装在用户本地
-
-每个项目独立维护自己的类型定义和工具函数，可以独立开发、测试、打包和部署。根目录的monorepo配置（package.json、pnpm-workspace.yaml）是可选的，用于统一管理和开发便利。
+每个项目独立维护自己的类型定义和工具函数，可以独立开发、测试、打包和部署。根目录的聚合脚本仅作为开发便利，不再使用monorepo workspace。
 
 **架构说明**: 
 - **`web/`** 是Next.js全栈项目，包含：
@@ -281,7 +248,6 @@ recall-kit/
   - MCP协议处理器
   - 自己的后端服务和业务逻辑（Express.js）
   - 独立部署和运行
-- **`mcp-client/`** 是客户端工具，安装在用户本地，不需要服务
 - **`supabase/`** 是共享的数据库配置，Web项目和MCP Server项目都使用同一个数据库
 - 两个项目（web和mcp-server）可以独立开发、测试和部署，通过共享数据库进行数据交互
 
@@ -292,7 +258,7 @@ recall-kit/
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | 4个独立前端包 | 检索和管理模块有不同的用户群体和功能需求，需要独立部署和扩展 | 合并为一个包会导致代码耦合，不利于独立开发和部署 |
-| MCP Server和Client分离 | MCP协议要求Server和Client分离，且Client需要独立分发 | 合并会导致架构不符合MCP协议规范，且不利于Client的独立安装 |
+| MCP Server与Web分离 | MCP协议服务需要独立扩展，部署策略不同 | 合并会导致耦合增加，难以按需扩缩 |
 
 ## Phase 0: Research & Technology Decisions
 
@@ -301,7 +267,7 @@ recall-kit/
 1. **MCP协议实现研究**
    - 研究Model Context Protocol (MCP)的标准实现
    - 确定Node.js MCP SDK的选择
-   - 设计MCP Server和Client的通信协议
+   - 设计MCP Server与官方/第三方客户端的兼容策略
 
 2. **Supabase最佳实践**
    - 研究Supabase RLS策略设计
@@ -326,9 +292,9 @@ recall-kit/
 
 ### Technology Decisions
 
-**Decision**: 使用pnpm workspace管理monorepo
-**Rationale**: 支持多包管理，依赖共享，构建优化
-**Alternatives considered**: npm workspaces, yarn workspaces - pnpm性能更好，磁盘占用更小
+**Decision**: web与mcp-server各自维护独立的npm项目
+**Rationale**: 降低workspace复杂度，简化依赖管理，便于分开部署
+**Alternatives considered**: 使用pnpm/npm workspaces统一管理 - 但需要额外的workspace配置，且当前模块数量较少
 
 **Decision**: 使用Supabase作为BaaS
 **Rationale**: 提供PostgreSQL数据库、认证、实时订阅，减少后端开发工作量
@@ -365,7 +331,6 @@ recall-kit/
 包含3个API契约文档：
 - `mcp-server-api.md`: MCP Server API规范
 - `web-api.md`: Web API RESTful规范
-- `mcp-client-protocol.md`: MCP Client协议文档
 
 ### Quick Start Guide
 
