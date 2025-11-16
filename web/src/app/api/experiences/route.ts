@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExperienceService } from '@/lib/services/experienceService';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +13,17 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const sort = searchParams.get('sort') as 'relevance' | 'query_count' | 'created_at' || 'relevance';
 
-    const experienceService = new ExperienceService();
+    // Create a Supabase client for server-side operations
+    // Try to use admin client for better access to settings, fallback to server client
+    let supabaseClient;
+    try {
+      supabaseClient = createAdminClient();
+    } catch {
+      // If admin client is not available, use server client
+      supabaseClient = await createClient();
+    }
+
+    const experienceService = new ExperienceService(supabaseClient);
     const result = await experienceService.queryExperiences({
       q,
       keywords,
@@ -46,3 +58,5 @@ export async function GET(request: NextRequest) {
 }
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;

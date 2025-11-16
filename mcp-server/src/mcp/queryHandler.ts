@@ -4,6 +4,7 @@ import { RankingService } from '../services/rankingService';
 
 export interface QueryExperienceParams {
   keywords?: string[];
+  ids?: string[];
   limit?: number;
   offset?: number;
   sort?: 'relevance' | 'query_count' | 'created_at';
@@ -47,6 +48,7 @@ export async function initQueryHandler(
     try {
       const {
         keywords = [],
+        ids,
         limit = handlerDefaultLimit,
         offset = 0,
         sort = 'relevance'
@@ -61,11 +63,12 @@ export async function initQueryHandler(
         throw new Error('Offset must be non-negative');
       }
 
-      console.log('Query parameters:', { keywords, limit, offset, sort });
+      console.log('Query parameters:', { keywords, ids, limit, offset, sort });
       
       // Query experiences
       const experiences = await experienceService.queryExperiences({
         keywords,
+        ids,
         limit,
         offset,
         sort

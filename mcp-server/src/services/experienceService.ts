@@ -20,6 +20,7 @@ export interface ExperienceRecord {
 
 export interface QueryOptions {
   keywords?: string[];
+  ids?: string[];
   limit?: number;
   offset?: number;
   sort?: 'relevance' | 'query_count' | 'created_at';
@@ -31,6 +32,7 @@ export class ExperienceService {
   async queryExperiences(options: QueryOptions): Promise<ExperienceRecord[]> {
     const {
       keywords = [],
+      ids,
       limit = 10,
       offset = 0,
       sort = 'relevance'
@@ -38,14 +40,19 @@ export class ExperienceService {
 
     console.log('Building Supabase query with options:', {
       keywords,
+      ids,
       limit,
       offset,
       sort
     });
 
-    // If keywords are provided, first get the experience_ids that match
+    // If IDs are provided, use them directly (highest priority)
     let experienceIds: string[] | undefined;
-    if (keywords.length > 0) {
+    if (ids && ids.length > 0) {
+      experienceIds = ids;
+      console.log(`Querying experiences by IDs:`, ids);
+    } else if (keywords.length > 0) {
+      // If keywords are provided, first get the experience_ids that match
       // Normalize keywords (lowercase and trim) to match how they're stored
       const normalizedKeywords = keywords.map(k => k.toLowerCase().trim());
       
@@ -79,7 +86,7 @@ export class ExperienceService {
       `)
       .eq('status', 'published');
 
-    // Apply keyword filtering if provided
+    // Apply ID or keyword filtering if provided
     if (experienceIds && experienceIds.length > 0) {
       query = query.in('id', experienceIds);
     } else if (keywords.length > 0) {
@@ -155,6 +162,26 @@ export class ExperienceService {
   }
 
   async createExperience(experience: Omit<ExperienceRecord, 'id' | 'created_at' | 'updated_at' | 'query_count' | 'relevance_score' | 'status' | 'deleted_at'>, keywords: string[]): Promise<string> {
+    // Generate embedding if OpenAI API key is available
+    let embedding: number[] | undefined;
+    try {
+      const { EmbeddingService } = await import('./embeddingService');
+      const embeddingService = new EmbeddingService();
+      if (embeddingService.isAvailable()) {
+        embedding = await embeddingService.generateExperienceEmbedding({
+          title: experience.title,
+          problem_description: experience.problem_description,
+          solution: experience.solution,
+          root_cause: experience.root_cause,
+          context: experience.context,
+          keywords: keywords || []
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to generate embedding during experience creation:', error);
+      // Continue without embedding
+    }
+
     const { data: experienceData, error: experienceError } = await this.supabase
       .from('experience_records')
       .insert({
@@ -162,6 +189,7 @@ export class ExperienceService {
         status: 'published',
         query_count: 0,
         relevance_score: 0.0,
+        embedding: embedding || null,
         deleted_at: null
       })
       .select('id')

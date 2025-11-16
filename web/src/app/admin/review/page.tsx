@@ -6,10 +6,18 @@ import { supabase } from '@/lib/supabase/client';
 import { ExperienceRecord } from '@/lib/services/experienceService';
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 export default function AdminReviewPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="admin-loading">
+        <div className="admin-loading-spinner">
+          <i className="fas fa-spinner fa-spin"></i>
+        </div>
+        <p>加载中...</p>
+      </div>
+    }>
       <ReviewContentInner />
     </Suspense>
   );
@@ -40,30 +48,60 @@ function ReviewContentInner() {
         }
 
         // Fetch experiences with admin access
-        const { data, error: fetchError } = await supabase
+        // Explicitly list all fields including embedding to ensure it's returned
+        let query = supabase
           .from('experience_records')
           .select(`
-            *,
+            id,
+            user_id,
+            title,
+            problem_description,
+            root_cause,
+            solution,
+            context,
+            status,
+            query_count,
+            view_count,
+            relevance_score,
+            fts,
+            embedding,
+            has_embedding,
+            created_at,
+            updated_at,
+            deleted_at,
             experience_keywords:experience_keywords(keyword),
             profiles:user_id(username, email)
           `)
-          .eq('status', status)
           .range((page - 1) * limit, page * limit - 1)
           .order('created_at', { ascending: false });
+
+        if (status !== 'all') {
+          query = query.eq('status', status);
+        }
+
+        const { data, error: fetchError } = await query;
 
         if (fetchError) {
           throw fetchError;
         }
 
-        const formattedExperiences = (data || []).map(record => ({
-          ...record,
-          keywords: (record as any).experience_keywords?.map((k: any) => k.keyword) || [],
-          author: (record as any).profiles || null
-        }));
+        const formattedExperiences = (data || []).map(record => {
+          const recordAny = record as any;
+          // Preserve embedding field directly from the record
+          // Supabase vector type should be returned as an array or null
+          // Don't use spread operator for embedding to avoid overriding it
+          return {
+            ...record,
+            // Keep embedding as-is from the original record (null, array, or undefined)
+            embedding: recordAny.embedding,
+            keywords: recordAny.experience_keywords?.map((k: any) => k.keyword) || [],
+            author: recordAny.profiles || null
+          };
+        });
 
         setExperiences(formattedExperiences);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load experiences');
+        setError(err instanceof Error ? err.message : '加载经验记录失败');
       } finally {
         setIsLoading(false);
       }
@@ -73,6 +111,8 @@ function ReviewContentInner() {
   }, [status, page, router]);
 
   const handleDelete = async (id: string) => {
+    if (!confirm('确定要删除这条记录吗？')) return;
+
     try {
       const { error } = await supabase
         .from('experience_records')
@@ -84,10 +124,9 @@ function ReviewContentInner() {
 
       if (error) throw error;
 
-      // Refresh the list
       setExperiences(prev => prev.filter(exp => exp.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete experience');
+      setError(err instanceof Error ? err.message : '删除失败');
     }
   };
 
@@ -103,104 +142,281 @@ function ReviewContentInner() {
 
       if (error) throw error;
 
-      // Refresh the list
       setExperiences(prev => prev.filter(exp => exp.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to restore experience');
+      setError(err instanceof Error ? err.message : '恢复失败');
+    }
+  };
+
+  const handleGenerateEmbedding = async (id: string) => {
+    try {
+      const response = await fetch(`/api/experiences/${id}/embedding`, {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || '向量化失败');
+      }
+
+      // Re-fetch the experience to get updated has_embedding flag
+      const { data: updatedExperience, error: fetchError } = await supabase
+        .from('experience_records')
+        .select('has_embedding')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) {
+        // If fetch fails, just mark it as having embedding
+        setExperiences(prev => prev.map(exp => 
+          exp.id === id 
+            ? { ...exp, has_embedding: true } as any
+            : exp
+        ));
+      } else {
+        // Update with actual has_embedding flag
+        setExperiences(prev => prev.map(exp => 
+          exp.id === id 
+            ? { ...exp, has_embedding: updatedExperience.has_embedding } as any
+            : exp
+        ));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '向量化失败');
+      throw err; // Re-throw to let the component handle loading state
     }
   };
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Review Experiences</h1>
-        <p>Loading experiences...</p>
+      <div className="admin-loading">
+        <div className="admin-loading-spinner">
+          <i className="fas fa-spinner fa-spin"></i>
+        </div>
+        <p>加载中...</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Review Experiences</h1>
-        <div className="flex gap-4">
+    <>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">内容审核</h1>
+          <p className="admin-page-subtitle">管理和审核用户提交的经验记录</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
           <select
             value={status}
             onChange={(e) => router.push(`/admin/review?status=${e.target.value}`)}
-            className="px-3 py-2 border rounded"
+            className="admin-form-select"
+            style={{ minWidth: '150px' }}
           >
-            <option value="published">Published</option>
-            <option value="deleted">Deleted</option>
-            <option value="all">All</option>
+            <option value="all">全部状态</option>
+            <option value="published">已发布</option>
+            <option value="deleted">已删除</option>
           </select>
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-          >
-            Back to Dashboard
-          </button>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
+        <div className="admin-card" style={{ background: '#fee2e2', borderColor: '#fecaca' }}>
+          <div style={{ color: '#991b1b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <i className="fas fa-exclamation-circle"></i>
+            <span>{error}</span>
+          </div>
         </div>
       )}
 
-      <div className="space-y-4">
-        {experiences.map(experience => (
-          <div key={experience.id} className="border rounded-lg p-6">
-            <h3 className="text-xl font-semibold mb-2">{experience.title}</h3>
-            <p className="text-gray-600 mb-3">{experience.problem_description}</p>
-            
-            {experience.keywords && experience.keywords.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {experience.keywords.map(keyword => (
-                  <span key={keyword} className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs">
-                    {keyword}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-              <span>By {experience.author?.email || 'Anonymous'}</span>
-              <span>{new Date(experience.created_at).toLocaleDateString()}</span>
-            </div>
-
-            <div className="flex gap-2">
-              {experience.status === 'published' ? (
-                <button
-                  onClick={() => handleDelete(experience.id)}
-                  className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                >
-                  Delete
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleRestore(experience.id)}
-                  className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-                >
-                  Restore
-                </button>
-              )}
-              <button
-                onClick={() => router.push(`/experience/${experience.id}`)}
-                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-              >
-                View
-              </button>
-            </div>
+      {experiences.length === 0 ? (
+        <div className="admin-empty-state">
+          <div className="admin-empty-state-icon">
+            <i className="fas fa-inbox"></i>
           </div>
-        ))}
+          <div className="admin-empty-state-title">暂无记录</div>
+          <div className="admin-empty-state-description">
+            当前筛选条件下没有找到任何经验记录
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {experiences.map(experience => (
+            <ExperienceCard
+              key={experience.id}
+              experience={experience}
+              onDelete={handleDelete}
+              onRestore={handleRestore}
+              onGenerateEmbedding={handleGenerateEmbedding}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ExperienceCard({
+  experience,
+  onDelete,
+  onRestore,
+  onGenerateEmbedding
+}: {
+  experience: ExperienceRecord & { keywords?: string[]; author?: any };
+  onDelete: (id: string) => void;
+  onRestore: (id: string) => void;
+  onGenerateEmbedding: (id: string) => void;
+}) {
+  const router = useRouter();
+  const isDeleted = experience.status === 'deleted';
+  const [isGeneratingEmbedding, setIsGeneratingEmbedding] = useState(false);
+  // Use has_embedding flag to check if experience has been vectorized
+  const hasEmbedding = (experience as any).has_embedding === true;
+
+  const handleGenerateEmbeddingClick = async () => {
+    setIsGeneratingEmbedding(true);
+    try {
+      await onGenerateEmbedding(experience.id);
+    } finally {
+      setIsGeneratingEmbedding(false);
+    }
+  };
+
+  return (
+    <div className="admin-card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+            <h3 style={{
+              fontSize: '1.125rem',
+              fontWeight: 600,
+              color: '#1e293b',
+              margin: 0
+            }}>
+              {experience.title}
+            </h3>
+            <span className={`admin-badge ${isDeleted ? 'admin-badge-danger' : 'admin-badge-success'}`}>
+              {isDeleted ? '已删除' : '已发布'}
+            </span>
+          </div>
+          <p style={{
+            fontSize: '0.875rem',
+            color: '#64748b',
+            margin: 0,
+            lineHeight: 1.6,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden'
+          }}>
+            {experience.problem_description}
+          </p>
+        </div>
       </div>
 
-      {experiences.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No experiences found</p>
+      {experience.keywords && experience.keywords.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+          {experience.keywords.slice(0, 5).map(keyword => (
+            <span key={keyword} style={{
+              padding: '0.25rem 0.75rem',
+              background: '#e0e7ff',
+              color: '#4338ca',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              fontWeight: 500
+            }}>
+              {keyword}
+            </span>
+          ))}
+          {experience.keywords.length > 5 && (
+            <span style={{
+              padding: '0.25rem 0.75rem',
+              background: '#f1f5f9',
+              color: '#64748b',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              fontWeight: 500
+            }}>
+              +{experience.keywords.length - 5}
+            </span>
+          )}
         </div>
       )}
+
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: '1rem',
+        borderTop: '1px solid #e2e8f0'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.875rem', color: '#64748b' }}>
+          <span>
+            <i className="fas fa-user" style={{ marginRight: '0.25rem' }}></i>
+            {experience.author?.email || experience.author?.username || '匿名用户'}
+          </span>
+          <span>
+            <i className="fas fa-calendar" style={{ marginRight: '0.25rem' }}></i>
+            {new Date(experience.created_at).toLocaleDateString('zh-CN')}
+          </span>
+          {experience.view_count !== undefined && experience.view_count !== null && (
+            <span>
+              <i className="fas fa-eye" style={{ marginRight: '0.25rem' }}></i>
+              {experience.view_count} 次查看
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {!hasEmbedding && !isDeleted && (
+            <button
+              onClick={handleGenerateEmbeddingClick}
+              disabled={isGeneratingEmbedding}
+              className="admin-btn admin-btn-outline admin-btn-sm"
+              style={{ 
+                opacity: isGeneratingEmbedding ? 0.6 : 1,
+                cursor: isGeneratingEmbedding ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {isGeneratingEmbedding ? (
+                <>
+                  <i className="fas fa-spinner fa-spin"></i>
+                  <span>向量化中...</span>
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-brain"></i>
+                  <span>向量化</span>
+                </>
+              )}
+            </button>
+          )}
+          {isDeleted ? (
+            <button
+              onClick={() => onRestore(experience.id)}
+              className="admin-btn admin-btn-success admin-btn-sm"
+            >
+              <i className="fas fa-undo"></i>
+              <span>恢复</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => onDelete(experience.id)}
+              className="admin-btn admin-btn-danger admin-btn-sm"
+            >
+              <i className="fas fa-trash"></i>
+              <span>删除</span>
+            </button>
+          )}
+          <button
+            onClick={() => window.open(`/experience/${experience.id}`, '_blank')}
+            className="admin-btn admin-btn-outline admin-btn-sm"
+          >
+            <i className="fas fa-external-link-alt"></i>
+            <span>查看</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

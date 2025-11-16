@@ -43,6 +43,9 @@ export interface Database {
           query_count: number;
           view_count: number;
           relevance_score: number | null;
+          fts: string | null;
+          embedding: number[] | null;
+          has_embedding: boolean;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -59,6 +62,8 @@ export interface Database {
           query_count?: number;
           view_count?: number;
           relevance_score?: number | null;
+          embedding?: number[] | null;
+          has_embedding?: boolean;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -75,6 +80,8 @@ export interface Database {
           query_count?: number;
           view_count?: number;
           relevance_score?: number | null;
+          embedding?: number[] | null;
+          has_embedding?: boolean;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;

@@ -42,6 +42,8 @@ export interface Database {
           status: string;
           query_count: number;
           relevance_score: number | null;
+          fts: string | null;
+          embedding: number[] | null;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -57,6 +59,7 @@ export interface Database {
           status?: string;
           query_count?: number;
           relevance_score?: number | null;
+          embedding?: number[] | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -72,6 +75,7 @@ export interface Database {
           status?: string;
           query_count?: number;
           relevance_score?: number | null;
+          embedding?: number[] | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;

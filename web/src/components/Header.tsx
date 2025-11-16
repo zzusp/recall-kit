@@ -34,12 +34,13 @@ export default function Header() {
               >
                 搜索
               </Link>
-              <Link 
+              {/* 知识库功能已隐藏 */}
+              {/* <Link 
                 href="/list" 
                 className={`${isActive('/list') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500'} hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
               >
                 知识库
-              </Link>
+              </Link> */}
             </nav>
           </div>
           <div className="hidden md:ml-4 md:flex md:items-center">

@@ -75,99 +75,174 @@ export default function AdminDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p>Loading dashboard...</p>
+      <div className="admin-loading">
+        <div className="admin-loading-spinner">
+          <i className="fas fa-spinner fa-spin"></i>
         </div>
+        <p>加载数据中...</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            router.push('/admin/login');
-          }}
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Sign Out
-        </button>
+    <>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">仪表板</h1>
+          <p className="admin-page-subtitle">系统概览和统计数据</p>
+        </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
+        <div className="admin-card" style={{ background: '#fee2e2', borderColor: '#fecaca' }}>
+          <div style={{ color: '#991b1b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <i className="fas fa-exclamation-circle"></i>
+            <span>{error}</span>
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard 
-          title="Total Experiences" 
-          value={stats.totalExperiences} 
+      <div className="admin-stats-grid">
+        <StatCard
+          title="总经验数"
+          value={stats.totalExperiences}
+          icon="fas fa-book"
+          iconClass="primary"
           link="/admin/review"
+          change="全部记录"
         />
-        <StatCard 
-          title="Published" 
-          value={stats.publishedExperiences} 
+        <StatCard
+          title="已发布"
+          value={stats.publishedExperiences}
+          icon="fas fa-check-circle"
+          iconClass="success"
           link="/admin/review?status=published"
+          change="已审核通过"
         />
-        <StatCard 
-          title="Deleted" 
-          value={stats.deletedExperiences} 
+        <StatCard
+          title="已删除"
+          value={stats.deletedExperiences}
+          icon="fas fa-trash"
+          iconClass="danger"
           link="/admin/review?status=deleted"
+          change="已标记删除"
         />
-        <StatCard 
-          title="Recent (7d)" 
-          value={stats.recentSubmissions} 
+        <StatCard
+          title="最近7天"
+          value={stats.recentSubmissions}
+          icon="fas fa-clock"
+          iconClass="warning"
           link="/admin/review?status=published&sort=recent"
+          change="新增提交"
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <AdminCard title="Review Experiences">
-          <p className="mb-4">Review and manage all experience records submitted by users.</p>
-          <Link
-            href="/admin/review"
-            className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Go to Review
-          </Link>
-        </AdminCard>
-
-        <AdminCard title="System Settings">
-          <p className="mb-4">Configure system settings and integrations.</p>
-          <Link
-            href="/admin/settings"
-            className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Go to Settings
-          </Link>
-        </AdminCard>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+        <QuickActionCard
+          title="内容审核"
+          description="审核和管理用户提交的经验记录"
+          icon="fas fa-clipboard-check"
+          link="/admin/review"
+          color="#4361ee"
+        />
+        <QuickActionCard
+          title="系统设置"
+          description="配置系统参数和AI服务集成"
+          icon="fas fa-cog"
+          link="/admin/settings"
+          color="#64748b"
+        />
       </div>
-    </div>
+    </>
   );
 }
 
-function StatCard({ title, value, link }: { title: string; value: number; link: string }) {
+function StatCard({ 
+  title, 
+  value, 
+  icon, 
+  iconClass, 
+  link, 
+  change 
+}: { 
+  title: string; 
+  value: number; 
+  icon: string; 
+  iconClass: string; 
+  link: string; 
+  change: string;
+}) {
   return (
-    <Link href={link}>
-      <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
-        <h3 className="text-lg font-medium text-gray-500">{title}</h3>
-        <p className="mt-2 text-3xl font-bold">{value}</p>
+    <Link href={link} style={{ textDecoration: 'none' }}>
+      <div className="admin-stat-card">
+        <div className="admin-stat-header">
+          <div className="admin-stat-title">{title}</div>
+          <div className={`admin-stat-icon ${iconClass}`}>
+            <i className={icon}></i>
+          </div>
+        </div>
+        <div className="admin-stat-value">{value.toLocaleString()}</div>
+        <div className="admin-stat-change">
+          <i className="fas fa-info-circle"></i>
+          <span>{change}</span>
+        </div>
       </div>
     </Link>
   );
 }
 
-function AdminCard({ title, children }: { title: string; children: React.ReactNode }) {
+function QuickActionCard({
+  title,
+  description,
+  icon,
+  link,
+  color
+}: {
+  title: string;
+  description: string;
+  icon: string;
+  link: string;
+  color: string;
+}) {
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <h2 className="text-xl font-semibold mb-4">{title}</h2>
-      {children}
-    </div>
+    <Link href={link} style={{ textDecoration: 'none' }}>
+      <div className="admin-card" style={{ cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            background: `linear-gradient(135deg, ${color}, ${color}dd)`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontSize: '1.5rem',
+            flexShrink: 0
+          }}>
+            <i className={icon}></i>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{
+              fontSize: '1.125rem',
+              fontWeight: 600,
+              color: '#1e293b',
+              marginBottom: '0.5rem'
+            }}>
+              {title}
+            </h3>
+            <p style={{
+              fontSize: '0.875rem',
+              color: '#64748b',
+              margin: 0,
+              lineHeight: 1.5
+            }}>
+              {description}
+            </p>
+          </div>
+          <i className="fas fa-chevron-right" style={{ color: '#cbd5e1', alignSelf: 'center' }}></i>
+        </div>
+      </div>
+    </Link>
   );
 }

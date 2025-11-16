@@ -1,181 +1,166 @@
-# Recall Kit - Experience Sharing Platform
+# Recall Kit - AI开发经验分享平台
 
-A platform for sharing and reusing AI interaction experiences through MCP protocol.
+## 项目简介
 
-## Features
+Recall Kit 是一个基于 MCP (Model Context Protocol) 协议的经验分享平台，旨在解决 AI 开发过程中重复对话和 token 浪费的问题。通过记录、分享和复用开发经验，让 AI Agent 能够自动查询和复用历史经验，提高开发效率。
 
-- **MCP Protocol Support**: Agent integration for querying and submitting experiences
-- **Web Interface**: Search and browse experiences anonymously
-- **Admin Dashboard**: Content moderation and management
-- **Real-time Search**: Full-text search with relevance ranking
-- **Secure**: Row-level security and code sanitization
+## 项目背景
 
-## Tech Stack
+在 vibe coding 过程中，经常会出现 AI 抓不到重点、而用户又不知道问题在哪里的情况。用户往往只能通过"问题没修复"、"不是我要的效果"等模糊提示词继续对话，导致 AI 不断尝试各种解决方案，造成对话成本增加、token 浪费。或者为了保留之前的上下文记录，始终使用一个对话，导致上下文压缩再压缩。
 
-- **Frontend**: Next.js 15, React 18, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes, Supabase
-- **Database**: Supabase PostgreSQL
-- **MCP**: Node.js, Express, MCP SDK
-- **Authentication**: Supabase Auth
+Recall Kit 通过以下方式解决这个问题：
+- **经验记录**：AI 自动总结并保存成功解决问题的经验至 Recall Kit 平台
+- **智能检索**：通过 MCP 协议让 AI Agent 自动查询相关经验
+- **经验复用**：支持高效复用历史解决方案，帮助快速定位和解决当前问题，显著减少重复排查与沟通成本
 
-## Quick Start
+## 系统架构
 
-### Prerequisites
+Recall Kit 由三个核心模块组成：
 
-- Node.js 20+
-- npm 10+
-- Supabase account
+### 1. MCP Server
+为 AI Agent 提供经验查询和提交服务的 MCP 服务器。
 
-### Installation
+**详细文档**: [mcp-server/README.md](mcp-server/README.md)
 
-1. Clone the repository:
+### 2. Web 应用
+提供 Web 界面用于搜索、浏览和管理经验记录。
+
+**详细文档**: [web/README.md](web/README.md)
+
+### 3. 数据库
+基于 Supabase (PostgreSQL) 的数据存储，支持向量搜索和全文搜索。
+
+## 技术栈概览
+
+- **前端**: Next.js 15, React 18, TypeScript, Tailwind CSS
+- **后端**: MCP Server (TypeScript), Express
+- **数据库**: Supabase (PostgreSQL + pgvector)
+- **搜索**: 向量搜索 (OpenAI Embedding) + 全文搜索 (PostgreSQL FTS)
+- **协议**: Model Context Protocol (MCP)
+
+## 项目结构
+
+```
+recall-kit/
+├── web/                    # Next.js Web 应用
+│   └── README.md          # Web 应用详细文档
+│
+├── mcp-server/            # MCP 服务器
+│   └── README.md          # MCP Server 详细文档
+│
+├── supabase/              # 数据库迁移文件
+│   └── migrations/
+│
+├── specs/                 # 项目规范和文档
+│   └── 001-experience-sharing-platform/
+│
+└── docs/                  # 技术文档
+    ├── VECTOR_SEARCH.md
+    └── MCP_*.md
+```
+
+## 快速开始
+
+### 前置要求
+
+- Node.js 18+
+- npm 或 yarn
+- Supabase 账户和项目
+- OpenAI API Key（可选，用于向量搜索）
+
+### 安装步骤
+
+1. **克隆项目**
 ```bash
 git clone <repository-url>
 cd recall-kit
 ```
 
-2. Install root tools (仅用于并行脚本):
-```bash
-npm install
-```
+2. **安装依赖**
 
-3. Install project dependencies:
+分别进入 `web` 和 `mcp-server` 目录安装依赖：
 ```bash
 cd web && npm install
 cd ../mcp-server && npm install
 ```
 
-4. Set up environment variables:
+3. **配置环境变量**
+
+- Web 应用：在 `web` 目录下创建 `.env.local`，参考 [web/README.md](web/README.md#环境变量配置)
+- MCP Server：在 `mcp-server` 目录下创建 `.env`，参考 [mcp-server/README.md](mcp-server/README.md#环境变量配置)
+
+4. **运行数据库迁移**
+
+在 Supabase Dashboard 中执行 `supabase/migrations/` 目录下的 SQL 文件，或使用 Supabase CLI：
 ```bash
-cp .env.example .env.local
-# Edit .env.local with your Supabase credentials
-```
-
-5. Set up Supabase:
-- Create a new Supabase project
-- Run database migrations:
-```bash
-supabase db reset
-```
-
-6. Start development servers:
-```bash
-# Start web app
-npm run dev:web
-
-# Start MCP server (in separate terminal)
-npm run dev:mcp-server
-```
-
-## Project Structure
-
-```
-recall-kit/
-├── web/                 # Next.js web application
-├── mcp-server/          # MCP protocol server
-├── supabase/           # Database migrations
-├── docs/               # Documentation
-└── prototypes/         # Design prototypes
-```
-
-## MCP Integration
-
-### Query Experiences
-Agents can query experiences using MCP protocol:
-
-```json
-{
-  "method": "query_experiences",
-  "params": {
-    "keywords": ["react", "typescript"],
-    "limit": 10,
-    "sort": "relevance"
-  }
-}
-```
-
-### Submit Experience
-Agents can submit new experiences:
-
-```json
-{
-  "method": "submit_experience",
-  "params": {
-    "title": "Issue description",
-    "problem_description": "Detailed problem",
-    "solution": "Solution steps",
-    "context": "Code context (sanitized)",
-    "keywords": ["react", "error"]
-  }
-}
-```
-
-## API Endpoints
-
-### Web API
-- `GET /api/experiences` - Search experiences
-- `GET /api/experiences/[id]` - Get experience by ID
-
-### Admin API (requires authentication)
-- `GET /api/admin/experiences` - List experiences for moderation
-- `PUT /api/admin/experiences/[id]` - Update experience
-- `DELETE /api/admin/experiences/[id]` - Soft delete experience
-
-### MCP API
-- `POST /mcp` - MCP protocol endpoint
-
-## Development
-
-### Running Tests
-```bash
-npm run test
-```
-
-### Building for Production
-```bash
-npm run build
-```
-
-### Database Migrations
-```bash
-# Create new migration
-supabase migration new migration_name
-
-# Apply migrations
-supabase db reset
-```
-
-## Deployment
-
-### Vercel (Web App)
-1. Connect repository to Vercel
-2. Set environment variables
-3. Deploy automatically
-
-### Railway/Render (MCP Server)
-1. Deploy `mcp-server` directory
-2. Set environment variables
-3. Configure reverse proxy if needed
-
-### Supabase
-1. Create production project
-2. Run migrations:
-```bash
-supabase link --project-ref your-project-ref
 supabase db push
 ```
 
-## Environment Variables
+5. **启动服务**
 
-See `.env.example` for all required environment variables.
+```bash
+# 启动 Web 应用（终端 1）
+cd web
+npm run dev
 
-## Contributing
+# 启动 MCP Server（终端 2）
+cd mcp-server
+npm run dev
+```
 
-1. Fork the repository
-2. Create feature branch
-3. Make changes and add tests
-4. Submit pull request
+- Web 应用: http://localhost:3000
+- MCP Server: http://localhost:3001/mcp
 
-## License
+## 详细文档
 
-MIT License - see LICENSE file for details.
+### 子项目文档
+- **[Web 应用文档](web/README.md)** - Web 应用的详细说明、API 文档、开发指南
+- **[MCP Server 文档](mcp-server/README.md)** - MCP Server 的详细说明、协议文档、部署指南
+
+### 技术文档
+- [向量搜索使用指南](docs/VECTOR_SEARCH.md) - 向量搜索功能配置和使用
+- [MCP Server 使用说明](docs/MCP_SERVER_USAGE.md) - MCP Server 使用和集成指南
+- [项目规范](specs/001-experience-sharing-platform/spec.md) - 项目功能规范和需求
+
+## 数据库迁移
+
+数据库迁移文件位于 `supabase/migrations/` 目录，按顺序执行：
+
+1. `001_initial_schema.sql` - 初始表结构
+2. `002_rls_policies.sql` - Row Level Security 策略
+3. `003_indexes.sql` - 索引
+4. `004_seed_data.sql` - 种子数据
+5. `005_add_view_count.sql` - 浏览次数
+6. `006_add_fts_column.sql` - 全文搜索列
+7. `007_*.sql` - 其他功能
+8. `008_add_vector_search.sql` - 向量搜索支持
+9. `010_*.sql` - 设置表
+10. `011_*.sql` - AI 配置
+11. `012_*.sql` - 动态 embedding 维度
+12. `013_*.sql` - embedding 标志
+
+## 开发
+
+### 代码规范
+
+- 使用 TypeScript 进行类型检查
+- 遵循 ESLint 和 Prettier 配置
+- 提交前运行 `npm run lint` 和 `npm run type-check`
+
+### 开发命令
+
+各子项目的开发命令请参考对应的 README：
+- [Web 应用开发命令](web/README.md#开发命令)
+- [MCP Server 开发命令](mcp-server/README.md#开发命令)
+
+## 许可证
+
+查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 联系方式
+
+如有问题或建议，请通过 Issue 反馈。

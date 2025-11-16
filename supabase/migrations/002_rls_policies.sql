@@ -75,6 +75,10 @@ CREATE POLICY "Allow all users to read keywords"
 ON experience_keywords FOR SELECT
 USING (true);
 
+CREATE POLICY "Allow anonymous users to insert keywords"
+ON experience_keywords FOR INSERT
+WITH CHECK (true);
+
 -- query_logs policies
 CREATE POLICY "Allow admins to read query logs"
 ON query_logs FOR SELECT

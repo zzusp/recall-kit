@@ -36,9 +36,10 @@ function createMCPServer(
   // Register query_experiences tool using registerTool
   server.registerTool('query_experiences', {
     title: 'Query Experiences',
-    description: 'Query experience records by keywords',
+    description: 'Query experience records by keywords or IDs',
     inputSchema: {
       keywords: z.array(z.string()).optional().describe('Keywords to search for'),
+      ids: z.array(z.string()).optional().describe('Array of experience IDs to query'),
       limit: z.number()
         .min(1)
         .max(config.queryMaxLimit)
@@ -105,8 +106,10 @@ function createMCPServer(
             '',
             'Steps:',
             '1. Review the latest conversation and capture: title, problem description, root cause, solution, context, and at least three keywords (include the programming language or tech stack when possible).',
-            '2. Populate the Markdown template below. For every field, first wrap the draft value with <!-- example-start --> and <!-- example-end --> to make edits safer, then remove those markers before returning the final Markdown.',
-            `3. Create a new markdown file in ${DEFAULT_EXPERIENCE_OUTPUT_PATH}/ to save step 2 result.`,
+            `2. If there are multiple resolved problems in the history messages, you need to determine if the solution methods for these problems are the same. If they are the same, you need to merge the solution methods into a single solution; if they are different, you need to split them into different documents for summary.`,
+            '3. Populate the Markdown template below. For every field, first wrap the draft value with <!-- example-start --> and <!-- example-end --> to make edits safer, then remove those markers before returning the final Markdown.',
+            `4. Create one or more markdown files in ${DEFAULT_EXPERIENCE_OUTPUT_PATH}/ to save the results from step 3.`,
+            `5. You only need to generate the documentation, instruct the user to save it under ${DEFAULT_EXPERIENCE_OUTPUT_PATH}/, and advise them to review and adjust as needed.`,
             '',
             'Markdown template (fill in placeholders and remove the markers before returning the final Markdown):',
             '```markdown',

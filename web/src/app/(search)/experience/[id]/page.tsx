@@ -3,21 +3,34 @@ import Link from 'next/link';
 import { ExperienceService } from '@/lib/services/experienceService';
 
 interface ExperienceDetailPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function ExperienceDetailPage({ params }: ExperienceDetailPageProps) {
+  // Next.js 15 requires params to be awaited
+  const { id } = await params;
+  
   const experienceService = new ExperienceService();
-  const experience = await experienceService.getExperienceById(params.id);
+  
+  // 先增加浏览次数并等待完成
+  const newViewCount = await experienceService.incrementViewCount(id);
+  
+  // 获取经验记录数据
+  const experience = await experienceService.getExperienceById(id);
 
   if (!experience) {
     notFound();
   }
 
+  // 如果更新成功，使用新的浏览次数
+  if (newViewCount > 0) {
+    experience.view_count = newViewCount;
+  }
+
   return (
-    <main className="container mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-6 py-12">
       <Link 
         href="/"
         className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6"
@@ -25,7 +38,7 @@ export default async function ExperienceDetailPage({ params }: ExperienceDetailP
         ← Back to Home
       </Link>
 
-      <article className="bg-white rounded-lg shadow-md p-6">
+      <article className="card">
         <header className="mb-6">
           <h1 className="text-3xl font-bold mb-4">{experience.title}</h1>
           
@@ -43,7 +56,7 @@ export default async function ExperienceDetailPage({ params }: ExperienceDetailP
           )}
 
           <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>Viewed {experience.query_count} times</span>
+            <span><i className="fas fa-eye mr-1"></i> {experience.view_count || 0}次浏览</span>
             <span>
               Added on {new Date(experience.created_at).toLocaleDateString()}
             </span>
@@ -77,13 +90,13 @@ export default async function ExperienceDetailPage({ params }: ExperienceDetailP
           {experience.context && (
             <div>
               <h2 className="text-xl font-semibold mb-3">Context</h2>
-              <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto text-sm">
+              <div className="bg-gray-50 p-4 rounded-lg text-sm whitespace-pre-wrap break-words">
                 {experience.context}
-              </pre>
+              </div>
             </div>
           )}
         </section>
       </article>
-    </main>
+    </div>
   );
 }
