@@ -7,6 +7,18 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_API_URL = 'https://api.openai.com/v1/embeddings';
 const EMBEDDING_MODEL = 'text-embedding-3-small'; // 1536 dimensions
 
+interface OpenAIErrorResponse {
+  error?: {
+    message?: string;
+  };
+}
+
+interface OpenAIEmbeddingResponse {
+  data: Array<{
+    embedding: number[];
+  }>;
+}
+
 export class EmbeddingService {
   /**
    * Generate embedding for a text string
@@ -33,11 +45,11 @@ export class EmbeddingService {
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        const error = await response.json().catch(() => ({ error: 'Unknown error' })) as OpenAIErrorResponse;
         throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as OpenAIEmbeddingResponse;
       return data.data[0].embedding;
     } catch (error) {
       console.error('Failed to generate embedding:', error);
