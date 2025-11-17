@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ExperienceService } from '@/lib/services/experienceService';
 
+export const runtime = 'edge';
+
 interface ExperienceDetailPageProps {
   params: Promise<{
     id: string;
