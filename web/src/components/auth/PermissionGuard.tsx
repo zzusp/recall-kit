@@ -2,8 +2,7 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getSessionToken, hasPermission } from '@/lib/services/newAuthService';
-import { AuthUser } from '@/lib/services/newAuthService';
+import { getCurrentUser, getSessionToken, hasPermission, AuthUser } from '@/lib/services/authClientService';
 
 interface PermissionGuardProps {
   children: ReactNode;
@@ -38,7 +37,7 @@ export default function PermissionGuard({
           return;
         }
 
-        const currentUser = await getCurrentUser(sessionToken);
+        const currentUser = await getCurrentUser();
         
         if (!currentUser) {
           if (requireAuth) {
@@ -109,7 +108,7 @@ export function usePermissions() {
       try {
         const sessionToken = getSessionToken();
         if (sessionToken) {
-          const currentUser = await getCurrentUser(sessionToken);
+          const currentUser = await getCurrentUser();
           setUser(currentUser);
         }
       } catch (error) {

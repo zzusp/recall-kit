@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken } from '@/lib/services/newAuthService';
+import { getSessionToken } from '@/lib/services/authClientService';
 import { ExperienceRecord } from '@/lib/services/experienceService';
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';

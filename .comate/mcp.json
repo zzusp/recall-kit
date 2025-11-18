@@ -1,5 +1,16 @@
 {
     "mcpServers": {
+        "supabase": {
+            "command": "cmd",
+            "args": [
+                "/c",
+                "npx",
+                "-y",
+                "@modelcontextprotocol/server-postgres",
+                "postgresql://postgres.houlidlovewcewvetvit:NGgxPwNM3K-3_9b@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+            ],
+            "disabled": true
+        },
         "context7": {
             "command": "npx",
             "args": [
@@ -8,10 +19,8 @@
             ],
             "env": {
                 "DEFAULT_MINIMUM_TOKENS": "6000"
-            }
-        },
-        "recall-kit": {
-            "url": "http://localhost:3001/mcp"
+            },
+            "disabled": false
         }
     }
 }

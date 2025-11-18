@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signOut as authSignOut, isAdmin } from '@/lib/services/authService';
-import { getSessionToken } from '@/lib/services/newAuthService';
+import { getSessionToken } from '@/lib/services/authClientService';
 
 type AIServiceType = 'openai' | 'anthropic' | 'custom';
 
@@ -29,14 +28,37 @@ export default function AdminSettingsPage() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    // 验证管理员权限
     const verifyAdmin = async () => {
-      const admin = await isAdmin();
-      if (!admin) {
-        await authSignOut();
+      try {
+        const sessionToken = getSessionToken();
+        if (!sessionToken) {
+          router.push('/admin/login');
+          return false;
+        }
+        
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+          },
+        });
+        
+        if (!response.ok) {
+          router.push('/admin/login');
+          return false;
+        }
+        
+        const user = await response.json();
+        if (!user.is_superuser) {
+          router.push('/admin/dashboard');
+          return false;
+        }
+        
+        return true;
+      } catch (error) {
         router.push('/admin/login');
         return false;
       }
-      return true;
     };
 
     verifyAdmin();
@@ -59,14 +81,17 @@ export default function AdminSettingsPage() {
         });
         if (response.ok) {
           const data = await response.json();
-          if (data.settings) {
+          if (data && typeof data === 'object') {
             // 先设置 aiServiceType
-            if (data.settings.aiServiceType) {
-              setAiServiceType(data.settings.aiServiceType);
+            if (data.aiServiceType) {
+              setAiServiceType(data.aiServiceType);
             }
             // 然后设置 aiConfig，排除 aiServiceType
-            const { aiServiceType: _, ...config } = data.settings;
-            setAiConfig(config);
+            const { aiServiceType: _, ...config } = data;
+            setAiConfig(prevConfig => ({
+              ...prevConfig,
+              ...config
+            }));
           }
         } else {
           const errorData = await response.json().catch(() => ({}));
@@ -93,10 +118,33 @@ export default function AdminSettingsPage() {
         throw new Error('未登录，请先登录');
       }
 
-      const settings = {
+      // 根据选择的AI服务类型，只保存相关的配置
+      let settings: any = {
         aiServiceType,
-        ...aiConfig
       };
+
+      // 只保存当前选择的服务类型的配置
+      if (aiServiceType === 'openai') {
+        if (aiConfig.openaiKey) settings.openaiKey = aiConfig.openaiKey;
+        if (aiConfig.openaiApiUrl && aiConfig.openaiApiUrl !== 'https://api.openai.com/v1') {
+          settings.openaiApiUrl = aiConfig.openaiApiUrl;
+        }
+        if (aiConfig.openaiModel && aiConfig.openaiModel !== 'text-embedding-3-small') {
+          settings.openaiModel = aiConfig.openaiModel;
+        }
+      } else if (aiServiceType === 'anthropic') {
+        if (aiConfig.anthropicKey) settings.anthropicKey = aiConfig.anthropicKey;
+        if (aiConfig.anthropicApiUrl && aiConfig.anthropicApiUrl !== 'https://api.anthropic.com/v1') {
+          settings.anthropicApiUrl = aiConfig.anthropicApiUrl;
+        }
+        if (aiConfig.anthropicModel && aiConfig.anthropicModel !== 'claude-3-sonnet-20240229') {
+          settings.anthropicModel = aiConfig.anthropicModel;
+        }
+      } else if (aiServiceType === 'custom') {
+        if (aiConfig.customApiKey) settings.customApiKey = aiConfig.customApiKey;
+        if (aiConfig.customApiUrl) settings.customApiUrl = aiConfig.customApiUrl;
+        if (aiConfig.customModel) settings.customModel = aiConfig.customModel;
+      }
 
       const response = await fetch('/api/admin/settings', {
         method: 'POST',

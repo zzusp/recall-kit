@@ -27,7 +27,7 @@ export class EmbeddingService {
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   /**
-   * Get AI configuration from environment variables
+   * Get AI configuration from database first, then fallback to environment variables
    */
   private async getAIConfig(): Promise<AIConfig | null> {
     // Check cache first
@@ -37,10 +37,43 @@ export class EmbeddingService {
       return this.configCache;
     }
 
-    console.log('[EmbeddingService] Loading AI config from environment variables...');
+    console.log('[EmbeddingService] Loading AI config from database...');
 
-    // For now, only use environment variables
-    // Database config can be added later if needed
+    try {
+      // Try to get config from database
+      // Note: This internal call bypasses authentication for embedding service
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/admin/settings`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Call': 'true', // Special header to bypass auth for internal calls
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[EmbeddingService] Loaded config from database:', { 
+          serviceType: data.aiServiceType,
+          hasOpenaiKey: !!data.openaiKey,
+          hasAnthropicKey: !!data.anthropicKey,
+          hasCustomKey: !!data.customApiKey
+        });
+
+        // Use database config if available
+        if (data && data.aiServiceType) {
+          this.configCache = data;
+          this.configCacheTime = now;
+          return data;
+        }
+      } else {
+        console.warn('[EmbeddingService] Failed to load config from database:', response.status);
+      }
+    } catch (error) {
+      console.warn('[EmbeddingService] Error loading config from database:', error);
+    }
+
+    console.log('[EmbeddingService] Falling back to environment variables...');
+
+    // Fallback to environment variables
     if (OPENAI_API_KEY) {
       console.log('[EmbeddingService] Using OPENAI_API_KEY from environment variables');
       const config = {
@@ -55,7 +88,7 @@ export class EmbeddingService {
       return config;
     }
 
-    console.warn('[EmbeddingService] No AI configuration found in environment variables');
+    console.warn('[EmbeddingService] No AI configuration found in environment variables or database');
     return null;
   }
 
@@ -68,7 +101,7 @@ export class EmbeddingService {
     const config = await this.getAIConfig();
     
     if (!config) {
-      const errorMsg = 'AI configuration not found. Please set OPENAI_API_KEY environment variable.';
+      const errorMsg = 'AI configuration not found. Please configure AI service in admin settings.';
       console.warn(errorMsg);
       throw new Error(errorMsg);
     }
@@ -80,8 +113,14 @@ export class EmbeddingService {
     let requestBody: any;
 
     // Determine API configuration based on service type
-    if (config.openaiKey && config.openaiApiUrl && config.openaiModel) {
+    if (serviceType === 'openai') {
       // OpenAI or OpenAI-compatible API
+      if (!config.openaiKey || !config.openaiApiUrl || !config.openaiModel) {
+        const errorMsg = `Incomplete OpenAI configuration. Please check your settings.`;
+        console.warn(errorMsg, { hasKey: !!config.openaiKey, hasApiUrl: !!config.openaiApiUrl, hasModel: !!config.openaiModel });
+        throw new Error(errorMsg);
+      }
+      
       apiUrl = config.openaiApiUrl.endsWith('/embeddings')
         ? config.openaiApiUrl
         : `${config.openaiApiUrl.replace(/\/$/, '')}/embeddings`;
@@ -92,9 +131,40 @@ export class EmbeddingService {
         model,
         input: text.trim()
       };
+    } else if (serviceType === 'anthropic') {
+      // Anthropic API (Note: Anthropic doesn't have a dedicated embeddings API, so we need to use a different approach)
+      if (!config.anthropicKey || !config.anthropicApiUrl || !config.anthropicModel) {
+        const errorMsg = `Incomplete Anthropic configuration. Please check your settings.`;
+        console.warn(errorMsg, { hasKey: !!config.anthropicKey, hasApiUrl: !!config.anthropicApiUrl, hasModel: !!config.anthropicModel });
+        throw new Error(errorMsg);
+      }
+      
+      // Anthropic doesn't have embeddings API, so we'll use an OpenAI-compatible fallback or custom implementation
+      // For now, we'll fall back to OpenAI format with a warning
+      console.warn('[EmbeddingService] Anthropic doesn\'t have a dedicated embeddings API. Consider using OpenAI or a custom service.');
+      throw new Error('Anthropic does not provide embeddings API. Please use OpenAI or custom service for embeddings.');
+    } else if (serviceType === 'custom') {
+      // Custom API
+      if (!config.customApiKey || !config.customApiUrl || !config.customModel) {
+        const errorMsg = `Incomplete custom service configuration. Please check your settings.`;
+        console.warn(errorMsg, { hasKey: !!config.customApiKey, hasApiUrl: !!config.customApiUrl, hasModel: !!config.customModel });
+        throw new Error(errorMsg);
+      }
+      
+      // Assume custom API follows OpenAI format for embeddings
+      apiUrl = config.customApiUrl.endsWith('/embeddings')
+        ? config.customApiUrl
+        : `${config.customApiUrl.replace(/\/$/, '')}/embeddings`;
+      apiKey = config.customApiKey;
+      model = config.customModel;
+      console.log('[EmbeddingService] Using custom service:', { apiUrl, model });
+      requestBody = {
+        model,
+        input: text.trim()
+      };
     } else {
-      const errorMsg = `Incomplete AI configuration for service type: ${serviceType}. Please check your settings. Available: openai=${!!(config.openaiKey && config.openaiApiUrl && config.openaiModel)}`;
-      console.warn(errorMsg, config);
+      const errorMsg = `Unsupported service type: ${serviceType}. Please use 'openai' or 'custom'.`;
+      console.warn(errorMsg, { serviceType, config });
       throw new Error(errorMsg);
     }
 
@@ -145,7 +215,7 @@ export class EmbeddingService {
       
       console.log('[EmbeddingService] Extracted embedding:', {
         dimensions: embedding.length,
-        firstFew: embedding.slice(0, 5)
+        firstValue: embedding[0] // Only log first value instead of first few
       });
       
       return embedding;
@@ -217,6 +287,17 @@ export class EmbeddingService {
       return false;
     }
 
-    return !!(config.openaiKey && config.openaiApiUrl && config.openaiModel);
+    const serviceType = config.aiServiceType || 'openai';
+    
+    if (serviceType === 'openai') {
+      return !!(config.openaiKey && config.openaiApiUrl && config.openaiModel);
+    } else if (serviceType === 'custom') {
+      return !!(config.customApiKey && config.customApiUrl && config.customModel);
+    } else if (serviceType === 'anthropic') {
+      // Anthropic doesn't support embeddings, so always return false
+      return false;
+    }
+    
+    return false;
   }
 }

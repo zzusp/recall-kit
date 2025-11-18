@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ExperienceService } from '@/lib/services/experienceService';
 import { ExperienceRecord } from '@/lib/services/experienceService';
 import Link from 'next/link';
 
@@ -11,17 +10,50 @@ export default function ListPage() {
   const [experiences, setExperiences] = useState<ExperienceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 增加查看次数的函数
+  const incrementViewCount = async (experienceId: string) => {
+    try {
+      const response = await fetch(`/api/experiences/${experienceId}/view`, {
+        method: 'POST',
+        cache: 'no-store'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        return result.success ? result.data?.newCount || 0 : 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Failed to increment view count:', error);
+      return 0;
+    }
+  };
+
   useEffect(() => {
     const loadExperiences = async () => {
       setIsLoading(true);
       try {
-        const experienceService = new ExperienceService();
-        const result = await experienceService.queryExperiences({
-          keywords: activeTag ? [activeTag] : [],
-          limit: 12,
+        const params = new URLSearchParams({
+          keywords: activeTag || '',
+          limit: '12',
           sort: 'relevance'
         });
-        setExperiences(result.experiences || []);
+
+        const response = await fetch(`/api/experiences?${params.toString()}`, {
+          cache: 'no-store'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch experiences');
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success || !result.data) {
+          throw new Error('Invalid response format');
+        }
+        
+        setExperiences(result.data.experiences || []);
       } catch (error) {
         console.error('Failed to load experiences:', error);
         setExperiences([]);
@@ -77,7 +109,15 @@ export default function ListPage() {
           <div className="feature-grid">
             {experiences.length > 0 ? (
               experiences.map(experience => (
-                <div key={experience.id} className="feature-card">
+                <div 
+                  key={experience.id} 
+                  className="feature-card cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                  onClick={async () => {
+                    // 在跳转前增加查看次数
+                    await incrementViewCount(experience.id);
+                    window.location.href = `/experience/${experience.id}`;
+                  }}
+                >
                   <div className="feature-title">
                     <i className="fas fa-file-alt text-blue-600 mr-2"></i>
                     {experience.title}

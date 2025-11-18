@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken } from '@/lib/services/newAuthService';
+import { getSessionToken } from '@/lib/services/authClientService';
 import Link from 'next/link';
 
 export default function AdminDashboardPage() {
@@ -24,7 +24,9 @@ export default function AdminDashboardPage() {
       try {
         // Get session token
         const sessionToken = getSessionToken();
+        console.log('Dashboard: sessionToken:', sessionToken ? 'found' : 'missing');
         if (!sessionToken) {
+          console.log('Dashboard: No session token, redirecting to login');
           router.push('/admin/login');
           return;
         }

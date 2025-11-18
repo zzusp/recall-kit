@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { usePermissions } from '@/components/auth/PermissionGuard';
-import { logout, removeSessionToken } from '@/lib/services/newAuthService';
+import { logout, removeSessionToken } from '@/lib/services/authClientService';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -12,11 +12,7 @@ export default function Sidebar() {
 
   const handleSignOut = async () => {
     try {
-      const sessionToken = localStorage.getItem('session_token');
-      if (sessionToken) {
-        await logout(sessionToken);
-      }
-      removeSessionToken();
+      await logout();
       router.push('/admin/login');
       router.refresh();
     } catch (error) {

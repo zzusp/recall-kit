@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, setSessionToken } from '@/lib/services/newAuthService';
+import { login, setSessionToken, getSessionToken } from '@/lib/services/authClientService';
 
 export default function AdminLogin() {
   const [credentials, setCredentials] = useState({
@@ -20,7 +20,9 @@ export default function AdminLogin() {
 
     try {
       const { user, sessionToken } = await login(credentials);
+      console.log('Login successful, sessionToken:', sessionToken ? 'received' : 'missing');
       setSessionToken(sessionToken);
+      console.log('Session token set, checking if stored:', getSessionToken() ? 'stored' : 'not stored');
       router.push('/admin/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
@@ -37,78 +39,199 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-            <i className="fas fa-shield-alt text-blue-600 text-xl"></i>
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            管理员登录
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            使用管理员账户登录系统
-          </p>
-        </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
+    <div className="min-h-screen" style={{ 
+      background: 'linear-gradient(135deg, rgb(102, 126, 234) 0%, rgb(118, 75, 162) 100%)'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        padding: '2rem'
+      }}>
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          boxShadow: 'rgba(0, 0, 0, 0.3) 0px 20px 60px',
+          padding: '3rem',
+          maxWidth: '450px',
+          width: '100%',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '0px',
+            right: '0px',
+            width: '200px',
+            height: '200px',
+            background: 'linear-gradient(135deg, rgba(67, 97, 238, 0.1), rgba(76, 201, 240, 0.1))',
+            borderRadius: '50%',
+            transform: 'translate(30%, -30%)',
+            zIndex: '0'
+          }}></div>
           
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                用户名
-              </label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                value={credentials.username}
-                onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="请输入用户名"
-              />
+          <div style={{ position: 'relative', zIndex: '1' }}>
+            <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                margin: '0px auto 1.5rem',
+                background: 'linear-gradient(135deg, rgb(67, 97, 238), rgb(76, 201, 240))',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 'rgba(67, 97, 238, 0.3) 0px 8px 24px'
+              }}>
+                <i className="fas fa-shield-alt" style={{ fontSize: '2rem', color: 'white' }}></i>
+              </div>
+              <h1 style={{ fontSize: '1.875rem', fontWeight: '700', color: 'rgb(30, 41, 59)', marginBottom: '0.5rem' }}>
+                管理员登录
+              </h1>
+              <p style={{ fontSize: '0.875rem', color: 'rgb(100, 116, 139)' }}>
+                请输入您的凭据以访问管理后台
+              </p>
             </div>
-            
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                密码
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={credentials.password}
-                onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="请输入密码"
-              />
-            </div>
-          </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <i className="fas fa-spinner fa-spin mr-2"></i>
-                  登录中...
-                </>
-              ) : (
-                '登录'
-              )}
-            </button>
+            {error && (
+              <div style={{
+                background: '#fee2e2',
+                borderColor: '#fecaca',
+                marginBottom: '1.5rem',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid'
+              }}>
+                <div style={{ color: '#991b1b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <i className="fas fa-exclamation-circle"></i>
+                  <span>{error}</span>
+                </div>
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: 'rgb(51, 65, 85)', fontSize: '0.875rem' }}>
+                  邮箱或用户名
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <i className="fas fa-user" style={{
+                    position: 'absolute',
+                    left: '1rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'rgb(148, 163, 184)'
+                  }}></i>
+                  <input
+                    required
+                    placeholder="邮箱地址或用户名"
+                    type="text"
+                    name="username"
+                    value={credentials.username}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem 0.75rem 2.75rem',
+                      border: '1px solid rgb(226, 232, 240)',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      transition: '0.2s',
+                      background: 'rgb(248, 250, 252)',
+                      boxShadow: 'none'
+                    }}
+                  />
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: 'rgb(51, 65, 85)', fontSize: '0.875rem' }}>
+                  密码
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <i className="fas fa-lock" style={{
+                    position: 'absolute',
+                    left: '1rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'rgb(148, 163, 184)'
+                  }}></i>
+                  <input
+                    required
+                    placeholder="••••••••"
+                    type="password"
+                    name="password"
+                    value={credentials.password}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem 0.75rem 2.75rem',
+                      border: '1px solid rgb(226, 232, 240)',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      transition: '0.2s',
+                      background: 'rgb(248, 250, 252)'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '2rem',
+                fontSize: '0.875rem'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgb(100, 116, 139)', cursor: 'pointer' }}>
+                  <input type="checkbox" style={{ cursor: 'pointer' }} />
+                  <span>记住我</span>
+                </label>
+                <a href="#" style={{ color: 'rgb(67, 97, 238)', textDecoration: 'none', fontWeight: '500' }}>
+                  忘记密码？
+                </a>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '0.875rem',
+                  background: 'linear-gradient(135deg, rgb(67, 97, 238), rgb(76, 201, 240))',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: '0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  boxShadow: 'rgba(67, 97, 238, 0.3) 0px 4px 12px',
+                  transform: 'translateY(0px)',
+                  opacity: loading ? 0.6 : 1
+                }}
+              >
+                <i className="fas fa-sign-in-alt"></i>
+                <span>{loading ? '登录中...' : '登录'}</span>
+              </button>
+            </form>
+
+            <div style={{
+              textAlign: 'center',
+              marginTop: '2rem',
+              paddingTop: '2rem',
+              borderTop: '1px solid rgb(226, 232, 240)',
+              fontSize: '0.875rem',
+              color: 'rgb(100, 116, 139)'
+            }}>
+              需要帮助？请联系系统管理员
+            </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,19 @@
+import { User, Role, Permission } from '@/types/database';
 import { db } from '../db/client';
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  roles: Role[];
+  permissions: Permission[];
+  is_superuser: boolean;
+}
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
 
 export interface UserProfile {
   id: string;
@@ -8,6 +23,155 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+}
+
+// Server-side authentication functions
+
+// Session management
+export async function login(credentials: LoginCredentials): Promise<{ user: AuthUser; sessionToken: string }> {
+  // Get user by username
+  const userResult = await db.query(
+    'SELECT * FROM users WHERE username = $1 AND is_active = true',
+    [credentials.username]
+  );
+
+  if (userResult.rows.length === 0) {
+    throw new Error('用户名或密码错误');
+  }
+
+  const user = userResult.rows[0];
+
+  // TODO: Implement proper password verification
+  // For now, just compare the hash (you should use bcrypt)
+  if (user.password_hash !== credentials.password) {
+    throw new Error('用户名或密码错误');
+  }
+
+  // Get user roles and permissions
+  const userRolesResult = await db.query(`
+    SELECT r.id, r.name, r.description, r.is_system_role
+    FROM roles r
+    JOIN user_roles ur ON r.id = ur.role_id
+    WHERE ur.user_id = $1
+  `, [user.id]);
+
+  const roles = userRolesResult.rows;
+
+  // Get permissions from roles
+  let permissions: Permission[] = [];
+  if (roles.length > 0) {
+    const roleIds = roles.map(r => r.id);
+    const rolePermissionsResult = await db.query(`
+      SELECT p.id, p.name, p.resource, p.action, p.description
+      FROM permissions p
+      JOIN role_permissions rp ON p.id = rp.permission_id
+      WHERE rp.role_id = ANY($1)
+    `, [roleIds]);
+
+    permissions = rolePermissionsResult.rows;
+  }
+
+  // Create session
+  const sessionToken = generateSessionToken();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+
+  await db.query(
+    'INSERT INTO user_sessions (user_id, session_token, expires_at) VALUES ($1, $2, $3)',
+    [user.id, sessionToken, expiresAt.toISOString()]
+  );
+
+  // Update last login
+  await db.query(
+    'UPDATE users SET last_login_at = $1 WHERE id = $2',
+    [new Date().toISOString(), user.id]
+  );
+
+  const authUser: AuthUser = {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    roles,
+    permissions,
+    is_superuser: user.is_superuser
+  };
+
+  return { user: authUser, sessionToken };
+}
+
+export async function logout(sessionToken: string): Promise<void> {
+  await db.query(
+    'DELETE FROM user_sessions WHERE session_token = $1',
+    [sessionToken]
+  );
+}
+
+export async function getCurrentUser(sessionToken: string): Promise<AuthUser | null> {
+  // Validate session
+  const sessionResult = await db.query(
+    'SELECT user_id, expires_at FROM user_sessions WHERE session_token = $1',
+    [sessionToken]
+  );
+
+  if (sessionResult.rows.length === 0) {
+    return null;
+  }
+
+  const session = sessionResult.rows[0];
+
+  // Check if session is expired
+  if (new Date(session.expires_at) < new Date()) {
+    await db.query(
+      'DELETE FROM user_sessions WHERE session_token = $1',
+      [sessionToken]
+    );
+    return null;
+  }
+
+  // Get user details
+  const userResult = await db.query(
+    'SELECT * FROM users WHERE id = $1 AND is_active = true',
+    [session.user_id]
+  );
+
+  if (userResult.rows.length === 0) {
+    return null;
+  }
+
+  const user = userResult.rows[0];
+
+  // Get user roles and permissions
+  const userRolesResult = await db.query(`
+    SELECT r.id, r.name, r.description, r.is_system_role
+    FROM roles r
+    JOIN user_roles ur ON r.id = ur.role_id
+    WHERE ur.user_id = $1
+  `, [user.id]);
+
+  const roles = userRolesResult.rows;
+
+  // Get permissions from roles
+  let permissions: Permission[] = [];
+  if (roles.length > 0) {
+    const roleIds = roles.map(r => r.id);
+    const rolePermissionsResult = await db.query(`
+      SELECT p.id, p.name, p.resource, p.action, p.description
+      FROM permissions p
+      JOIN role_permissions rp ON p.id = rp.permission_id
+      WHERE rp.role_id = ANY($1)
+    `, [roleIds]);
+
+    permissions = rolePermissionsResult.rows;
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    roles,
+    permissions,
+    is_superuser: user.is_superuser
+  };
 }
 
 /**
@@ -65,33 +229,11 @@ export async function getCurrentSession() {
 }
 
 /**
- * 获取当前用户信息
- */
-export async function getCurrentUser() {
-  const session = await getCurrentSession();
-  if (!session) {
-    return null;
-  }
-  
-  try {
-    const result = await db.query(
-      'SELECT id, username, email FROM users WHERE id = $1 AND is_active = true',
-      [session.user.id]
-    );
-    
-    return result.rows.length > 0 ? result.rows[0] : null;
-  } catch (error) {
-    console.error('Error getting current user:', error);
-    return null;
-  }
-}
-
-/**
  * 获取当前用户资料（包含角色信息）
  */
 export async function getCurrentUserProfile(): Promise<UserProfile | null> {
-  const user = await getCurrentUser();
-  if (!user) {
+  const session = await getCurrentSession();
+  if (!session) {
     return null;
   }
 
@@ -103,7 +245,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
       LEFT JOIN user_roles ur ON u.id = ur.user_id
       LEFT JOIN roles r ON ur.role_id = r.id
       WHERE u.id = $1 AND u.is_active = true
-    `, [user.id]);
+    `, [session.user.id]);
 
     if (result.rows.length === 0) {
       return null;
@@ -122,86 +264,6 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
 export async function isAdmin(): Promise<boolean> {
   const profile = await getCurrentUserProfile();
   return profile?.role === 'admin';
-}
-
-/**
- * 登录
- */
-export async function signIn(username: string, password: string) {
-  try {
-    const result = await db.query(
-      'SELECT * FROM users WHERE username = $1 AND is_active = true',
-      [username]
-    );
-
-    if (result.rows.length === 0) {
-      throw new Error('用户名或密码错误');
-    }
-
-    const user = result.rows[0];
-
-    // TODO: Implement proper password verification
-    // For now, just compare the hash (you should use bcrypt)
-    if (user.password_hash !== password) {
-      throw new Error('用户名或密码错误');
-    }
-
-    // Create session
-    const sessionToken = generateSessionToken();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
-
-    await db.query(
-      'INSERT INTO user_sessions (user_id, session_token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, sessionToken, expiresAt.toISOString()]
-    );
-
-    // Update last login
-    await db.query(
-      'UPDATE users SET last_login_at = $1 WHERE id = $2',
-      [new Date().toISOString(), user.id]
-    );
-
-    // Store session token in localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('session_token', sessionToken);
-    }
-
-    return {
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      },
-      session: {
-        access_token: sessionToken,
-        expires_at: expiresAt.toISOString()
-      }
-    };
-  } catch (error) {
-    console.error('Sign in error:', error);
-    throw error;
-  }
-}
-
-/**
- * 登出
- */
-export async function signOut() {
-  if (typeof window !== 'undefined') {
-    const sessionToken = localStorage.getItem('session_token');
-    if (sessionToken) {
-      try {
-        await db.query(
-          'DELETE FROM user_sessions WHERE session_token = $1',
-          [sessionToken]
-        );
-      } catch (error) {
-        console.error('Error removing session:', error);
-      }
-      localStorage.removeItem('session_token');
-    }
-  }
 }
 
 /**
@@ -245,7 +307,32 @@ export async function updateLastLoginTime(userId: string) {
   }
 }
 
-// Helper function
+// Permission checking
+export function hasPermission(user: AuthUser, resource: string, action: string): boolean {
+  if (user.is_superuser) {
+    return true;
+  }
+
+  return user.permissions.some(
+    permission => permission.resource === resource && permission.action === action
+  );
+}
+
+export function hasAnyPermission(user: AuthUser, permissions: Array<{ resource: string; action: string }>): boolean {
+  if (user.is_superuser) {
+    return true;
+  }
+
+  return permissions.some(({ resource, action }) => 
+    hasPermission(user, resource, action)
+  );
+}
+
+export function hasRole(user: AuthUser, roleName: string): boolean {
+  return user.roles.some(role => role.name === roleName);
+}
+
+// Helper functions
 function generateSessionToken(): string {
   return Array.from({ length: 32 }, () => 
     Math.random().toString(36).charAt(2)

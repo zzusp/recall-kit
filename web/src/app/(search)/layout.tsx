@@ -14,7 +14,7 @@ export default function SearchLayout({
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200">
       <Header />
-      <main>{children}</main>
+      <main className="pt-16">{children}</main>
     </div>
   )
 }

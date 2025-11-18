@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
-import { getCurrentUser, hasRole } from '@/lib/services/newAuthService';
+import { getCurrentUser, hasRole } from '@/lib/services/authService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!hasRole(user, 'admin')) {
+    // Check if user is admin or superuser
+    if (!hasRole(user, 'admin') && !user.is_superuser) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
@@ -63,14 +64,16 @@ export async function GET(request: NextRequest) {
     );
     const total = parseInt(countResult.rows[0].total);
 
-    // Get experiences with keywords
+    // Get experiences with keywords, excluding embedding field
     const experiencesResult = await db.query(`
-      SELECT er.*,
+      SELECT er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
+             er.solution, er.context, er.status, er.query_count, er.view_count, 
+             er.relevance_score, er.created_at, er.updated_at, er.deleted_at,
              COALESCE(
                json_agg(
                  CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
                ) FILTER (WHERE ek.keyword IS NOT NULL), 
-               ARRAY[]::text[]
+               '[]'::json
              ) as keywords
       FROM experience_records er
       LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
@@ -125,7 +128,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!hasRole(user, 'admin')) {
+    // Check if user is admin or superuser
+    if (!hasRole(user, 'admin') && !user.is_superuser) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
@@ -147,7 +151,9 @@ export async function POST(request: NextRequest) {
       `INSERT INTO experience_records 
        (title, problem_description, solution, root_cause, context, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-       RETURNING *`,
+       RETURNING id, user_id, title, problem_description, root_cause, 
+                solution, context, status, query_count, view_count, 
+                relevance_score, created_at, updated_at, deleted_at`,
       [title, problem_description, solution, root_cause, context, status]
     );
 

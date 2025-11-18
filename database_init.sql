@@ -412,7 +412,7 @@ INSERT INTO users (
   gen_random_uuid(),
   'admin',
   'admin@example.com',
-  '$2a$10$IfV1yqANN8ledqbKlBc.y.j1kecXJnZJaQIuNjxIy8CMJk0oEu0E6', -- TODO: In production, use proper password hashing (bcrypt)
+  '$2a$10$SHxaHwGyix3SOLWoocthTOotxFe7LUUgY8zRXSqRFPVL7JJCCs6Hy', -- TODO: In production, use proper password hashing (bcrypt)
   true,
   true,
   NOW(),

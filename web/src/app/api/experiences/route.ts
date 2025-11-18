@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { ExperienceService } from '@/lib/services/experienceService';
-import { db } from '@/lib/db/client';
+import { ApiRouteResponse, ErrorResponses } from '@/lib/utils/apiResponse';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,13 +23,12 @@ export async function GET(request: NextRequest) {
       useVectorSearch
     });
 
-    return NextResponse.json(result);
+    // 使用统一响应格式
+    return ApiRouteResponse.success(result);
   } catch (error) {
     console.error('Error in experiences API:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch experiences' },
-      { status: 500 }
-    );
+    return ApiRouteResponse.internalError('Failed to fetch experiences', 
+      process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }
 
@@ -40,12 +39,19 @@ export async function POST(request: NextRequest) {
     // TODO: Add proper validation
     const { title, problem_description, solution, root_cause, context, keywords } = body;
 
+    // 验证必填字段
+    if (!title || !problem_description || !solution) {
+      return ApiRouteResponse.badRequest('Title, problem description, and solution are required');
+    }
+
     // Insert new experience
     const result = await db.query(
       `INSERT INTO experience_records 
        (title, problem_description, solution, root_cause, context, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, 'published', NOW(), NOW())
-       RETURNING *`,
+       RETURNING id, user_id, title, problem_description, root_cause, 
+                solution, context, status, query_count, view_count, 
+                relevance_score, created_at, updated_at, deleted_at`,
       [title, problem_description, solution, root_cause, context]
     );
 
@@ -62,12 +68,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(experience);
+    return ApiRouteResponse.success(experience, 'Experience created successfully', 201);
   } catch (error) {
     console.error('Error creating experience:', error);
-    return NextResponse.json(
-      { error: 'Failed to create experience' },
-      { status: 500 }
-    );
+    return ApiRouteResponse.internalError('Failed to create experience', 
+      process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }

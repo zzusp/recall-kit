@@ -86,7 +86,9 @@ export class ExperienceService {
     // Fallback to traditional text search using PostgreSQL
     let sql = `
       SELECT 
-        er.*,
+        er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
+        er.solution, er.context, er.status, er.query_count, er.view_count, 
+        er.relevance_score, er.created_at, er.updated_at, er.deleted_at,
         COALESCE(
           json_agg(
             CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
@@ -201,7 +203,9 @@ export class ExperienceService {
   async getExperienceById(id: string): Promise<ExperienceRecord | null> {
     const sql = `
       SELECT 
-        er.*,
+        er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
+        er.solution, er.context, er.status, er.query_count, er.view_count, 
+        er.relevance_score, er.created_at, er.updated_at, er.deleted_at,
         COALESCE(
           json_agg(
             CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
@@ -284,7 +288,7 @@ export class ExperienceService {
 
       console.log('[ExperienceService] Generated query embedding:', {
         dimensions: queryEmbedding.length,
-        firstFew: queryEmbedding.slice(0, 5)
+        firstValue: queryEmbedding[0] // Only log first value instead of first few
       });
 
       // First, check how many experiences have embeddings
@@ -308,17 +312,17 @@ export class ExperienceService {
       let vectorResults: any[] = [];
       
       try {
-        const vectorResult = await db.query(
-          'SELECT * FROM match_experiences_by_embedding($1, $2, $3)',
-          [queryEmbedding, matchThreshold, limit + offset]
-        );
+      const vectorResult = await db.query(
+        'SELECT * FROM match_experiences_by_embedding($1, $2, $3)',
+        [`[${queryEmbedding.join(',')}]`, matchThreshold, limit + offset] // Convert to JSON array string
+      );
         vectorResults = vectorResult.rows;
       } catch (error) {
         console.log('[ExperienceService] No results from vector search. Trying with lower threshold (0.1)...');
         try {
           const lowThresholdResult = await db.query(
             'SELECT * FROM match_experiences_by_embedding($1, $2, $3)',
-            [queryEmbedding, 0.1, limit + offset]
+            [`[${queryEmbedding.join(',')}]`, 0.1, limit + offset] // Convert to JSON array string
           );
           vectorResults = lowThresholdResult.rows;
           console.log('[ExperienceService] Found results with lower threshold (0.1):', {
@@ -354,12 +358,15 @@ export class ExperienceService {
         keywordsMap.get(item.experience_id)!.push(item.keyword);
       });
 
-      // Transform results
-      return paginatedData.map((record: any) => ({
-        ...record,
-        keywords: keywordsMap.get(record.id) || [],
-        similarity: record.similarity
-      })) as ExperienceRecord[];
+      // Transform results and remove embedding field
+      return paginatedData.map((record: any) => {
+        const { embedding, ...recordWithoutEmbedding } = record;
+        return {
+          ...recordWithoutEmbedding,
+          keywords: keywordsMap.get(record.id) || [],
+          similarity: record.similarity
+        };
+      }) as ExperienceRecord[];
     } catch (error) {
       console.error('Error in vector search:', error);
       return [];
@@ -398,22 +405,21 @@ export class ExperienceService {
         console.error('Generated embedding is empty');
         return false;
       }
-
       console.log(`Generated embedding with ${embedding.length} dimensions for experience ${experienceId}`);
 
-      // Update the embedding in database
+      // Update embedding in database
       try {
         // Try RPC function first
         await db.query(
           'SELECT update_experience_embedding($1, $2)',
-          [experienceId, embedding]
+          [experienceId, `[${embedding.join(',')}]`] // Convert to JSON array string for PostgreSQL vector type
         );
       } catch (rpcError) {
         console.warn('RPC update failed, trying direct update:', rpcError);
         // Fallback to direct update
         await db.query(
           'UPDATE experience_records SET embedding = $1, has_embedding = true, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-          [embedding, experienceId]
+          [`[${embedding.join(',')}]`, experienceId] // Convert to JSON array string for PostgreSQL vector type
         );
       }
 

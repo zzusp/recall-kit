@@ -86,96 +86,158 @@ function PermissionsManagementContent() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">权限管理</h1>
+    <div className="admin-content">
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">权限管理</h1>
+          <p className="admin-page-subtitle">管理系统权限和角色分配</p>
+        </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          className="admin-btn admin-btn-primary"
         >
+          <i className="fas fa-plus"></i>
           新建权限
         </button>
       </div>
 
-      <div className="mb-4 flex gap-4">
-        <div className="flex-1 max-w-md">
-          <input
-            type="text"
-            placeholder="搜索权限名称、资源或操作..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-4 py-2 border rounded"
-          />
+      <div className="admin-card">
+        <div className="mb-6">
+          <div className="flex gap-4 items-center">
+            <div className="relative flex-1 max-w-md">
+              <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none z-10"></i>
+              <input
+                type="text"
+                placeholder="搜索权限名称、资源或操作..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{ paddingLeft: '2.5rem' }}
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={resourceFilter}
+                onChange={(e) => setResourceFilter(e.target.value)}
+                className="admin-form-select appearance-none pr-10"
+              >
+                <option value="">所有资源</option>
+                {resources.map(resource => (
+                  <option key={resource} value={resource}>{resource}</option>
+                ))}
+              </select>
+              <i className="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+            </div>
+          </div>
         </div>
-        <select
-          value={resourceFilter}
-          onChange={(e) => setResourceFilter(e.target.value)}
-          className="px-4 py-2 border rounded"
-        >
-          <option value="">所有资源</option>
-          {resources.map(resource => (
-            <option key={resource} value={resource}>{resource}</option>
-          ))}
-        </select>
-      </div>
 
-      {loading ? (
-        <div className="text-center py-8">加载中...</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="px-4 py-2 border text-left">权限名称</th>
-                <th className="px-4 py-2 border text-left">资源</th>
-                <th className="px-4 py-2 border text-left">操作</th>
-                <th className="px-4 py-2 border text-left">描述</th>
-                <th className="px-4 py-2 border text-left">分配角色</th>
-                <th className="px-4 py-2 border text-left">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {permissions.map((permission) => (
-                <tr key={permission.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 border font-medium">{permission.name}</td>
-                  <td className="px-4 py-2 border">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                      {permission.resource}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 border">
-                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
-                      {permission.action}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 border">{permission.description || '-'}</td>
-                  <td className="px-4 py-2 border">
-                    <div className="text-sm">
-                      <div>{getRolesString(permission)}</div>
-                      <div className="text-gray-500">({permission.roles_count} 个角色)</div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 border">
-                    <button
-                      onClick={() => setEditingPermission(permission)}
-                      className="text-blue-500 hover:text-blue-700 mr-2"
-                    >
-                      编辑
-                    </button>
-                    <button
-                      onClick={() => handleDeletePermission(permission.id)}
-                      disabled={permission.roles_count > 0}
-                      className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      删除
-                    </button>
-                  </td>
+        {loading ? (
+          <div className="admin-empty-state">
+            <div className="admin-loading-spinner">
+              <i className="fas fa-spinner fa-spin"></i>
+            </div>
+            <div className="admin-empty-state-title">加载权限数据中...</div>
+            <div className="admin-empty-state-description">请稍候片刻</div>
+          </div>
+        ) : permissions.length === 0 ? (
+          <div className="admin-empty-state">
+            <div className="admin-empty-state-icon">
+              <i className="fas fa-key"></i>
+            </div>
+            <div className="admin-empty-state-title">暂无权限数据</div>
+            <div className="admin-empty-state-description">
+              {search || resourceFilter ? '没有找到匹配的权限' : '点击"新建权限"创建第一个权限'}
+            </div>
+            {!search && !resourceFilter && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="admin-btn admin-btn-primary mt-4"
+              >
+                <i className="fas fa-plus"></i>
+                新建权限
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>权限信息</th>
+                  <th>资源与操作</th>
+                  <th>分配角色</th>
+                  <th>操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {permissions.map((permission) => (
+                  <tr key={permission.id}>
+                    <td>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-green-500 to-teal-600 flex items-center justify-center text-white font-semibold">
+                          <i className="fas fa-key"></i>
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{permission.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {permission.description || '暂无描述'}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex flex-col space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="admin-badge admin-badge-info">
+                            <i className="fas fa-database mr-1"></i>
+                            {permission.resource}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="admin-badge admin-badge-success">
+                            <i className="fas fa-cog mr-1"></i>
+                            {permission.action}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="text-sm">
+                        <div className="font-medium text-gray-900 mb-1">
+                          {getRolesString(permission)}
+                        </div>
+                        <div className="text-gray-500">
+                          {permission.roles_count} 个角色
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => setEditingPermission(permission)}
+                          className="admin-btn admin-btn-outline admin-btn-sm"
+                        >
+                          <i className="fas fa-edit"></i>
+                          编辑
+                        </button>
+                        <button
+                          onClick={() => handleDeletePermission(permission.id)}
+                          disabled={permission.roles_count > 0}
+                          className="admin-btn admin-btn-danger admin-btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={permission.roles_count > 0 ? "该权限已分配给角色，不能删除" : "删除权限"}
+                        >
+                          <i className="fas fa-trash"></i>
+                          删除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* 创建/编辑权限模态框 */}
       {(showCreateModal || editingPermission) && (
@@ -252,97 +314,144 @@ function PermissionModal({ permission, onClose, onSave }: PermissionModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">
-          {permission ? '编辑权限' : '新建权限'}
-        </h2>
-
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">权限名称</label>
-            <input
-              type="text"
-              required
-              placeholder="例如：users.view"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">资源</label>
-            <select
-              required
-              value={formData.resource}
-              onChange={(e) => setFormData(prev => ({ ...prev, resource: e.target.value }))}
-              className="w-full px-3 py-2 border rounded"
-            >
-              <option value="">选择资源</option>
-              {commonResources.map(resource => (
-                <option key={resource} value={resource}>{resource}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="或输入自定义资源"
-              value={formData.resource}
-              onChange={(e) => setFormData(prev => ({ ...prev, resource: e.target.value }))}
-              className="w-full px-3 py-2 border rounded mt-2"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">操作</label>
-            <select
-              required
-              value={formData.action}
-              onChange={(e) => setFormData(prev => ({ ...prev, action: e.target.value }))}
-              className="w-full px-3 py-2 border rounded"
-            >
-              <option value="">选择操作</option>
-              {commonActions.map(action => (
-                <option key={action} value={action}>{action}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="或输入自定义操作"
-              value={formData.action}
-              onChange={(e) => setFormData(prev => ({ ...prev, action: e.target.value }))}
-              className="w-full px-3 py-2 border rounded mt-2"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">描述</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 border rounded"
-              rows={3}
-              placeholder="描述这个权限的作用..."
-            />
-          </div>
-
-          <div className="flex justify-end space-x-2">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-green-500 to-teal-600 flex items-center justify-center">
+                <i className={`fas ${permission ? 'fa-edit' : 'fa-plus'} text-white`}></i>
+              </div>
+              {permission ? '编辑权限' : '新建权限'}
+            </h2>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border rounded hover:bg-gray-50"
+              className="text-gray-400 hover:text-gray-600 transition-colors"
             >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-            >
-              {loading ? '保存中...' : '保存'}
+              <i className="fas fa-times text-xl"></i>
             </button>
           </div>
-        </form>
+
+          <form onSubmit={handleSubmit}>
+            <div className="admin-form-group">
+              <label className="admin-form-label flex items-center gap-2">
+                <i className="fas fa-key text-gray-400"></i>
+                权限名称
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="例如：users.view"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                className="admin-form-input"
+              />
+            </div>
+
+            <div className="admin-form-group">
+              <label className="admin-form-label flex items-center gap-2">
+                <i className="fas fa-database text-gray-400"></i>
+                资源
+              </label>
+              <div className="space-y-2">
+                <div className="relative">
+                  <select
+                    required
+                    value={formData.resource}
+                    onChange={(e) => setFormData(prev => ({ ...prev, resource: e.target.value }))}
+                    className="admin-form-select appearance-none pr-10"
+                  >
+                    <option value="">选择资源</option>
+                    {commonResources.map(resource => (
+                      <option key={resource} value={resource}>{resource}</option>
+                    ))}
+                  </select>
+                  <i className="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                </div>
+                <input
+                  type="text"
+                  placeholder="或输入自定义资源"
+                  value={formData.resource}
+                  onChange={(e) => setFormData(prev => ({ ...prev, resource: e.target.value }))}
+                  className="admin-form-input"
+                />
+              </div>
+            </div>
+
+            <div className="admin-form-group">
+              <label className="admin-form-label flex items-center gap-2">
+                <i className="fas fa-cog text-gray-400"></i>
+                操作
+              </label>
+              <div className="space-y-2">
+                <div className="relative">
+                  <select
+                    required
+                    value={formData.action}
+                    onChange={(e) => setFormData(prev => ({ ...prev, action: e.target.value }))}
+                    className="admin-form-select appearance-none pr-10"
+                  >
+                    <option value="">选择操作</option>
+                    {commonActions.map(action => (
+                      <option key={action} value={action}>{action}</option>
+                    ))}
+                  </select>
+                  <i className="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                </div>
+                <input
+                  type="text"
+                  placeholder="或输入自定义操作"
+                  value={formData.action}
+                  onChange={(e) => setFormData(prev => ({ ...prev, action: e.target.value }))}
+                  className="admin-form-input"
+                />
+              </div>
+            </div>
+
+            <div className="admin-form-group">
+              <label className="admin-form-label flex items-center gap-2">
+                <i className="fas fa-align-left text-gray-400"></i>
+                描述
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                className="admin-form-input resize-none"
+                rows={3}
+                placeholder="描述这个权限的作用..."
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={onClose}
+                className="admin-btn admin-btn-outline"
+              >
+                <i className="fas fa-times mr-2"></i>
+                取消
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="admin-btn admin-btn-primary"
+              >
+                {loading ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    保存中...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-save mr-2"></i>
+                    保存
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

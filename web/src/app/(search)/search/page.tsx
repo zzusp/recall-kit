@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ExperienceList } from '@/components/experience/ExperienceList';
 import { ExperienceRecord } from '@/lib/services/experienceService';
+import { api, ApiError } from '@/lib/utils/apiClient';
 
 export default function SearchPage() {
   return (
@@ -63,11 +64,34 @@ function SearchPageContent() {
     }
 
     const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.error || '搜索失败，请稍后重试');
+    
+    // Handle unified API response format
+    // Expected format: {success: true, data: {experiences: [...], totalCount: ..., hasMore: ...}}
+    if (!result.success || !result.data || !result.data.experiences) {
+      console.warn('Invalid API response format:', result);
+      throw new Error('API返回的数据格式不正确');
     }
 
     return result.data.experiences as ExperienceRecord[];
+  };
+
+  // 增加查看次数的函数
+  const incrementViewCount = async (experienceId: string) => {
+    try {
+      const response = await fetch(`/api/experiences/${experienceId}/view`, {
+        method: 'POST',
+        cache: 'no-store'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        return result.success ? result.data?.newCount || 0 : 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Failed to increment view count:', error);
+      return 0;
+    }
   };
 
   // 加载默认记录
@@ -211,7 +235,7 @@ function SearchPageContent() {
             />
             <button
               type="submit"
-              disabled={isLoading || !searchTerm.trim()}
+              disabled={isLoading}
               className="btn btn-primary whitespace-nowrap"
             >
               {isLoading ? (
@@ -278,10 +302,14 @@ function SearchPageContent() {
           
           <div className="space-y-6">
             {searchResults.map((experience, index) => (
-              <Link 
-                key={experience.id} 
-                href={`/experience/${experience.id}`}
+              <div 
+                key={experience.id}
                 className="block"
+                onClick={async () => {
+                  // 在跳转前增加查看次数
+                  await incrementViewCount(experience.id);
+                  window.location.href = `/experience/${experience.id}`;
+                }}
               >
                 <div className="feature-card !items-start !text-left cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <div className="feature-title !text-left w-full">
@@ -326,7 +354,7 @@ function SearchPageContent() {
                     </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>

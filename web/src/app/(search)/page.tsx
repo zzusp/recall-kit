@@ -111,7 +111,7 @@ export default async function HomePage() {
                     <div className="experience-meta">
                       <span className="meta-item">
                         <i className="fas fa-eye"></i>
-                        {experience.query_count || 0}
+                        {experience.view_count || 0}
                       </span>
                       <span className="meta-item">
                         <i className="fas fa-calendar"></i>

@@ -2,8 +2,6 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ExperienceService } from '@/lib/services/experienceService';
 
-export const runtime = 'edge';
-
 interface ExperienceDetailPageProps {
   params: Promise<{
     id: string;
@@ -32,73 +30,92 @@ export default async function ExperienceDetailPage({ params }: ExperienceDetailP
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-12">
+    <div className="max-w-7xl mx-auto px-6 py-8">
       <Link 
-        href="/"
-        className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6"
+        href="/search"
+        className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6 transition-colors duration-200"
       >
-        ← Back to Home
+        <i className="fas fa-arrow-left mr-2"></i>
+        返回搜索
       </Link>
 
-      <article className="card">
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold mb-4">{experience.title}</h1>
-          
-          {experience.keywords && experience.keywords.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">
+            <i className="fas fa-file-alt text-blue-600 mr-2"></i>
+            {experience.title}
+          </div>
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <span><i className="fas fa-eye mr-1"></i> {experience.view_count || 0}次浏览</span>
+            <span>
+              <i className="fas fa-calendar mr-1"></i>
+              {new Date(experience.created_at).toLocaleDateString()}
+            </span>
+          </div>
+        </div>
+        
+        {experience.keywords && experience.keywords.length > 0 && (
+          <div className="mb-6">
+            <div className="flex flex-wrap gap-2">
               {experience.keywords.map(keyword => (
                 <span 
                   key={keyword} 
-                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                  className="tag !text-sm"
                 >
+                  <i className="fas fa-tag mr-1"></i>
                   {keyword}
                 </span>
               ))}
             </div>
-          )}
-
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <span><i className="fas fa-eye mr-1"></i> {experience.view_count || 0}次浏览</span>
-            <span>
-              Added on {new Date(experience.created_at).toLocaleDateString()}
-            </span>
           </div>
-        </header>
+        )}
 
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-3">Problem Description</h2>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+        <div className="space-y-8">
+          <div className="bg-white rounded-lg p-6 border border-gray-100">
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">
+              <i className="fas fa-exclamation-triangle text-orange-500 mr-2"></i>
+              问题描述
+            </h2>
+            <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
               {experience.problem_description}
-            </p>
+            </div>
           </div>
 
           {experience.root_cause && (
-            <div>
-              <h2 className="text-xl font-semibold mb-3">Root Cause</h2>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+            <div className="bg-white rounded-lg p-6 border border-gray-100">
+              <h2 className="text-xl font-semibold mb-4 text-gray-900">
+                <i className="fas fa-search text-red-500 mr-2"></i>
+                根本原因
+              </h2>
+              <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                 {experience.root_cause}
-              </p>
+              </div>
             </div>
           )}
 
-          <div>
-            <h2 className="text-xl font-semibold mb-3">Solution</h2>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+          <div className="bg-white rounded-lg p-6 border border-gray-100">
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">
+              <i className="fas fa-lightbulb text-green-500 mr-2"></i>
+              解决方案
+            </h2>
+            <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
               {experience.solution}
-            </p>
+            </div>
           </div>
 
           {experience.context && (
-            <div>
-              <h2 className="text-xl font-semibold mb-3">Context</h2>
-              <div className="bg-gray-50 p-4 rounded-lg text-sm whitespace-pre-wrap break-words">
+            <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+              <h2 className="text-xl font-semibold mb-4 text-gray-900">
+                <i className="fas fa-info-circle text-blue-500 mr-2"></i>
+                背景信息
+              </h2>
+              <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
                 {experience.context}
               </div>
             </div>
           )}
-        </section>
-      </article>
+        </div>
+      </div>
     </div>
   );
 }
