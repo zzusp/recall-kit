@@ -2,29 +2,29 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { signOut } from '@/lib/services/authService';
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { usePermissions } from '@/components/auth/PermissionGuard';
+import { logout, removeSessionToken } from '@/lib/services/newAuthService';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState('');
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.email) {
-        setUserEmail(session.user.email);
-      }
-    };
-    fetchUser();
-  }, []);
+  const { user, checkPermission } = usePermissions();
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push('/admin/login');
-    router.refresh();
+    try {
+      const sessionToken = localStorage.getItem('session_token');
+      if (sessionToken) {
+        await logout(sessionToken);
+      }
+      removeSessionToken();
+      router.push('/admin/login');
+      router.refresh();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Still redirect even if logout fails
+      removeSessionToken();
+      router.push('/admin/login');
+    }
   };
 
   const navItems = [
@@ -32,6 +32,21 @@ export default function Sidebar() {
       href: '/admin/dashboard',
       label: '仪表板',
       icon: 'fas fa-chart-line',
+    },
+    {
+      href: '/admin/users',
+      label: '用户管理',
+      icon: 'fas fa-users',
+    },
+    {
+      href: '/admin/roles',
+      label: '角色管理',
+      icon: 'fas fa-user-tag',
+    },
+    {
+      href: '/admin/permissions',
+      label: '权限管理',
+      icon: 'fas fa-key',
     },
     {
       href: '/admin/review',
@@ -76,8 +91,8 @@ export default function Sidebar() {
             <i className="fas fa-user"></i>
           </div>
           <div className="admin-user-details">
-            <div className="admin-user-name">管理员</div>
-            <div className="admin-user-email">{userEmail || 'Loading...'}</div>
+            <div className="admin-user-name">{user?.username || '管理员'}</div>
+            <div className="admin-user-email">{user?.email || 'Loading...'}</div>
           </div>
         </div>
         <button

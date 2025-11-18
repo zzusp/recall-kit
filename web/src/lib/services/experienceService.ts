@@ -1,7 +1,6 @@
-import { supabase } from '../supabase/client';
 import { Database } from '@/types/database';
 import { EmbeddingService } from './embeddingService';
-import { createClient } from '@supabase/supabase-js';
+import { db } from '../db/client';
 
 export type ExperienceRecord = Database['public']['Tables']['experience_records']['Row'] & {
   keywords?: string[];
@@ -19,11 +18,9 @@ export interface QueryOptions {
 
 export class ExperienceService {
   private embeddingService: EmbeddingService;
-  private supabaseClient: ReturnType<typeof createClient<Database>>;
 
-  constructor(supabaseClient?: ReturnType<typeof createClient<Database>>) {
-    this.supabaseClient = supabaseClient || supabase;
-    this.embeddingService = new EmbeddingService(supabaseClient);
+  constructor() {
+    this.embeddingService = new EmbeddingService();
   }
 
   async queryExperiences(options: QueryOptions): Promise<{
@@ -86,209 +83,182 @@ export class ExperienceService {
       }
     }
 
-    // Fallback to traditional text search
-    let query = this.supabaseClient
-      .from('experience_records')
-      .select(`
-        *,
-        experience_keywords:experience_keywords(keyword)
-      `, { count: 'exact' })
-      .eq('status', 'published')
-      .range(offset, offset + limit - 1);
+    // Fallback to traditional text search using PostgreSQL
+    let sql = `
+      SELECT 
+        er.*,
+        COALESCE(
+          json_agg(
+            CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
+          ) FILTER (WHERE ek.keyword IS NOT NULL), 
+          '[]'::json
+        ) as keywords
+      FROM experience_records er
+      LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
+      WHERE er.status = 'published'
+    `;
+
+    const params: any[] = [];
+    let paramIndex = 1;
 
     // Apply text search if provided
     if (q.trim()) {
-      // Normalize search query to lowercase for case-insensitive search
       const normalizedQuery = q.trim().toLowerCase();
-      const searchPattern = `%${normalizedQuery}%`;
-      
-      // Use OR condition with ILIKE for fuzzy matching across multiple fields
-      // ILIKE provides case-insensitive partial matching (fuzzy search)
-      // This allows matching partial words and phrases in any position
-      query = query.or(
-        `title.ilike.${searchPattern},` +
-        `problem_description.ilike.${searchPattern},` +
-        `solution.ilike.${searchPattern},` +
-        `root_cause.ilike.${searchPattern},` +
-        `context.ilike.${searchPattern}`
-      );
+      sql += ` AND (
+        er.title ILIKE $${paramIndex} OR
+        er.problem_description ILIKE $${paramIndex} OR
+        er.solution ILIKE $${paramIndex} OR
+        er.root_cause ILIKE $${paramIndex} OR
+        er.context ILIKE $${paramIndex}
+      )`;
+      params.push(`%${normalizedQuery}%`);
+      paramIndex++;
     }
 
     // Apply keyword filtering if provided
     if (keywords.length > 0) {
-      const { data: keywordMatches } = await this.supabaseClient
-        .from('experience_keywords')
-        .select('experience_id')
-        .in('keyword', keywords);
-
-      if (keywordMatches && keywordMatches.length > 0) {
-        const experienceIds = Array.from(new Set(keywordMatches.map((k: { experience_id: string }) => k.experience_id)));
-        query = query.in('id', experienceIds);
-      } else {
-        // No matches found, return empty result
-        return {
-          experiences: [],
-          totalCount: 0,
-          hasMore: false
-        };
-      }
+      sql += ` AND er.id IN (
+        SELECT DISTINCT experience_id 
+        FROM experience_keywords 
+        WHERE keyword = ANY($${paramIndex})
+      )`;
+      params.push(keywords);
+      paramIndex++;
     }
+
+    // Group by
+    sql += ` GROUP BY er.id`;
 
     // Apply sorting
     switch (sort) {
       case 'query_count':
-        query = query.order('query_count', { ascending: false });
+        sql += ` ORDER BY er.query_count DESC NULLS LAST`;
         break;
       case 'created_at':
-        query = query.order('created_at', { ascending: false });
+        sql += ` ORDER BY er.created_at DESC`;
         break;
       case 'relevance':
       default:
-        query = query.order('relevance_score', { ascending: false });
+        sql += ` ORDER BY er.relevance_score DESC NULLS LAST, er.created_at DESC`;
         break;
     }
 
-    const { data, error, count } = await query;
+    // Add pagination
+    sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
 
-    if (error) {
-      throw new Error(`Failed to query experiences: ${error.message}`);
+    // Get experiences
+    const experiencesResult = await db.query(sql, params);
+
+    // Get total count
+    let countSql = `
+      SELECT COUNT(DISTINCT er.id) as total
+      FROM experience_records er
+      WHERE er.status = 'published'
+    `;
+    
+    const countParams: any[] = [];
+    let countParamIndex = 1;
+
+    if (q.trim()) {
+      const normalizedQuery = q.trim().toLowerCase();
+      countSql += ` AND (
+        er.title ILIKE $${countParamIndex} OR
+        er.problem_description ILIKE $${countParamIndex} OR
+        er.solution ILIKE $${countParamIndex} OR
+        er.root_cause ILIKE $${countParamIndex} OR
+        er.context ILIKE $${countParamIndex}
+      )`;
+      countParams.push(`%${normalizedQuery}%`);
+      countParamIndex++;
     }
 
-    // Transform the data to include keywords as an array
-    const experiences = (data || []).map(record => {
-      // Handle different possible data structures from Supabase
-      let keywords: string[] = [];
-      
-      if ((record as any).experience_keywords) {
-        if (Array.isArray((record as any).experience_keywords)) {
-          // If it's an array, map to get keywords
-          keywords = (record as any).experience_keywords
-            .map((k: any) => {
-              // Handle both { keyword: "value" } and direct string values
-              return typeof k === 'string' ? k : (k?.keyword || k);
-            })
-            .filter((k: any) => k && typeof k === 'string');
-        } else if (typeof (record as any).experience_keywords === 'object') {
-          // If it's a single object, extract the keyword
-          const keyword = (record as any).experience_keywords.keyword;
-          if (keyword) keywords = [keyword];
-        }
-      }
-      
-      // Debug log to check data structure
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Experience record:', {
-          id: (record as any).id,
-          title: (record as any).title,
-          experience_keywords_raw: (record as any).experience_keywords,
-          keywords_extracted: keywords
-        });
-      }
-      
-      return {
-        ...record as ExperienceRecord,
-        keywords
-      };
-    });
+    if (keywords.length > 0) {
+      countSql += ` AND er.id IN (
+        SELECT DISTINCT experience_id 
+        FROM experience_keywords 
+        WHERE keyword = ANY($${countParamIndex})
+      )`;
+      countParams.push(keywords);
+    }
+
+    const countResult = await db.query(countSql, countParams);
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    // Transform the data
+    const experiences = experiencesResult.rows.map(record => ({
+      ...record,
+      keywords: Array.isArray(record.keywords) ? record.keywords.filter(Boolean) : []
+    }));
 
     return {
       experiences,
-      totalCount: count || 0,
-      hasMore: (offset + limit) < (count || 0)
+      totalCount,
+      hasMore: (offset + limit) < totalCount
     };
   }
 
   async getExperienceById(id: string): Promise<ExperienceRecord | null> {
-    const { data, error } = await this.supabaseClient
-      .from('experience_records')
-      .select(`
-        *,
-        experience_keywords:experience_keywords(keyword)
-      `)
-      .eq('id', id)
-      .eq('status', 'published')
-      .single();
+    const sql = `
+      SELECT 
+        er.*,
+        COALESCE(
+          json_agg(
+            CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
+          ) FILTER (WHERE ek.keyword IS NOT NULL), 
+          '[]'::json
+        ) as keywords
+      FROM experience_records er
+      LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
+      WHERE er.id = $1 AND er.status = 'published'
+      GROUP BY er.id
+    `;
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null; // Not found
+    try {
+      const result = await db.query(sql, [id]);
+      if (result.rows.length === 0) {
+        return null;
       }
-      throw new Error(`Failed to get experience: ${error.message}`);
-    }
 
-    return {
-      ...data as ExperienceRecord,
-      keywords: (data as any).experience_keywords?.map((k: any) => k.keyword) || []
-    };
+      const record = result.rows[0];
+      return {
+        ...record,
+        keywords: Array.isArray(record.keywords) ? record.keywords.filter(Boolean) : []
+      };
+    } catch (error) {
+      throw new Error(`Failed to get experience: ${error}`);
+    }
   }
 
   async incrementViewCount(experienceId: string): Promise<number> {
     try {
-      // 使用原子更新操作，直接使用 SQL 的 view_count = view_count + 1
-      // 这样可以避免竞态条件，并且更高效
-      const { data, error } = await this.supabaseClient.rpc('increment_view_count', {
-        experience_id: experienceId
-      });
-
-      if (error) {
-        // 如果 RPC 函数不存在，回退到手动更新方式
-        console.warn('RPC function not available, using manual update:', error.message);
+      // Try to use the increment_view_count function first
+      try {
+        const result = await db.query(
+          'SELECT increment_view_count($1) as new_count',
+          [experienceId]
+        );
+        return result.rows[0]?.new_count || 0;
+      } catch (rpcError) {
+        console.warn('RPC function not available, using manual update:', rpcError);
         
-        // 检查 view_count 列是否存在，如果不存在则跳过更新
-        // 获取当前的 view_count
-        const { data: experience, error: fetchError } = await this.supabaseClient
-          .from('experience_records')
-          .select('view_count')
-          .eq('id', experienceId)
-          .single();
-
-        if (fetchError) {
-          // 如果错误是因为列不存在，静默处理（迁移可能还未应用）
-          if (fetchError.message?.includes('does not exist') || fetchError.message?.includes('view_count')) {
+        // Fallback to manual update
+        try {
+          const result = await db.query(
+            'UPDATE experience_records SET view_count = COALESCE(view_count, 0) + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING view_count',
+            [experienceId]
+          );
+          return result.rows[0]?.view_count || 0;
+        } catch (updateError) {
+          // If view_count column doesn't exist, just return 0
+          if (updateError instanceof Error && updateError.message.includes('does not exist')) {
             console.warn('view_count column does not exist, skipping update. Please run migration 005_add_view_count.sql');
             return 0;
           }
-          console.error('Failed to fetch experience for view count update:', fetchError?.message);
-          return 0;
+          throw updateError;
         }
-
-        if (!experience) {
-          console.error('Experience not found for view count update');
-          return 0;
-        }
-
-        const newCount = (experience.view_count || 0) + 1;
-
-        // 增加 view_count
-        const { error: updateError } = await this.supabaseClient
-          .from('experience_records')
-          .update({
-            view_count: newCount,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', experienceId);
-
-        if (updateError) {
-          // 如果错误是因为列不存在，静默处理
-          if (updateError.message?.includes('does not exist') || updateError.message?.includes('view_count')) {
-            console.warn('view_count column does not exist, skipping update. Please run migration 005_add_view_count.sql');
-            return 0;
-          }
-          console.error(`Failed to update view count for experience ${experienceId}:`, updateError.message);
-          return 0;
-        }
-
-        return newCount;
       }
-
-      return data || 0;
     } catch (error) {
-      // 捕获所有错误，包括列不存在的错误
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('does not exist') || errorMessage.includes('view_count')) {
-        console.warn('view_count column does not exist, skipping update. Please run migration 005_add_view_count.sql');
-        return 0;
-      }
       console.error('Error in incrementViewCount:', error);
       return 0;
     }
@@ -318,21 +288,16 @@ export class ExperienceService {
       });
 
       // First, check how many experiences have embeddings
-      const { count: embeddingCount, error: countError } = await this.supabaseClient
-        .from('experience_records')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'published')
-        .not('embedding', 'is', null);
+      const countResult = await db.query(
+        'SELECT COUNT(*) as count FROM experience_records WHERE status = $1 AND embedding IS NOT NULL',
+        ['published']
+      );
       
-      console.log('[ExperienceService] Experiences with embeddings:', {
-        count: embeddingCount,
-        hasError: !!countError,
-        error: countError
-      });
+      const embeddingCount = parseInt(countResult.rows[0].count);
+      console.log('[ExperienceService] Experiences with embeddings:', { count: embeddingCount });
 
       // Call the RPC function for vector search
       // Lower threshold for bge-m3 model (0.3 instead of 0.5 to get more results)
-      // bge-m3 typically has lower similarity scores, so we need a lower threshold
       const matchThreshold = 0.3;
       console.log('[ExperienceService] Calling match_experiences_by_embedding RPC:', {
         match_threshold: matchThreshold,
@@ -340,70 +305,49 @@ export class ExperienceService {
         queryEmbeddingDimensions: queryEmbedding.length
       });
       
-      const { data, error } = await this.supabaseClient.rpc('match_experiences_by_embedding', {
-        query_embedding: queryEmbedding,
-        match_threshold: matchThreshold,
-        match_count: limit + offset
-      });
-
-      if (error) {
-        console.error('[ExperienceService] Vector search RPC error:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
-        return [];
-      }
-
-      console.log('[ExperienceService] Vector search RPC response:', {
-        dataLength: data?.length || 0,
-        hasData: !!(data && data.length > 0),
-        firstResult: data?.[0] ? {
-          id: data[0].id,
-          title: data[0].title,
-          similarity: data[0].similarity
-        } : null,
-        allSimilarities: data?.map((r: any) => r.similarity) || []
-      });
-
-      let finalData = data;
+      let vectorResults: any[] = [];
       
-      if (!data || data.length === 0) {
+      try {
+        const vectorResult = await db.query(
+          'SELECT * FROM match_experiences_by_embedding($1, $2, $3)',
+          [queryEmbedding, matchThreshold, limit + offset]
+        );
+        vectorResults = vectorResult.rows;
+      } catch (error) {
         console.log('[ExperienceService] No results from vector search. Trying with lower threshold (0.1)...');
-        // Try with even lower threshold
-        const { data: lowThresholdData, error: lowThresholdError } = await this.supabaseClient.rpc('match_experiences_by_embedding', {
-          query_embedding: queryEmbedding,
-          match_threshold: 0.1,
-          match_count: limit + offset
-        });
-        
-        if (!lowThresholdError && lowThresholdData && lowThresholdData.length > 0) {
+        try {
+          const lowThresholdResult = await db.query(
+            'SELECT * FROM match_experiences_by_embedding($1, $2, $3)',
+            [queryEmbedding, 0.1, limit + offset]
+          );
+          vectorResults = lowThresholdResult.rows;
           console.log('[ExperienceService] Found results with lower threshold (0.1):', {
-            count: lowThresholdData.length,
-            similarities: lowThresholdData.map((r: any) => r.similarity)
+            count: vectorResults.length,
+            similarities: vectorResults.map((r: any) => r.similarity)
           });
-          // Use the lower threshold results
-          finalData = lowThresholdData;
-        } else {
+        } catch (lowThresholdError) {
           console.log('[ExperienceService] No results even with threshold 0.1. Possible issues: no embeddings in DB, dimension mismatch, or very low similarity.');
           return [];
         }
       }
 
+      if (vectorResults.length === 0) {
+        return [];
+      }
+
       // Apply offset and limit
-      const paginatedData = finalData.slice(offset, offset + limit);
+      const paginatedData = vectorResults.slice(offset, offset + limit);
 
       // Fetch keywords for each experience
       const experienceIds = paginatedData.map((exp: any) => exp.id);
-      const { data: keywordsData } = await this.supabaseClient
-        .from('experience_keywords')
-        .select('experience_id, keyword')
-        .in('experience_id', experienceIds);
+      const keywordsResult = await db.query(
+        'SELECT experience_id, keyword FROM experience_keywords WHERE experience_id = ANY($1)',
+        [experienceIds]
+      );
 
       // Map keywords to experiences
       const keywordsMap = new Map<string, string[]>();
-      keywordsData?.forEach((item: { experience_id: string; keyword: string }) => {
+      keywordsResult.rows.forEach((item: { experience_id: string; keyword: string }) => {
         if (!keywordsMap.has(item.experience_id)) {
           keywordsMap.set(item.experience_id, []);
         }
@@ -458,26 +402,19 @@ export class ExperienceService {
       console.log(`Generated embedding with ${embedding.length} dimensions for experience ${experienceId}`);
 
       // Update the embedding in database
-      const { error: rpcError } = await this.supabaseClient.rpc('update_experience_embedding', {
-        experience_id: experienceId,
-        embedding_vector: embedding
-      });
-
-      if (rpcError) {
+      try {
+        // Try RPC function first
+        await db.query(
+          'SELECT update_experience_embedding($1, $2)',
+          [experienceId, embedding]
+        );
+      } catch (rpcError) {
         console.warn('RPC update failed, trying direct update:', rpcError);
-        // Fallback to direct update if RPC doesn't work
-        const { error: updateError } = await this.supabaseClient
-          .from('experience_records')
-          .update({ 
-            embedding,
-            has_embedding: true
-          })
-          .eq('id', experienceId);
-
-        if (updateError) {
-          console.error('Failed to update embedding in database:', updateError);
-          throw new Error(`Database update failed: ${updateError.message}`);
-        }
+        // Fallback to direct update
+        await db.query(
+          'UPDATE experience_records SET embedding = $1, has_embedding = true, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+          [embedding, experienceId]
+        );
       }
 
       console.log(`Successfully updated embedding for experience ${experienceId}`);
@@ -491,28 +428,20 @@ export class ExperienceService {
 
   async getPopularKeywords(limit: number = 10): Promise<string[]> {
     try {
-      // 简单查询获取所有关键词，然后在客户端处理
-      const { data, error } = await this.supabaseClient
-        .from('experience_keywords')
-        .select('keyword')
-        .limit(100); // 获取足够多的关键词用于统计
-
-      if (error) {
-        console.error('Failed to get keywords:', error);
-        return [];
-      }
-
-      // 在客户端统计关键词频率
-      const keywordCount = new Map<string, number>();
-      data?.forEach((item: { keyword: string }) => {
-        keywordCount.set(item.keyword, (keywordCount.get(item.keyword) || 0) + 1);
-      });
+      // 查询获取所有关键词并统计频率
+      const result = await db.query(`
+        SELECT keyword, COUNT(*) as count 
+        FROM experience_keywords 
+        GROUP BY keyword 
+        ORDER BY count DESC 
+        LIMIT 100
+      `);
 
       // 按频率排序并返回前limit个
-      return Array.from(keywordCount.entries())
-        .sort(([, countA], [, countB]) => countB - countA)
+      return result.rows
+        .sort((a, b) => b.count - a.count)
         .slice(0, limit)
-        .map(([keyword]) => keyword);
+        .map(row => row.keyword);
     } catch (error) {
       console.error('Error in getPopularKeywords:', error);
       return [];

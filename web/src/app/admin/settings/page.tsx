@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut as authSignOut, isAdmin } from '@/lib/services/authService';
-import { supabase } from '@/lib/supabase/client';
+import { getSessionToken } from '@/lib/services/newAuthService';
 
 type AIServiceType = 'openai' | 'anthropic' | 'custom';
 
@@ -45,16 +45,16 @@ export default function AdminSettingsPage() {
     const loadSettings = async () => {
       try {
         // 获取 session token
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          console.error('No session found');
+        const sessionToken = getSessionToken();
+        if (!sessionToken) {
+          console.error('No session token found');
           return;
         }
 
         const response = await fetch('/api/admin/settings', {
           credentials: 'include',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${sessionToken}`,
           },
         });
         if (response.ok) {
@@ -88,8 +88,8 @@ export default function AdminSettingsPage() {
 
     try {
       // 获取 session token
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const sessionToken = getSessionToken();
+      if (!sessionToken) {
         throw new Error('未登录，请先登录');
       }
 
@@ -102,7 +102,7 @@ export default function AdminSettingsPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${sessionToken}`,
         },
         credentials: 'include',
         body: JSON.stringify(settings),
@@ -576,7 +576,7 @@ export default function AdminSettingsPage() {
               数据库
             </div>
             <div style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 500 }}>
-              Supabase
+              PostgreSQL
             </div>
           </div>
           <div>

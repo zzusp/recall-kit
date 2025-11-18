@@ -1,6 +1,8 @@
 import { ExperienceService } from '@/lib/services/experienceService';
 import Link from 'next/link';
 
+export const revalidate = 0; // 禁用缓存，确保每次都获取最新数据
+
 export default async function HomePage() {
   const experienceService = new ExperienceService();
   const { experiences, totalCount } = await experienceService.queryExperiences({

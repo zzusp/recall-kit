@@ -3,12 +3,6 @@
  * Generates embeddings using AI API (OpenAI, Anthropic, or custom) for vector similarity search
  */
 
-import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/types/database';
-
-const SETTINGS_KEY = 'ai_config';
-
 interface AIConfig {
   aiServiceType?: 'openai' | 'anthropic' | 'custom';
   openaiKey?: string;
@@ -31,14 +25,9 @@ export class EmbeddingService {
   private configCache: AIConfig | null = null;
   private configCacheTime: number = 0;
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  private supabaseClient?: ReturnType<typeof createClient<Database>>;
-
-  constructor(supabaseClient?: ReturnType<typeof createClient<Database>>) {
-    this.supabaseClient = supabaseClient;
-  }
 
   /**
-   * Get AI configuration from database or environment variables
+   * Get AI configuration from environment variables
    */
   private async getAIConfig(): Promise<AIConfig | null> {
     // Check cache first
@@ -48,115 +37,25 @@ export class EmbeddingService {
       return this.configCache;
     }
 
-    console.log('[EmbeddingService] Loading AI config from database...');
-    console.log('[EmbeddingService] SUPABASE_SERVICE_ROLE_KEY available:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-    console.log('[EmbeddingService] Looking for setting key:', SETTINGS_KEY);
+    console.log('[EmbeddingService] Loading AI config from environment variables...');
 
-    try {
-      // Try to get supabase client
-      let supabase: ReturnType<typeof createClient<Database>> | null = null;
-      
-      console.log('[EmbeddingService] Checking for supabase client:', {
-        hasProvidedClient: !!this.supabaseClient,
-        hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
-      });
-      
-      // First, use provided client if available
-      if (this.supabaseClient) {
-        supabase = this.supabaseClient;
-        console.log('[EmbeddingService] Using provided supabase client');
-      } 
-      // Then try service role key
-      else if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        try {
-          supabase = createAdminClient();
-          console.log('[EmbeddingService] Using admin client with service role key');
-        } catch (err) {
-          console.error('[EmbeddingService] Failed to create admin client:', err);
-        }
-      }
-
-      if (supabase) {
-        try {
-          console.log('[EmbeddingService] Querying system_settings table...');
-          
-          const { data: setting, error } = await supabase
-            .from('system_settings')
-            .select('setting_value')
-            .eq('setting_key', SETTINGS_KEY)
-            .single();
-
-          if (error) {
-            if (error.code === 'PGRST116') {
-              console.warn('[EmbeddingService] AI config not found in database (PGRST116 - not found)');
-            } else {
-              console.error('[EmbeddingService] Error fetching AI config from database:', {
-                code: error.code,
-                message: error.message,
-                details: error.details,
-                hint: error.hint
-              });
-            }
-          } else {
-            console.log('[EmbeddingService] Found setting in database:', {
-              hasValue: !!setting?.setting_value,
-              valueType: typeof setting?.setting_value,
-              isObject: setting?.setting_value && typeof setting.setting_value === 'object',
-              valueKeys: setting?.setting_value && typeof setting.setting_value === 'object' 
-                ? Object.keys(setting.setting_value) 
-                : null
-            });
-
-            if (setting?.setting_value) {
-              const config = setting.setting_value as AIConfig;
-              console.log('[EmbeddingService] Parsed AI config:', {
-                aiServiceType: config.aiServiceType,
-                hasOpenaiKey: !!config.openaiKey,
-                hasCustomKey: !!config.customApiKey,
-                hasAnthropicKey: !!config.anthropicKey,
-                customApiUrl: config.customApiUrl,
-                customModel: config.customModel,
-                openaiApiUrl: config.openaiApiUrl,
-                openaiModel: config.openaiModel
-              });
-
-              this.configCache = config;
-              this.configCacheTime = now;
-              return this.configCache;
-            } else {
-              console.warn('[EmbeddingService] Setting found but setting_value is null or undefined');
-            }
-          }
-        } catch (dbError) {
-          console.error('[EmbeddingService] Failed to load AI config from database:', dbError);
-          if (dbError instanceof Error) {
-            console.error('[EmbeddingService] Database error details:', {
-              message: dbError.message,
-              stack: dbError.stack
-            });
-          }
-          // Continue to fallback to environment variables
-        }
-      } else {
-        console.warn('[EmbeddingService] No supabase client available (no service role key and no client provided), skipping database config lookup');
-      }
-    } catch (error) {
-      console.error('[EmbeddingService] Unexpected error loading AI config:', error);
-    }
-
-    // Fallback to environment variables for backward compatibility
-    console.log('[EmbeddingService] Checking environment variables...');
+    // For now, only use environment variables
+    // Database config can be added later if needed
     if (OPENAI_API_KEY) {
       console.log('[EmbeddingService] Using OPENAI_API_KEY from environment variables');
-      return {
-        aiServiceType: 'openai',
+      const config = {
+        aiServiceType: 'openai' as const,
         openaiKey: OPENAI_API_KEY,
         openaiApiUrl: OPENAI_API_URL.replace('/embeddings', ''),
         openaiModel: EMBEDDING_MODEL
       };
+      
+      this.configCache = config;
+      this.configCacheTime = now;
+      return config;
     }
 
-    console.warn('[EmbeddingService] No AI configuration found in database or environment variables');
+    console.warn('[EmbeddingService] No AI configuration found in environment variables');
     return null;
   }
 
@@ -169,7 +68,7 @@ export class EmbeddingService {
     const config = await this.getAIConfig();
     
     if (!config) {
-      const errorMsg = 'AI configuration not found. Please configure AI settings in admin panel or set OPENAI_API_KEY environment variable.';
+      const errorMsg = 'AI configuration not found. Please set OPENAI_API_KEY environment variable.';
       console.warn(errorMsg);
       throw new Error(errorMsg);
     }
@@ -181,35 +80,7 @@ export class EmbeddingService {
     let requestBody: any;
 
     // Determine API configuration based on service type
-    // Priority: custom > anthropic > openai
-    // Also check if custom config is available even if serviceType is not 'custom'
-    if ((serviceType === 'custom' || (serviceType === 'openai' && !config.openaiKey)) 
-        && config.customApiUrl && config.customApiKey && config.customModel) {
-      // Use custom API (either explicitly set or as fallback when openai key is missing)
-      apiUrl = config.customApiUrl.endsWith('/embeddings') 
-        ? config.customApiUrl 
-        : `${config.customApiUrl.replace(/\/$/, '')}/embeddings`;
-      apiKey = config.customApiKey;
-      model = config.customModel;
-      console.log('[EmbeddingService] Using custom AI service:', { apiUrl, model });
-      // Custom API might have different format, try OpenAI-compatible first
-      requestBody = {
-        model,
-        input: text.trim()
-      };
-    } else if (serviceType === 'anthropic' && config.anthropicKey && config.anthropicApiUrl && config.anthropicModel) {
-      // Anthropic doesn't have embeddings API, but we'll try if user configured it
-      apiUrl = config.anthropicApiUrl.endsWith('/embeddings')
-        ? config.anthropicApiUrl
-        : `${config.anthropicApiUrl.replace(/\/$/, '')}/embeddings`;
-      apiKey = config.anthropicKey;
-      model = config.anthropicModel;
-      console.log('[EmbeddingService] Using Anthropic service:', { apiUrl, model });
-      requestBody = {
-        model,
-        input: text.trim()
-      };
-    } else if (config.openaiKey && config.openaiApiUrl && config.openaiModel) {
+    if (config.openaiKey && config.openaiApiUrl && config.openaiModel) {
       // OpenAI or OpenAI-compatible API
       apiUrl = config.openaiApiUrl.endsWith('/embeddings')
         ? config.openaiApiUrl
@@ -222,7 +93,7 @@ export class EmbeddingService {
         input: text.trim()
       };
     } else {
-      const errorMsg = `Incomplete AI configuration for service type: ${serviceType}. Please check your settings. Available: custom=${!!(config.customApiUrl && config.customApiKey && config.customModel)}, openai=${!!(config.openaiKey && config.openaiApiUrl && config.openaiModel)}, anthropic=${!!(config.anthropicKey && config.anthropicApiUrl && config.anthropicModel)}`;
+      const errorMsg = `Incomplete AI configuration for service type: ${serviceType}. Please check your settings. Available: openai=${!!(config.openaiKey && config.openaiApiUrl && config.openaiModel)}`;
       console.warn(errorMsg, config);
       throw new Error(errorMsg);
     }
@@ -255,8 +126,6 @@ export class EmbeddingService {
       
       // Handle different response formats
       // OpenAI format: { data: [{ embedding: [...] }] }
-      // SiliconFlow/bge-m3 format: { data: [{ embedding: [...] }] } (same as OpenAI)
-      // Some custom APIs might return: { embedding: [...] } directly
       let embedding: number[] | null = null;
       
       if (data.data && Array.isArray(data.data) && data.data[0]?.embedding) {
@@ -301,7 +170,7 @@ export class EmbeddingService {
     keywords?: string[];
   }): Promise<number[]> {
     // Combine all text fields for embedding
-    // Order and structure the text to give balanced weight to all fields
+    // Order and structure text to give balanced weight to all fields
     // Keywords are important for matching, so include them prominently
     const parts: string[] = [];
     
@@ -348,15 +217,6 @@ export class EmbeddingService {
       return false;
     }
 
-    const serviceType = config.aiServiceType || 'openai';
-    
-    if (serviceType === 'custom') {
-      return !!(config.customApiUrl && config.customApiKey && config.customModel);
-    } else if (serviceType === 'anthropic') {
-      return !!(config.anthropicKey && config.anthropicApiUrl && config.anthropicModel);
-    } else {
-      return !!(config.openaiKey && config.openaiApiUrl && config.openaiModel);
-    }
+    return !!(config.openaiKey && config.openaiApiUrl && config.openaiModel);
   }
 }
-

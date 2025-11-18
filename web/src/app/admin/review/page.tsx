@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
+import { getSessionToken } from '@/lib/services/newAuthService';
 import { ExperienceRecord } from '@/lib/services/experienceService';
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -40,64 +40,35 @@ function ReviewContentInner() {
       setError('');
 
       try {
-        // Verify admin session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
+        // Get session token
+        const sessionToken = getSessionToken();
+        if (!sessionToken) {
           router.push('/admin/login');
           return;
         }
 
         // Fetch experiences with admin access
-        // Explicitly list all fields including embedding to ensure it's returned
-        let query = supabase
-          .from('experience_records')
-          .select(`
-            id,
-            user_id,
-            title,
-            problem_description,
-            root_cause,
-            solution,
-            context,
-            status,
-            query_count,
-            view_count,
-            relevance_score,
-            fts,
-            embedding,
-            has_embedding,
-            created_at,
-            updated_at,
-            deleted_at,
-            experience_keywords:experience_keywords(keyword),
-            profiles:user_id(username, email)
-          `)
-          .range((page - 1) * limit, page * limit - 1)
-          .order('created_at', { ascending: false });
-
-        if (status !== 'all') {
-          query = query.eq('status', status);
-        }
-
-        const { data, error: fetchError } = await query;
-
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        const formattedExperiences = (data || []).map(record => {
-          const recordAny = record as any;
-          // Preserve embedding field directly from the record
-          // Supabase vector type should be returned as an array or null
-          // Don't use spread operator for embedding to avoid overriding it
-          return {
-            ...record,
-            // Keep embedding as-is from the original record (null, array, or undefined)
-            embedding: recordAny.embedding,
-            keywords: recordAny.experience_keywords?.map((k: any) => k.keyword) || [],
-            author: recordAny.profiles || null
-          };
+        const response = await fetch(`/api/admin/experiences?status=${status}&limit=${limit}&page=${page}`, {
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+          },
         });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch experiences');
+        }
+
+        const data = await response.json();
+        
+        const formattedExperiences = (data.experiences || []).map((record: any) => ({
+          ...record,
+          keywords: record.keywords || [],
+          author: record.user_id ? { 
+            id: record.user_id,
+            username: record.user_id, // Fallback - in real implementation you'd fetch user details
+            email: record.user_id
+          } : null
+        }));
 
         setExperiences(formattedExperiences);
       } catch (err) {
@@ -114,15 +85,24 @@ function ReviewContentInner() {
     if (!confirm('确定要删除这条记录吗？')) return;
 
     try {
-      const { error } = await supabase
-        .from('experience_records')
-        .update({ 
-          status: 'deleted',
-          deleted_at: new Date().toISOString()
-        })
-        .eq('id', id);
+      const sessionToken = getSessionToken();
+      if (!sessionToken) {
+        router.push('/admin/login');
+        return;
+      }
 
-      if (error) throw error;
+      const response = await fetch(`/api/admin/experiences/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ status: 'deleted' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('删除失败');
+      }
 
       setExperiences(prev => prev.filter(exp => exp.id !== id));
     } catch (err) {
@@ -132,15 +112,24 @@ function ReviewContentInner() {
 
   const handleRestore = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('experience_records')
-        .update({ 
-          status: 'published',
-          deleted_at: null
-        })
-        .eq('id', id);
+      const sessionToken = getSessionToken();
+      if (!sessionToken) {
+        router.push('/admin/login');
+        return;
+      }
 
-      if (error) throw error;
+      const response = await fetch(`/api/admin/experiences/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ status: 'published' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('恢复失败');
+      }
 
       setExperiences(prev => prev.filter(exp => exp.id !== id));
     } catch (err) {
@@ -160,31 +149,15 @@ function ReviewContentInner() {
         throw new Error(data.error || '向量化失败');
       }
 
-      // Re-fetch the experience to get updated has_embedding flag
-      const { data: updatedExperience, error: fetchError } = await supabase
-        .from('experience_records')
-        .select('has_embedding')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) {
-        // If fetch fails, just mark it as having embedding
-        setExperiences(prev => prev.map(exp => 
-          exp.id === id 
-            ? { ...exp, has_embedding: true } as any
-            : exp
-        ));
-      } else {
-        // Update with actual has_embedding flag
-        setExperiences(prev => prev.map(exp => 
-          exp.id === id 
-            ? { ...exp, has_embedding: updatedExperience.has_embedding } as any
-            : exp
-        ));
-      }
+      // Update the experience in local state
+      setExperiences(prev => prev.map(exp => 
+        exp.id === id 
+          ? { ...exp, has_embedding: true } as any
+          : exp
+      ));
     } catch (err) {
       setError(err instanceof Error ? err.message : '向量化失败');
-      throw err; // Re-throw to let the component handle loading state
+      throw err; // Re-throw to let component handle loading state
     }
   };
 

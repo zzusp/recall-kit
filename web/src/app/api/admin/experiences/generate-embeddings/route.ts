@@ -1,101 +1,91 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { db } from '@/lib/db/client';
 import { ExperienceService } from '@/lib/services/experienceService';
+import { getCurrentUser, hasRole } from '@/lib/services/newAuthService';
 
-/**
- * GET /api/admin/experiences/generate-embeddings
- * Batch generate embeddings for all experiences that don't have embeddings yet
- */
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    // Verify admin authentication
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
-    
-    if (authError || !session) {
+    // Get session token from Authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        { error: 'Authorization token required' },
         { status: 401 }
       );
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
-
-    if (profile?.role !== 'admin') {
+    const token = authHeader.substring(7);
+    
+    // Verify user and admin role
+    const user = await getCurrentUser(token);
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Admin access required' },
+        { error: 'Invalid or expired token' },
+        { status: 401 }
+      );
+    }
+
+    if (!hasRole(user, 'admin')) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
         { status: 403 }
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const { limit = 50 } = await request.json();
 
     // Get experiences without embeddings
-    const { data: experiences, error } = await supabase
-      .from('experience_records')
-      .select('id')
-      .eq('status', 'published')
-      .is('embedding', null)
-      .range(offset, offset + limit - 1);
+    const result = await db.query(
+      'SELECT id FROM experience_records WHERE status = $1 AND (has_embedding = false OR has_embedding IS NULL) ORDER BY created_at DESC LIMIT $2',
+      ['published', limit]
+    );
 
-    if (error) {
-      throw error;
-    }
+    const experiences = result.rows;
 
-    if (!experiences || experiences.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'No experiences need embedding generation',
-        processed: 0
+    if (experiences.length === 0) {
+      return NextResponse.json({ 
+        message: 'No experiences need embeddings',
+        processed: 0,
+        successful: 0,
+        failed: 0
       });
     }
 
     const experienceService = new ExperienceService();
-    let successCount = 0;
-    let failCount = 0;
+    const results = {
+      processed: 0,
+      successful: 0,
+      failed: 0,
+      errors: [] as string[]
+    };
 
-    // Generate embeddings for each experience
-    for (const exp of experiences) {
+    for (const experience of experiences) {
+      results.processed++;
       try {
-        const success = await experienceService.updateExperienceEmbedding(exp.id);
+        const success = await experienceService.updateExperienceEmbedding(experience.id);
         if (success) {
-          successCount++;
+          results.successful++;
         } else {
-          failCount++;
+          results.failed++;
+          results.errors.push(`Failed to generate embedding for experience ${experience.id}`);
         }
-        // Add a small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
-        console.error(`Failed to generate embedding for experience ${exp.id}:`, error);
-        failCount++;
+        results.failed++;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        results.errors.push(`Error for experience ${experience.id}: ${errorMessage}`);
+        console.error(`Failed to generate embedding for experience ${experience.id}:`, error);
       }
     }
 
     return NextResponse.json({
-      success: true,
-      message: `Processed ${experiences.length} experiences`,
-      processed: experiences.length,
-      successCount,
-      failCount
+      message: `Processed ${results.processed} experiences. ${results.successful} successful, ${results.failed} failed.`,
+      ...results
     });
-
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('Error generating embeddings:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Internal server error'
-      },
+      { error: 'Failed to generate embeddings' },
       { status: 500 }
     );
   }
 }
-
-export const runtime = 'edge';
-

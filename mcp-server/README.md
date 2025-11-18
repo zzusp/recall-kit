@@ -246,12 +246,60 @@ keywords:
 ## Context
 上下文信息
 
-## Lessons Learned
+## Lessons Learned (Will not be submitted)
 经验总结/反思
 
-## References
+## References (Will not be submitted)
 参考链接或代码
 ```
+
+#### submit_doc_experience
+
+将已存在的经验文档提交到 Recall Kit 平台的提示词。该 prompt 会指导模型：
+
+1. **文档验证** - 检查文档是否遵循所需的模板结构
+2. **参数提取** - 从文档中提取所有必需的字段
+3. **直接提交** - 不对内容进行任何处理或总结，原样提交
+4. **结果展示** - 向用户显示提交结果
+
+**使用场景**:
+- 提交通过 `summarize_experience` 生成的经验文档
+- 批量提交已有的经验文档到平台
+- 提交用户手动编写的符合模板的经验文档
+
+**必需的文档结构**:
+```markdown
+---
+title: "描述性标题"
+generated_at: YYYY-MM-DDTHH:MM:SSZ
+keywords:
+  - keyword1
+  - keyword2
+  - keyword3
+---
+
+## Problem Description
+[问题描述内容]
+
+## Root Cause
+[根本原因内容]
+
+## Solution
+[解决方案内容]
+
+## Context
+[上下文信息内容]
+```
+
+**工作流程**:
+1. 检查用户是否提供了文档路径
+2. 如果未提供，询问用户指定经验文档的路径
+3. 读取文档并验证其符合模板结构
+4. 如果验证失败，提供具体的修改建议
+5. 如果验证通过，提取参数并调用 `submit_experience` 工具
+6. 显示提交结果给用户
+
+**重要提示**: 此 prompt 不会对文档内容进行任何修改或总结，会原样提取并提交文档中的内容。
 
 ## 核心服务
 

@@ -1,0 +1,193 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db/client';
+
+interface RouteParams {
+  params: {
+    id: string;
+  };
+}
+
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = params;
+
+    const result = await db.query(`
+      SELECT p.*, 
+             COALESCE(
+               json_agg(
+                 CASE WHEN r.id IS NOT NULL THEN 
+                   jsonb_build_object('id', r.id, 'name', r.name, 'description', r.description, 'is_system_role', r.is_system_role)
+                 END
+               ) FILTER (WHERE r.id IS NOT NULL), 
+               '[]'::json
+             ) as roles
+      FROM permissions p
+      LEFT JOIN role_permissions rp ON p.id = rp.permission_id
+      LEFT JOIN roles r ON rp.role_id = r.id
+      WHERE p.id = $1
+      GROUP BY p.id
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Permission not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching permission:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch permission' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = params;
+    const body = await request.json();
+    const { name, resource, action, description } = body;
+
+    // Check if permission exists
+    const existingPermissionResult = await db.query(
+      'SELECT id FROM permissions WHERE id = $1',
+      [id]
+    );
+
+    if (existingPermissionResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Permission not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check for duplicate name or resource+action combination
+    if (name || (resource && action)) {
+      let checkQuery = 'SELECT id FROM permissions WHERE (';
+      const checkParams: any[] = [];
+      const conditions: string[] = [];
+      let paramIndex = 1;
+
+      if (name) {
+        conditions.push(`name = $${paramIndex}`);
+        checkParams.push(name);
+        paramIndex++;
+      }
+
+      if (resource && action) {
+        conditions.push(`(resource = $${paramIndex} AND action = $${paramIndex + 1})`);
+        checkParams.push(resource, action);
+        paramIndex += 2;
+      }
+
+      checkQuery += conditions.join(' OR ') + `) AND id != $${paramIndex}`;
+      checkParams.push(id);
+
+      const duplicateResult = await db.query(checkQuery, checkParams);
+
+      if (duplicateResult.rows.length > 0) {
+        return NextResponse.json(
+          { error: 'Permission with this name or resource+action combination already exists' },
+          { status: 409 }
+        );
+      }
+    }
+
+    // Update permission
+    const permissionResult = await db.query(
+      `UPDATE permissions 
+       SET name = COALESCE($1, name),
+           resource = COALESCE($2, resource),
+           action = COALESCE($3, action),
+           description = COALESCE($4, description),
+           updated_at = NOW()
+       WHERE id = $5
+       RETURNING *`,
+      [name, resource, action, description, id]
+    );
+
+    const permission = permissionResult.rows[0];
+
+    // Fetch updated permission with roles
+    const updatedPermissionResult = await db.query(`
+      SELECT p.*, 
+             COALESCE(
+               json_agg(
+                 CASE WHEN r.id IS NOT NULL THEN 
+                   jsonb_build_object('id', r.id, 'name', r.name, 'description', r.description, 'is_system_role', r.is_system_role)
+                 END
+               ) FILTER (WHERE r.id IS NOT NULL), 
+               '[]'::json
+             ) as roles
+      FROM permissions p
+      LEFT JOIN role_permissions rp ON p.id = rp.permission_id
+      LEFT JOIN roles r ON rp.role_id = r.id
+      WHERE p.id = $1
+      GROUP BY p.id
+    `, [id]);
+
+    return NextResponse.json(updatedPermissionResult.rows[0]);
+  } catch (error) {
+    console.error('Error updating permission:', error);
+    return NextResponse.json(
+      { error: 'Failed to update permission' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = params;
+
+    // Check if permission exists
+    const existingPermissionResult = await db.query(
+      'SELECT id FROM permissions WHERE id = $1',
+      [id]
+    );
+
+    if (existingPermissionResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Permission not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if permission is assigned to any roles
+    const rolePermissionsResult = await db.query(
+      'SELECT COUNT(*) as count FROM role_permissions WHERE permission_id = $1',
+      [id]
+    );
+
+    if (parseInt(rolePermissionsResult.rows[0].count) > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete permission that is assigned to roles' },
+        { status: 409 }
+      );
+    }
+
+    // Delete permission
+    const result = await db.query(
+      'DELETE FROM permissions WHERE id = $1',
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return NextResponse.json(
+        { error: 'Failed to delete permission' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting permission:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete permission' },
+      { status: 500 }
+    );
+  }
+}

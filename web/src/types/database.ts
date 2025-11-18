@@ -1,33 +1,189 @@
+// Base type definitions
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  password_hash: string;
+  is_active: boolean;
+  is_superuser: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string | null;
+  is_system_role: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Permission {
+  id: string;
+  name: string;
+  resource: string;
+  action: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
-      profiles: {
+      users: {
         Row: {
           id: string;
           username: string;
           email: string;
-          role: string;
+          password_hash: string;
+          is_active: boolean;
+          is_superuser: boolean;
+          last_login_at: string | null;
           created_at: string;
           updated_at: string;
-          last_login_at: string | null;
         };
         Insert: {
-          id: string;
+          id?: string;
           username: string;
           email: string;
-          role?: string;
+          password_hash: string;
+          is_active?: boolean;
+          is_superuser?: boolean;
+          last_login_at?: string | null;
           created_at?: string;
           updated_at?: string;
-          last_login_at?: string | null;
         };
         Update: {
           id?: string;
           username?: string;
           email?: string;
-          role?: string;
+          password_hash?: string;
+          is_active?: boolean;
+          is_superuser?: boolean;
+          last_login_at?: string | null;
           created_at?: string;
           updated_at?: string;
-          last_login_at?: string | null;
+        };
+      };
+      roles: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          is_system_role: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          is_system_role?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          is_system_role?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      permissions: {
+        Row: {
+          id: string;
+          name: string;
+          resource: string;
+          action: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          resource: string;
+          action: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          resource?: string;
+          action?: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_roles: {
+        Row: {
+          id: string;
+          user_id: string;
+          role_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          role_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          role_id?: string;
+          created_at?: string;
+        };
+      };
+      role_permissions: {
+        Row: {
+          id: string;
+          role_id: string;
+          permission_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          role_id: string;
+          permission_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          role_id?: string;
+          permission_id?: string;
+          created_at?: string;
+        };
+      };
+      user_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          session_token: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_token: string;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          session_token?: string;
+          expires_at?: string;
+          created_at?: string;
         };
       };
       experience_records: {
