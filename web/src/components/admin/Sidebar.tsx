@@ -45,6 +45,11 @@ export default function Sidebar() {
       icon: 'fas fa-key',
     },
     {
+      href: '/admin/api-keys',
+      label: 'API密钥管理',
+      icon: 'fas fa-code',
+    },
+    {
       href: '/admin/review',
       label: '内容审核',
       icon: 'fas fa-clipboard-check',

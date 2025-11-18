@@ -11,6 +11,30 @@ export interface User {
   updated_at: string;
 }
 
+export interface ApiKey {
+  id: string;
+  user_id: string;
+  name: string;
+  key_hash: string;
+  key_prefix: string;
+  is_active: boolean;
+  last_used_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiKeyUsageLog {
+  id: string;
+  api_key_id: string;
+  endpoint: string;
+  method: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  status_code: number | null;
+  response_time_ms: number | null;
+  created_at: string;
+}
+
 export interface Role {
   id: string;
   name: string;
@@ -66,6 +90,76 @@ export interface Database {
           last_login_at?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      api_keys: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          key_hash: string;
+          key_prefix: string;
+          is_active: boolean;
+          last_used_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          key_hash: string;
+          key_prefix: string;
+          is_active?: boolean;
+          last_used_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          key_hash?: string;
+          key_prefix?: string;
+          is_active?: boolean;
+          last_used_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      api_key_usage_logs: {
+        Row: {
+          id: string;
+          api_key_id: string;
+          endpoint: string;
+          method: string;
+          ip_address: string | null;
+          user_agent: string | null;
+          status_code: number | null;
+          response_time_ms: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          api_key_id: string;
+          endpoint: string;
+          method: string;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          status_code?: number | null;
+          response_time_ms?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          api_key_id?: string;
+          endpoint?: string;
+          method?: string;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          status_code?: number | null;
+          response_time_ms?: number | null;
+          created_at?: string;
         };
       };
       roles: {
