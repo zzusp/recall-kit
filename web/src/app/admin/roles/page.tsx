@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Role, Permission } from '@/types/database';
 import PermissionGuard from '@/components/auth/PermissionGuard';
+import { toast } from '@/lib/toastService';
 
 interface RolesResponse {
   roles: (Role & {
@@ -76,7 +77,7 @@ function RolesManagementContent() {
   const handleDeleteRole = async (roleId: string) => {
     const role = roles.find(r => r.id === roleId);
     if (role?.is_system_role) {
-      alert('系统角色不能删除');
+      toast.warning('系统角色不能删除');
       return;
     }
 
@@ -91,11 +92,11 @@ function RolesManagementContent() {
         fetchRoles();
       } else {
         const error = await response.json();
-        alert(error.error || '删除角色失败');
+        toast.error(error.error || '删除角色失败');
       }
     } catch (error) {
       console.error('Error deleting role:', error);
-      alert('删除角色失败');
+      toast.error('删除角色失败');
     }
   };
 
@@ -362,11 +363,11 @@ function RoleModal({ role, onClose, onSave }: RoleModalProps) {
         onSave();
       } else {
         const error = await response.json();
-        alert(error.error || '保存失败');
+        toast.error(error.error || '保存失败');
       }
     } catch (error) {
       console.error('Error saving role:', error);
-      alert('保存失败');
+      toast.error('保存失败');
     } finally {
       setLoading(false);
     }

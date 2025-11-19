@@ -21,6 +21,10 @@
                 "DEFAULT_MINIMUM_TOKENS": "6000"
             },
             "disabled": false
+        },
+        "recall-kit": {
+            "url": "http://127.0.0.1:3001/sse?api_key=rk_xxxxxxx",
+            "disabled": false
         }
     }
 }

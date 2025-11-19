@@ -1,15 +1,15 @@
 # PostgreSQL 迁移指南
 
-本文档描述了如何将项目从 Supabase 迁移到原生 PostgreSQL。
+本文档描述了项目如何从 Supabase 迁移到原生 PostgreSQL。
 
 ## 已完成的更改
 
-### 1. 依赖更新
+### 1. 依赖更新（已完成）
 - 移除了 `@supabase/supabase-js` 依赖
 - 添加了 `pg` (PostgreSQL Node.js 客户端) 依赖
 - 更新了 `package.json`
 
-### 2. 数据库连接
+### 2. 数据库连接（已完成）
 - 创建了新的数据库配置文件 `lib/db/config.ts`
 - 创建了 PostgreSQL 客户端 `lib/db/client.ts`
 - 移除了 Supabase 客户端
@@ -98,31 +98,29 @@ GRANT ALL PRIVILEGES ON DATABASE recall_kit TO recall_kit_user;
 ```
 
 ### 3. 运行迁移
-使用现有的 Supabase 迁移文件来设置数据库结构：
+迁移文件位于 `database_init.sql` 或从备份中恢复：
 
 ```bash
-# 如果你有 supabase CLI
-supabase db push --db-url postgresql://postgres:password@localhost:5432/recall_kit
+# 运行数据库初始化脚本
+psql -U postgres -d recall_kit -f database_init.sql
 
-# 或者手动运行迁移文件
-psql -U postgres -d recall_kit -f supabase/migrations/001_initial_schema.sql
-psql -U postgres -d recall_kit -f supabase/migrations/002_rls_policies.sql
-# ... 依次运行所有迁移文件
+# 或者从备份恢复
+psql -U postgres -d recall_kit < backup.sql
 ```
 
 ## 重要注意事项
 
-### 1. 数据迁移
-如果你有现有数据在 Supabase 中，需要：
+### 1. 数据迁移（已完成）
+数据已从 Supabase 迁移到 PostgreSQL。如果需要重新迁移：
 1. 从 Supabase 导出数据
 2. 转换数据格式以适配 PostgreSQL
 3. 导入到新的 PostgreSQL 数据库
 
 ### 2. 权限系统
-新的权限系统使用了基于角色的访问控制（RBAC）：
-- 用户通过角色获得权限
-- 权限由资源（resource）和操作（action）组成
-- 需要为现有用户分配适当的角色
+新的权限系统使用了应用层权限控制：
+- 通过应用代码实现权限验证
+- 匿名用户只能读取已发布记录
+- 只有管理员可以更新/删除记录
 
 ### 3. 会话管理
 - 使用 JWT 令牌替代 Supabase 的会话管理

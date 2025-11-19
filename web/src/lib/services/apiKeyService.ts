@@ -21,7 +21,8 @@ export interface ApiKeyResponse {
  * 生成安全的API密钥
  */
 function generateApiKey(): { apiKey: string; keyPrefix: string } {
-  const apiKey = `rk_${crypto.randomBytes(32).toString('hex')}`;
+  // 使用16字节的随机数据，生成32个十六进制字符，总长度35字符（rk_ + 32）
+  const apiKey = `rk_${crypto.randomBytes(16).toString('hex')}`;
   const keyPrefix = apiKey.substring(0, 10);
   
   return { apiKey, keyPrefix };
@@ -61,9 +62,9 @@ export async function createApiKey(
 }
 
 /**
- * 获取用户的所有API密钥（不包含完整密钥）
+ * 获取用户的所有API密钥（包含完整密钥）
  */
-export async function getUserApiKeys(userId: string): Promise<Omit<ApiKeyResponse, 'apiKey'>[]> {
+export async function getUserApiKeys(userId: string): Promise<ApiKeyResponse[]> {
   const result = await db.query(`
     SELECT id, name, api_key, is_active, last_used_at, created_at, updated_at
     FROM api_keys
@@ -74,7 +75,8 @@ export async function getUserApiKeys(userId: string): Promise<Omit<ApiKeyRespons
   return result.rows.map(row => ({
     id: row.id,
     name: row.name,
-    keyPrefix: row.api_key ? row.api_key.substring(0, 10) : '', // Get prefix from full key
+    keyPrefix: row.api_key ? row.api_key.substring(0, 10) : '', // Keep prefix for display purposes
+    apiKey: row.api_key, // Return the full API key
     isActive: row.is_active,
     lastUsedAt: row.last_used_at,
     createdAt: row.created_at,

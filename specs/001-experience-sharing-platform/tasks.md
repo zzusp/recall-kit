@@ -59,18 +59,16 @@ Phase 8 (Polish)
 
 ---
 
-### T002 [P0] 初始化Supabase项目
-**描述**: 创建Supabase项目，配置数据库连接和迁移目录  
+### T002 [P0] 初始化PostgreSQL数据库
+**描述**: 创建PostgreSQL数据库，配置连接和迁移目录  
 **估时**: 1h  
 **前置条件**: T001  
 **验收标准**:
 - `supabase/` 目录存在
 - `supabase/migrations/` 目录存在
-- `supabase/config.toml` 配置正确
-- 可以连接到Supabase项目
+- 可以连接到PostgreSQL数据库
 
 **实现路径**:
-- `supabase/config.toml`
 - `supabase/migrations/` (目录)
 
 ---
@@ -126,16 +124,16 @@ Phase 8 (Polish)
 
 ---
 
-### T006 [P0] 创建数据库迁移 - RLS策略
-**描述**: 创建Row Level Security策略，确保数据安全  
+### T006 [P0] 创建数据库迁移 - 权限策略
+**描述**: 创建数据库权限策略，确保数据安全  
 **估时**: 3h  
 **前置条件**: T005  
 **验收标准**:
 - `supabase/migrations/002_rls_policies.sql` 存在
-- 所有表的RLS策略正确配置
+- 所有表的权限策略正确配置
 - 匿名用户可以读取published记录
 - 只有管理员可以更新/删除记录
-- 测试验证RLS策略生效
+- 测试验证权限策略生效
 
 **实现路径**:
 - `supabase/migrations/002_rls_policies.sql`
@@ -510,13 +508,13 @@ Phase 8 (Polish)
 ## Phase 7: User Story 5 - 管理员登录和后台管理 (P3)
 
 ### T026 [P3] [US5] 实现管理员认证
-**描述**: 集成Supabase Auth，实现管理员登录功能（Next.js API Route）  
+**描述**: 实现基于JWT的管理员登录功能（Next.js API Route）  
 **估时**: 4h  
 **前置条件**: T008  
 **验收标准**:
 - `web/src/api/auth/login/route.ts` 存在
 - 实现POST /api/auth/login接口
-- 使用Supabase Auth验证用户
+- 使用JWT验证用户
 - 检查用户角色是否为admin
 - 返回JWT token
 - 实现认证中间件（Next.js middleware）

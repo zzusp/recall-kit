@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Permission, Role } from '@/types/database';
+import { Permission } from '@/types/database';
 import PermissionGuard from '@/components/auth/PermissionGuard';
+import { toast } from '@/lib/toastService';
 
 interface PermissionsResponse {
   permissions: (Permission & {
@@ -58,7 +59,7 @@ function PermissionsManagementContent() {
   const handleDeletePermission = async (permissionId: string) => {
     const permission = permissions.find(p => p.id === permissionId);
     if (permission?.roles_count > 0) {
-      alert('该权限已分配给角色，不能删除');
+      toast.warning('该权限已分配给角色，不能删除');
       return;
     }
 
@@ -73,11 +74,11 @@ function PermissionsManagementContent() {
         fetchPermissions();
       } else {
         const error = await response.json();
-        alert(error.error || '删除权限失败');
+        toast.error(error.error || '删除权限失败');
       }
     } catch (error) {
       console.error('Error deleting permission:', error);
-      alert('删除权限失败');
+      toast.error('删除权限失败');
     }
   };
 
@@ -303,11 +304,11 @@ function PermissionModal({ permission, onClose, onSave }: PermissionModalProps) 
         onSave();
       } else {
         const error = await response.json();
-        alert(error.error || '保存失败');
+        toast.error(error.error || '保存失败');
       }
     } catch (error) {
       console.error('Error saving permission:', error);
-      alert('保存失败');
+      toast.error('保存失败');
     } finally {
       setLoading(false);
     }

@@ -131,11 +131,11 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
       if (response.ok) {
         router.push('/admin/api-keys');
       } else {
-        alert('删除API密钥失败');
+        toast.error('删除API密钥失败');
       }
     } catch (error) {
       console.error('Error deleting API key:', error);
-      alert('删除API密钥失败');
+      toast.error('删除API密钥失败');
     }
   };
 
@@ -475,11 +475,11 @@ function EditApiKeyModal({ apiKey, onClose, onSave }: EditApiKeyModalProps) {
         onSave();
       } else {
         const error = await response.json();
-        alert(error.message || '保存失败');
+        toast.error(error.message || '保存失败');
       }
     } catch (error) {
       console.error('Error saving API key:', error);
-      alert('保存失败');
+      toast.error('保存失败');
     } finally {
       setLoading(false);
     }

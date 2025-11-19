@@ -3,87 +3,55 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSessionToken } from '@/lib/services/authClientService';
-import { ExperienceRecord } from '@/lib/services/experienceService';
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 
-export default function AdminReviewPage() {
-  return (
-    <Suspense fallback={
-      <div className="admin-loading">
-        <div className="admin-loading-spinner">
-          <i className="fas fa-spinner fa-spin"></i>
-        </div>
-        <p>加载中...</p>
-      </div>
-    }>
-      <ReviewContentInner />
-    </Suspense>
-  );
+interface Experience {
+  id: string;
+  title: string;
+  problem_description: string;
+  solution: string;
+  root_cause: string | null;
+  context: string | null;
+  review_status: 'pending' | 'approved' | 'rejected';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  created_at: string;
+  keywords: string[];
+  submitter_username?: string;
+  reviewer_username?: string;
 }
 
-function ReviewContentInner() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [experiences, setExperiences] = useState<ExperienceRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+interface ReviewStats {
+  pending: number;
+  approved: number;
+  rejected: number;
+  total: number;
+}
 
-  const status = searchParams.get('status') || 'published';
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = 20;
+export default function ReviewPage() {
+  const router = useRouter();
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [stats, setStats] = useState<ReviewStats>({
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    total: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('pending');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedExperiences, setSelectedExperiences] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [batchReviewNote, setBatchReviewNote] = useState('');
 
   useEffect(() => {
-    const fetchExperiences = async () => {
-      setIsLoading(true);
-      setError('');
-
-      try {
-        // Get session token
-        const sessionToken = getSessionToken();
-        if (!sessionToken) {
-          router.push('/admin/login');
-          return;
-        }
-
-        // Fetch experiences with admin access
-        const response = await fetch(`/api/admin/experiences?status=${status}&limit=${limit}&page=${page}`, {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch experiences');
-        }
-
-        const data = await response.json();
-        
-        const formattedExperiences = (data.experiences || []).map((record: any) => ({
-          ...record,
-          keywords: record.keywords || [],
-          author: record.user_id ? { 
-            id: record.user_id,
-            username: record.user_id, // Fallback - in real implementation you'd fetch user details
-            email: record.user_id
-          } : null
-        }));
-
-        setExperiences(formattedExperiences);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '加载经验记录失败');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchExperiences();
-  }, [status, page, router]);
+    fetchStats();
+  }, [selectedStatus, searchTerm, page]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这条记录吗？')) return;
-
+  const fetchExperiences = async () => {
     try {
       const sessionToken = getSessionToken();
       if (!sessionToken) {
@@ -91,83 +59,154 @@ function ReviewContentInner() {
         return;
       }
 
-      const response = await fetch(`/api/admin/experiences/${id}`, {
-        method: 'PUT',
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10',
+        review_status: selectedStatus
+      });
+
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
+
+      const response = await fetch(`/api/admin/review?${params}`, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
-        },
-        body: JSON.stringify({ status: 'deleted' }),
+          'Authorization': `Bearer ${sessionToken}`
+        }
       });
 
       if (!response.ok) {
-        throw new Error('删除失败');
+        throw new Error('Failed to fetch experiences');
       }
-
-      setExperiences(prev => prev.filter(exp => exp.id !== id));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '删除失败');
-    }
-  };
-
-  const handleRestore = async (id: string) => {
-    try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) {
-        router.push('/admin/login');
-        return;
-      }
-
-      const response = await fetch(`/api/admin/experiences/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
-        },
-        body: JSON.stringify({ status: 'published' }),
-      });
-
-      if (!response.ok) {
-        throw new Error('恢复失败');
-      }
-
-      setExperiences(prev => prev.filter(exp => exp.id !== id));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '恢复失败');
-    }
-  };
-
-  const handleGenerateEmbedding = async (id: string) => {
-    try {
-      const response = await fetch(`/api/experiences/${id}/embedding`, {
-        method: 'POST'
-      });
 
       const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || '向量化失败');
-      }
-
-      // Update the experience in local state
-      setExperiences(prev => prev.map(exp => 
-        exp.id === id 
-          ? { ...exp, has_embedding: true } as any
-          : exp
-      ));
+      setExperiences(data.experiences || []);
+      setTotalPages(data.pagination?.totalPages || 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '向量化失败');
-      throw err; // Re-throw to let component handle loading state
+      setError(err instanceof Error ? err.message : 'Failed to load experiences');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (isLoading) {
+  const fetchStats = async () => {
+    try {
+      const sessionToken = getSessionToken();
+      if (!sessionToken) return;
+
+      const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
+        fetch('/api/admin/review?review_status=pending&limit=1', {
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
+        }),
+        fetch('/api/admin/review?review_status=approved&limit=1', {
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
+        }),
+        fetch('/api/admin/review?review_status=rejected&limit=1', {
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
+        })
+      ]);
+
+      const pendingData = await pendingRes.json();
+      const approvedData = await approvedRes.json();
+      const rejectedData = await rejectedRes.json();
+
+      setStats({
+        pending: pendingData.pagination?.total || 0,
+        approved: approvedData.pagination?.total || 0,
+        rejected: rejectedData.pagination?.total || 0,
+        total: (pendingData.pagination?.total || 0) + (approvedData.pagination?.total || 0) + (rejectedData.pagination?.total || 0)
+      });
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
+    }
+  };
+
+  const handleBatchReview = async (reviewStatus: 'approved' | 'rejected') => {
+    if (selectedExperiences.length === 0) {
+      toast.warning('请先选择要审核的经验');
+      return;
+    }
+
+    if (reviewStatus === 'rejected' && !batchReviewNote.trim()) {
+      toast.error('拒绝审核时必须填写审核意见');
+      return;
+    }
+
+    try {
+      const sessionToken = getSessionToken();
+      if (!sessionToken) {
+        router.push('/admin/login');
+        return;
+      }
+
+      const response = await fetch('/api/admin/review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({
+          experienceIds: selectedExperiences,
+          reviewStatus,
+          reviewNote: batchReviewNote.trim() || null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to process batch review');
+      }
+
+      const data = await response.json();
+      alert(`成功${reviewStatus === 'approved' ? '通过' : '拒绝'} ${selectedExperiences.length} 条经验`);
+      
+      setSelectedExperiences([]);
+      setBatchReviewNote('');
+      fetchExperiences();
+      fetchStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Batch review failed');
+    }
+  };
+
+  const toggleExperienceSelection = (experienceId: string) => {
+    setSelectedExperiences(prev => 
+      prev.includes(experienceId) 
+        ? prev.filter(id => id !== experienceId)
+        : [...prev, experienceId]
+    );
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('zh-CN');
+  };
+
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800'
+    };
+
+    const labels = {
+      pending: '待审核',
+      approved: '已通过',
+      rejected: '已拒绝'
+    };
+
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
+        {labels[status as keyof typeof labels]}
+      </span>
+    );
+  };
+
+  if (loading) {
     return (
       <div className="admin-loading">
         <div className="admin-loading-spinner">
           <i className="fas fa-spinner fa-spin"></i>
         </div>
-        <p>加载中...</p>
+        <p>加载数据中...</p>
       </div>
     );
   }
@@ -177,19 +216,7 @@ function ReviewContentInner() {
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">内容审核</h1>
-          <p className="admin-page-subtitle">管理和审核用户提交的经验记录</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <select
-            value={status}
-            onChange={(e) => router.push(`/admin/review?status=${e.target.value}`)}
-            className="admin-form-select"
-            style={{ minWidth: '150px' }}
-          >
-            <option value="all">全部状态</option>
-            <option value="published">已发布</option>
-            <option value="deleted">已删除</option>
-          </select>
+          <p className="admin-page-subtitle">审核和管理用户提交的经验记录</p>
         </div>
       </div>
 
@@ -202,194 +229,253 @@ function ReviewContentInner() {
         </div>
       )}
 
-      {experiences.length === 0 ? (
-        <div className="admin-empty-state">
-          <div className="admin-empty-state-icon">
-            <i className="fas fa-inbox"></i>
-          </div>
-          <div className="admin-empty-state-title">暂无记录</div>
-          <div className="admin-empty-state-description">
-            当前筛选条件下没有找到任何经验记录
-          </div>
+      {/* Stats Cards */}
+      <div className="admin-stats-grid">
+        <StatCard title="待审核" value={stats.pending} icon="fas fa-clock" iconClass="warning" />
+        <StatCard title="已通过" value={stats.approved} icon="fas fa-check-circle" iconClass="success" />
+        <StatCard title="已拒绝" value={stats.rejected} icon="fas fa-times-circle" iconClass="danger" />
+        <StatCard title="总计" value={stats.total} icon="fas fa-chart-bar" iconClass="primary" />
+      </div>
+
+      {/* Filters and Actions */}
+      <div className="admin-card">
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <select
+            value={selectedStatus}
+            onChange={(e) => {
+              setSelectedStatus(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              padding: '0.5rem 1rem',
+              border: '1px solid #e5e7eb',
+              borderRadius: '0.375rem',
+              background: 'white'
+            }}
+          >
+            <option value="pending">待审核</option>
+            <option value="approved">已通过</option>
+            <option value="rejected">已拒绝</option>
+          </select>
+
+          <input
+            type="text"
+            placeholder="搜索标题或内容..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              flex: 1,
+              minWidth: '200px',
+              padding: '0.5rem 1rem',
+              border: '1px solid #e5e7eb',
+              borderRadius: '0.375rem'
+            }}
+          />
+
+          {selectedStatus === 'pending' && selectedExperiences.length > 0 && (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input
+                type="text"
+                placeholder="批量审核意见（拒绝时必填）"
+                value={batchReviewNote}
+                onChange={(e) => setBatchReviewNote(e.target.value)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.375rem',
+                  minWidth: '250px'
+                }}
+              />
+              <button
+                onClick={() => handleBatchReview('approved')}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  cursor: 'pointer'
+                }}
+              >
+                批量通过 ({selectedExperiences.length})
+              </button>
+              <button
+                onClick={() => handleBatchReview('rejected')}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  cursor: 'pointer'
+                }}
+              >
+                批量拒绝 ({selectedExperiences.length})
+              </button>
+            </div>
+          )}
         </div>
-      ) : (
+
+        {/* Experiences List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {experiences.map(experience => (
-            <ExperienceCard
-              key={experience.id}
-              experience={experience}
-              onDelete={handleDelete}
-              onRestore={handleRestore}
-              onGenerateEmbedding={handleGenerateEmbedding}
-            />
-          ))}
+          {experiences.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+              <i className="fas fa-inbox" style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}></i>
+              <p>暂无{selectedStatus === 'pending' ? '待审核' : selectedStatus === 'approved' ? '已通过' : '已拒绝'}的经验</p>
+            </div>
+          ) : (
+            experiences.map((experience) => (
+              <div
+                key={experience.id}
+                className="admin-card"
+                style={{ cursor: 'pointer' }}
+                onClick={() => router.push(`/admin/review/${experience.id}`)}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                  {selectedStatus === 'pending' && (
+                    <input
+                      type="checkbox"
+                      checked={selectedExperiences.includes(experience.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleExperienceSelection(experience.id);
+                      }}
+                      style={{ marginTop: '0.5rem' }}
+                    />
+                  )}
+                  
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>
+                        {experience.title}
+                      </h3>
+                      {getStatusBadge(experience.review_status)}
+                    </div>
+                    
+                    <p style={{ 
+                      margin: '0 0 0.5rem 0', 
+                      color: '#6b7280', 
+                      fontSize: '0.875rem',
+                      lineHeight: 1.5,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
+                      {experience.problem_description}
+                    </p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
+                      <span>
+                        <i className="fas fa-calendar"></i>
+                        {formatDate(experience.created_at)}
+                      </span>
+                      {experience.keywords.length > 0 && (
+                        <span>
+                          <i className="fas fa-tags"></i>
+                          {experience.keywords.slice(0, 3).join(', ')}
+                          {experience.keywords.length > 3 && `...+${experience.keywords.length - 3}`}
+                        </span>
+                      )}
+                      {experience.reviewed_by && (
+                        <span>
+                          <i className="fas fa-user-check"></i>
+                          审核人: {experience.reviewer_username || '未知'}
+                        </span>
+                      )}
+                    </div>
+
+                    {experience.review_note && (
+                      <div style={{
+                        marginTop: '0.5rem',
+                        padding: '0.5rem',
+                        background: '#f3f4f6',
+                        borderRadius: '0.25rem',
+                        fontSize: '0.875rem',
+                        color: '#374151'
+                      }}>
+                        <strong>审核意见:</strong> {experience.review_note}
+                      </div>
+                    )}
+                  </div>
+
+                  <i className="fas fa-chevron-right" style={{ color: '#cbd5e1', alignSelf: 'center' }}></i>
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            marginTop: '2rem'
+          }}>
+            <button
+              onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              style={{
+                padding: '0.5rem 1rem',
+                border: '1px solid #e5e7eb',
+                background: page === 1 ? '#f9fafb' : 'white',
+                borderRadius: '0.375rem',
+                cursor: page === 1 ? 'not-allowed' : 'pointer'
+              }}
+            >
+              上一页
+            </button>
+            
+            <span style={{ padding: '0.5rem 1rem' }}>
+              第 {page} 页，共 {totalPages} 页
+            </span>
+            
+            <button
+              onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              style={{
+                padding: '0.5rem 1rem',
+                border: '1px solid #e5e7eb',
+                background: page === totalPages ? '#f9fafb' : 'white',
+                borderRadius: '0.375rem',
+                cursor: page === totalPages ? 'not-allowed' : 'pointer'
+              }}
+            >
+              下一页
+            </button>
+          </div>
+        )}
+      </div>
     </>
   );
 }
 
-function ExperienceCard({
-  experience,
-  onDelete,
-  onRestore,
-  onGenerateEmbedding
-}: {
-  experience: ExperienceRecord & { keywords?: string[]; author?: any };
-  onDelete: (id: string) => void;
-  onRestore: (id: string) => void;
-  onGenerateEmbedding: (id: string) => void;
+function StatCard({ 
+  title, 
+  value, 
+  icon, 
+  iconClass 
+}: { 
+  title: string; 
+  value: number; 
+  icon: string; 
+  iconClass: string;
 }) {
-  const router = useRouter();
-  const isDeleted = experience.status === 'deleted';
-  const [isGeneratingEmbedding, setIsGeneratingEmbedding] = useState(false);
-  // Use has_embedding flag to check if experience has been vectorized
-  const hasEmbedding = (experience as any).has_embedding === true;
-
-  const handleGenerateEmbeddingClick = async () => {
-    setIsGeneratingEmbedding(true);
-    try {
-      await onGenerateEmbedding(experience.id);
-    } finally {
-      setIsGeneratingEmbedding(false);
-    }
-  };
-
   return (
-    <div className="admin-card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-            <h3 style={{
-              fontSize: '1.125rem',
-              fontWeight: 600,
-              color: '#1e293b',
-              margin: 0
-            }}>
-              {experience.title}
-            </h3>
-            <span className={`admin-badge ${isDeleted ? 'admin-badge-danger' : 'admin-badge-success'}`}>
-              {isDeleted ? '已删除' : '已发布'}
-            </span>
-          </div>
-          <p style={{
-            fontSize: '0.875rem',
-            color: '#64748b',
-            margin: 0,
-            lineHeight: 1.6,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden'
-          }}>
-            {experience.problem_description}
-          </p>
+    <div className="admin-stat-card">
+      <div className="admin-stat-header">
+        <div className="admin-stat-title">{title}</div>
+        <div className={`admin-stat-icon ${iconClass}`}>
+          <i className={icon}></i>
         </div>
       </div>
-
-      {experience.keywords && experience.keywords.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-          {experience.keywords.slice(0, 5).map(keyword => (
-            <span key={keyword} style={{
-              padding: '0.25rem 0.75rem',
-              background: '#e0e7ff',
-              color: '#4338ca',
-              borderRadius: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 500
-            }}>
-              {keyword}
-            </span>
-          ))}
-          {experience.keywords.length > 5 && (
-            <span style={{
-              padding: '0.25rem 0.75rem',
-              background: '#f1f5f9',
-              color: '#64748b',
-              borderRadius: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 500
-            }}>
-              +{experience.keywords.length - 5}
-            </span>
-          )}
-        </div>
-      )}
-
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingTop: '1rem',
-        borderTop: '1px solid #e2e8f0'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.875rem', color: '#64748b' }}>
-          <span>
-            <i className="fas fa-user" style={{ marginRight: '0.25rem' }}></i>
-            {experience.author?.email || experience.author?.username || '匿名用户'}
-          </span>
-          <span>
-            <i className="fas fa-calendar" style={{ marginRight: '0.25rem' }}></i>
-            {new Date(experience.created_at).toLocaleDateString('zh-CN')}
-          </span>
-          {experience.view_count !== undefined && experience.view_count !== null && (
-            <span>
-              <i className="fas fa-eye" style={{ marginRight: '0.25rem' }}></i>
-              {experience.view_count} 次查看
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {!hasEmbedding && !isDeleted && (
-            <button
-              onClick={handleGenerateEmbeddingClick}
-              disabled={isGeneratingEmbedding}
-              className="admin-btn admin-btn-outline admin-btn-sm"
-              style={{ 
-                opacity: isGeneratingEmbedding ? 0.6 : 1,
-                cursor: isGeneratingEmbedding ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {isGeneratingEmbedding ? (
-                <>
-                  <i className="fas fa-spinner fa-spin"></i>
-                  <span>向量化中...</span>
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-brain"></i>
-                  <span>向量化</span>
-                </>
-              )}
-            </button>
-          )}
-          {isDeleted ? (
-            <button
-              onClick={() => onRestore(experience.id)}
-              className="admin-btn admin-btn-success admin-btn-sm"
-            >
-              <i className="fas fa-undo"></i>
-              <span>恢复</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => onDelete(experience.id)}
-              className="admin-btn admin-btn-danger admin-btn-sm"
-            >
-              <i className="fas fa-trash"></i>
-              <span>删除</span>
-            </button>
-          )}
-          <button
-            onClick={() => window.open(`/experience/${experience.id}`, '_blank')}
-            className="admin-btn admin-btn-outline admin-btn-sm"
-          >
-            <i className="fas fa-external-link-alt"></i>
-            <span>查看</span>
-          </button>
-        </div>
-      </div>
+      <div className="admin-stat-value">{value.toLocaleString()}</div>
     </div>
   );
 }

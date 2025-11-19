@@ -1,15 +1,8 @@
 import express from 'express';
 import { createServer } from 'http';
-import { config } from 'dotenv';
-import { initMCP } from './mcp';
-import { initSupabase } from './lib/supabase';
-
-// Load environment variables
-config();
+import { initMCP } from './mcp/index.js';
 
 async function main() {
-  // Initialize Supabase client
-  const supabase = initSupabase();
 
   // Create Express app
   const app = express();
@@ -34,7 +27,7 @@ async function main() {
   });
 
   // Initialize MCP server
-  const mcpServer = await initMCP(app, supabase);
+  await initMCP(app);
 
   // Create HTTP server
   const httpServer = createServer(app);
@@ -52,32 +45,12 @@ async function main() {
   // Handle server shutdown gracefully
   process.on('SIGINT', async () => {
     console.log('Shutting down server...');
-    // Close all active transports to properly clean up resources
-    if (mcpServer && mcpServer.transports) {
-      for (const [sessionId, transport] of mcpServer.transports.entries()) {
-        try {
-          console.log(`Closing transport for session ${sessionId}`);
-          await transport.close();
-        } catch (error) {
-          console.error(`Error closing transport for session ${sessionId}:`, error);
-        }
-      }
-    }
     console.log('Server shutdown complete');
     process.exit(0);
   });
 
   process.on('SIGTERM', async () => {
     console.log('Received SIGTERM, shutting down gracefully...');
-    if (mcpServer && mcpServer.transports) {
-      for (const [sessionId, transport] of mcpServer.transports.entries()) {
-        try {
-          await transport.close();
-        } catch (error) {
-          console.error(`Error closing transport for session ${sessionId}:`, error);
-        }
-      }
-    }
     process.exit(0);
   });
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { User, Role } from '@/types/database';
 import PermissionGuard from '@/components/auth/PermissionGuard';
+import { toast } from '@/lib/toastService';
 
 interface UsersResponse {
   users: (User & {
@@ -69,11 +70,11 @@ function UsersManagementContent() {
       if (response.ok) {
         fetchUsers();
       } else {
-        alert('删除用户失败');
+        toast.error('删除用户失败');
       }
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('删除用户失败');
+      toast.error('删除用户失败');
     }
   };
 
@@ -351,11 +352,11 @@ function UserModal({ user, onClose, onSave }: UserModalProps) {
         onSave();
       } else {
         const error = await response.json();
-        alert(error.error || '保存失败');
+        toast.error(error.error || '保存失败');
       }
     } catch (error) {
       console.error('Error saving user:', error);
-      alert('保存失败');
+      toast.error('保存失败');
     } finally {
       setLoading(false);
     }

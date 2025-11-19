@@ -23,7 +23,7 @@ Recall Kit Web 是 Recall Kit 项目的 Web 前端应用，基于 Next.js 15 构
 - ✅ **全文搜索** - 关键词匹配搜索（降级方案）
 - ✅ **响应式设计** - 适配各种设备尺寸
 - ✅ **匿名访问** - 无需登录即可搜索和浏览
-- ✅ **管理员认证** - 基于 Supabase Auth 的身份验证
+- ✅ **管理员认证** - 基于 JWT 的身份验证
 
 ## 技术栈
 
@@ -31,8 +31,8 @@ Recall Kit Web 是 Recall Kit 项目的 Web 前端应用，基于 Next.js 15 构
 - **UI 库**: React 18
 - **样式**: Tailwind CSS
 - **语言**: TypeScript 5.3+
-- **数据库**: Supabase (PostgreSQL)
-- **认证**: Supabase Auth (@supabase/ssr)
+- **数据库**: PostgreSQL (原生)
+- **认证**: JWT (自定义实现)
 - **状态管理**: Zustand
 - **数据验证**: Zod
 - **字体**: Inter, Poppins, Open Sans
@@ -68,10 +68,9 @@ web/
 │   │   │   ├── experienceService.ts
 │   │   │   ├── embeddingService.ts
 │   │   │   └── authService.ts
-│   │   └── supabase/          # Supabase 客户端
-│   │       ├── client.ts      # 客户端（浏览器）
-│   │       ├── server.ts      # 服务端（SSR）
-│   │       └── admin.ts       # 管理员客户端
+│   │   └── db/                # 数据库相关
+│   │       ├── client.ts      # 数据库客户端
+│   │       └── config.ts      # 数据库配置
 │   └── types/                 # TypeScript 类型定义
 │       └── database.ts         # 数据库类型
 ├── middleware.ts              # Next.js 中间件（认证）
@@ -87,7 +86,7 @@ web/
 
 - Node.js 18+
 - npm 或 yarn
-- Supabase 项目（已配置数据库）
+- PostgreSQL 数据库
 
 ### 安装
 
@@ -101,13 +100,27 @@ npm install
 在项目根目录创建 `.env.local` 文件：
 
 ```env
-# Supabase 配置
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+# Database Configuration
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=recall_kit
+DATABASE_USER=postgres
+DATABASE_PASSWORD=your_password
 
-# OpenAI 配置（用于向量搜索）
-OPENAI_API_KEY=your-openai-api-key
+# Authentication
+JWT_SECRET=your_jwt_secret_key_here
+SESSION_SECRET=your_session_secret_key_here
+
+# AI Service Configuration
+AI_SERVICE_TYPE=openai
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_API_URL=https://api.openai.com/v1
+OPENAI_MODEL=text-embedding-3-small
+
+# Application
+NODE_ENV=production
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=http://localhost:3000
 ```
 
 ### 开发
@@ -211,11 +224,12 @@ npm run test:coverage # 生成测试覆盖率报告
 ## 认证流程
 
 1. 用户访问 `/admin/login` 页面
-2. 输入邮箱和密码
-3. 通过 Supabase Auth 验证
-4. 中间件 (`middleware.ts`) 检查认证状态
-5. 已认证用户可访问管理页面
-6. 未认证用户重定向到登录页
+2. 输入用户名和密码
+3. 通过自定义认证系统验证
+4. 生成 JWT 令牌
+5. 中间件 (`middleware.ts`) 检查认证状态
+6. 已认证用户可访问管理页面
+7. 未认证用户重定向到登录页
 
 ## 向量搜索
 
@@ -234,7 +248,7 @@ npm run test:coverage # 生成测试覆盖率报告
 
 - 所有代码使用 TypeScript 编写
 - 类型定义位于 `src/types/` 目录
-- 数据库类型通过 Supabase 自动生成
+- 数据库类型手动定义和维护
 
 ### 代码规范
 
@@ -282,18 +296,23 @@ npm start
 ```
 
 确保设置以下环境变量：
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_HOST`
+- `DATABASE_PORT`
+- `DATABASE_NAME`
+- `DATABASE_USER`
+- `DATABASE_PASSWORD`
+- `JWT_SECRET`
+- `SESSION_SECRET`
 - `OPENAI_API_KEY`（可选，用于向量搜索）
 
 ## 故障排查
 
 ### 常见问题
 
-1. **Supabase 连接失败**
+1. **数据库连接失败**
    - 检查环境变量是否正确
-   - 确认 Supabase 项目状态
+   - 确认 PostgreSQL 服务是否运行
+   - 验证数据库用户权限
 
 2. **向量搜索不工作**
    - 检查 OpenAI API Key 是否配置
@@ -302,12 +321,14 @@ npm start
 
 3. **认证问题**
    - 检查中间件配置
-   - 确认 Supabase Auth 设置正确
+   - 确认 JWT 密钥配置正确
+   - 验证数据库中的用户数据
 
 ## 相关文档
 
 - [项目根目录 README](../README.md)
 - [向量搜索指南](../docs/VECTOR_SEARCH.md)
+- [PostgreSQL 迁移指南](../POSTGRES_MIGRATION.md)
 - [Next.js 文档](https://nextjs.org/docs)
-- [Supabase 文档](https://supabase.com/docs)
+- [PostgreSQL 文档](https://www.postgresql.org/docs/)
 

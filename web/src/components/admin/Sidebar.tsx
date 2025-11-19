@@ -55,6 +55,11 @@ export default function Sidebar() {
       icon: 'fas fa-clipboard-check',
     },
     {
+      href: '/admin/my-experiences',
+      label: '个人经验',
+      icon: 'fas fa-book-open',
+    },
+    {
       href: '/admin/settings',
       label: '系统设置',
       icon: 'fas fa-cog',

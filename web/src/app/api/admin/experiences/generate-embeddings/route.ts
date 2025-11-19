@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     // Get experiences without embeddings
     const result = await db.query(
-      'SELECT id FROM experience_records WHERE status = $1 AND (has_embedding = false OR has_embedding IS NULL) ORDER BY created_at DESC LIMIT $2',
+      'SELECT id FROM experience_records WHERE publish_status = $1 AND is_deleted = false AND (has_embedding = false OR has_embedding IS NULL) ORDER BY created_at DESC LIMIT $2',
       ['published', limit]
     );
 

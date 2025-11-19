@@ -45,8 +45,32 @@ export async function GET(request: NextRequest) {
     let paramIndex = 1;
 
     if (status !== 'all') {
-      whereClause = 'WHERE status = $1';
-      params.push(status);
+      // Handle different status filters
+      if (status === 'published') {
+        whereClause = 'WHERE publish_status = $1 AND is_deleted = false';
+        params.push('published');
+      } else if (status === 'draft') {
+        whereClause = 'WHERE publish_status = $1 AND is_deleted = false';
+        params.push('draft');
+      } else if (status === 'publishing') {
+        whereClause = 'WHERE publish_status = $1 AND is_deleted = false';
+        params.push('publishing');
+      } else if (status === 'rejected') {
+        whereClause = 'WHERE publish_status = $1 AND is_deleted = false';
+        params.push('rejected');
+      } else if (status === 'deleted') {
+        whereClause = 'WHERE is_deleted = $1';
+        params.push(true);
+      } else if (status === 'pending') {
+        whereClause = 'WHERE review_status = $1';
+        params.push('pending');
+      } else if (status === 'rejected') {
+        whereClause = 'WHERE review_status = $1';
+        params.push('rejected');
+      } else {
+        whereClause = 'WHERE status = $1';
+        params.push(status);
+      }
       paramIndex++;
     }
 
@@ -64,11 +88,12 @@ export async function GET(request: NextRequest) {
     );
     const total = parseInt(countResult.rows[0].total);
 
-    // Get experiences with keywords, excluding embedding field
+    // Get experiences with keywords, excluding embedding field but including has_embedding
     const experiencesResult = await db.query(`
       SELECT er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
-             er.solution, er.context, er.status, er.query_count, er.view_count, 
-             er.relevance_score, er.created_at, er.updated_at, er.deleted_at,
+             er.solution, er.context, er.publish_status, er.is_deleted,
+             er.query_count, er.view_count, er.relevance_score, er.has_embedding,
+             er.created_at, er.updated_at, er.deleted_at,
              COALESCE(
                json_agg(
                  CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
@@ -137,7 +162,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, problem_description, solution, root_cause, context, keywords, status = 'published' } = body;
+    const { title, problem_description, solution, root_cause, context, keywords, publish_status = 'published' } = body;
 
     if (!title || !problem_description || !solution) {
       return NextResponse.json(
@@ -146,15 +171,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert new experience
+    // Insert new experience with review_status
     const result = await db.query(
       `INSERT INTO experience_records 
-       (title, problem_description, solution, root_cause, context, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+       (title, problem_description, solution, root_cause, context, publish_status, is_deleted, review_status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, false, $7, NOW(), NOW())
        RETURNING id, user_id, title, problem_description, root_cause, 
-                solution, context, status, query_count, view_count, 
-                relevance_score, created_at, updated_at, deleted_at`,
-      [title, problem_description, solution, root_cause, context, status]
+                solution, context, publish_status, is_deleted, review_status,
+                query_count, view_count, relevance_score, created_at, updated_at, deleted_at`,
+      [title, problem_description, solution, root_cause, context, publish_status, 'pending']
     );
 
     const experience = result.rows[0];

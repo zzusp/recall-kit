@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { ExperienceService } from '@/lib/services/experienceService';
 import { ApiRouteResponse, ErrorResponses } from '@/lib/utils/apiResponse';
+import { db } from '@/lib/db/client';
+import { getCurrentUser } from '@/lib/services/authService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,6 +36,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Get session token from Authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return ApiRouteResponse.unauthorized('Authorization token required');
+    }
+
+    const token = authHeader.substring(7);
+    
+    // Verify user
+    const user = await getCurrentUser(token);
+    if (!user) {
+      return ApiRouteResponse.unauthorized('Invalid or expired token');
+    }
+
     const body = await request.json();
     
     // TODO: Add proper validation
@@ -43,16 +59,28 @@ export async function POST(request: NextRequest) {
     if (!title || !problem_description || !solution) {
       return ApiRouteResponse.badRequest('Title, problem description, and solution are required');
     }
-
-    // Insert new experience
+    
+    // Extract review status from body or default to 'pending'
+    const { review_status } = body;
+    const finalReviewStatus = review_status || 'pending';
+    
+    // Insert new experience with draft publish status
     const result = await db.query(
       `INSERT INTO experience_records 
-       (title, problem_description, solution, root_cause, context, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, 'published', NOW(), NOW())
+       (user_id, title, problem_description, solution, root_cause, context, publish_status, is_deleted, review_status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'draft', false, $7, NOW(), NOW())
        RETURNING id, user_id, title, problem_description, root_cause, 
-                solution, context, status, query_count, view_count, 
-                relevance_score, created_at, updated_at, deleted_at`,
-      [title, problem_description, solution, root_cause, context]
+                solution, context, publish_status, is_deleted, review_status,
+                query_count, view_count, relevance_score, created_at, updated_at, deleted_at`,
+      [
+        user.id,
+        title,
+        problem_description,
+        solution,
+        root_cause,
+        context,
+        finalReviewStatus
+      ]
     );
 
     const experience = result.rows[0];
@@ -60,7 +88,7 @@ export async function POST(request: NextRequest) {
     // Insert keywords if provided
     if (keywords && Array.isArray(keywords) && keywords.length > 0) {
       const keywordValues = keywords.map((keyword: string) => 
-        `('${experience.id}', '${keyword}')`
+        `('${experience.id}', '${keyword.replace(/'/g, "''")}')`  // Escape single quotes
       ).join(', ');
       
       await db.query(

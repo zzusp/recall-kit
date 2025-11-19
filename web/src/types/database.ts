@@ -289,7 +289,12 @@ export interface Database {
           root_cause: string | null;
           solution: string;
           context: string | null;
-          status: string;
+          publish_status: 'publishing' | 'published' | 'rejected' | 'draft';
+          review_status: 'pending' | 'approved' | 'rejected';
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          review_note: string | null;
+          is_deleted: boolean;
           query_count: number;
           view_count: number;
           relevance_score: number | null;
@@ -298,7 +303,7 @@ export interface Database {
           has_embedding: boolean;
           created_at: string;
           updated_at: string;
-          deleted_at: string | null;
+          deleted_at: string | null; // Keep for backward compatibility
         };
         Insert: {
           id?: string;
@@ -308,7 +313,12 @@ export interface Database {
           root_cause?: string | null;
           solution: string;
           context?: string | null;
-          status?: string;
+          publish_status?: 'publishing' | 'published' | 'rejected' | 'draft';
+          review_status?: 'pending' | 'approved' | 'rejected';
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_note?: string | null;
+          is_deleted?: boolean;
           query_count?: number;
           view_count?: number;
           relevance_score?: number | null;
@@ -326,7 +336,12 @@ export interface Database {
           root_cause?: string | null;
           solution?: string;
           context?: string | null;
-          status?: string;
+          publish_status?: 'publishing' | 'published' | 'rejected' | 'draft';
+          review_status?: 'pending' | 'approved' | 'rejected';
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_note?: string | null;
+          is_deleted?: boolean;
           query_count?: number;
           view_count?: number;
           relevance_score?: number | null;

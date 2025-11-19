@@ -1,5 +1,10 @@
 import { randomBytes } from 'crypto';
-import { Session } from './types';
+
+export interface Session {
+  id: string;
+  createdAt: number;
+  lastActivity: number;
+}
 
 export class SessionManager {
   private sessions: Map<string, Session> = new Map();

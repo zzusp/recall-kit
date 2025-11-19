@@ -4,6 +4,7 @@ const DEFAULT_QUERY_MAX_LIMIT = 100;
 export interface MCPServerConfig {
   queryDefaultLimit: number;
   queryMaxLimit: number;
+  apiKey?: string; // ????? apiKey ??
 }
 
 function parseLimitValue(raw: string | undefined, fallback: number): number {
@@ -19,13 +20,14 @@ function parseLimitValue(raw: string | undefined, fallback: number): number {
   return parsed;
 }
 
-export function loadMCPServerConfig(): MCPServerConfig {
+export function loadMCPServerConfig(apiKey?: string): MCPServerConfig {
   const maxLimit = Math.max(1, parseLimitValue(process.env.MCP_QUERY_MAX_LIMIT, DEFAULT_QUERY_MAX_LIMIT));
   const defaultLimit = parseLimitValue(process.env.MCP_QUERY_DEFAULT_LIMIT, DEFAULT_QUERY_LIMIT);
 
   return {
     queryMaxLimit: maxLimit,
     queryDefaultLimit: Math.min(Math.max(defaultLimit, 1), maxLimit),
+    apiKey, // ?? apiKey ??
   };
 }
 

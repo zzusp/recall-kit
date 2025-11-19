@@ -8,6 +8,7 @@ interface ApiKey {
   id: string;
   name: string;
   keyPrefix: string;
+  apiKey: string; // Now included in the list response
   isActive: boolean;
   lastUsedAt: string | null;
   createdAt: string;
@@ -74,11 +75,11 @@ export default function ApiKeysManagement() {
       if (response.ok) {
         fetchApiKeys();
       } else {
-        alert('删除API密钥失败');
+        toast.error('删除API密钥失败');
       }
     } catch (error) {
       console.error('Error deleting API key:', error);
-      alert('删除API密钥失败');
+      toast.error('删除API密钥失败');
     }
   };
 
@@ -99,36 +100,22 @@ export default function ApiKeysManagement() {
       if (response.ok) {
         fetchApiKeys();
       } else {
-        alert('更新API密钥状态失败');
+        toast.error('更新API密钥状态失败');
       }
     } catch (error) {
       console.error('Error toggling API key:', error);
-      alert('更新API密钥状态失败');
+      toast.error('更新API密钥状态失败');
     }
   };
 
   const handleCopyFullApiKey = async (apiKey: ApiKey) => {
     try {
       setLoadingCopy(apiKey.id);
-      const sessionToken = getSessionToken();
-      if (!sessionToken) return;
-
-      const response = await fetch(`/api/api-keys/${apiKey.id}/copy`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${sessionToken}` }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        await navigator.clipboard.writeText(data.apiKey);
-        alert('API密钥已复制到剪贴板');
-      } else {
-        const error = await response.json();
-        alert(error.message || '获取API密钥失败');
-      }
+      await navigator.clipboard.writeText(apiKey.apiKey);
+      toast.success('API密钥已复制到剪贴板');
     } catch (error) {
       console.error('Error copying API key:', error);
-      alert('复制API密钥失败');
+      toast.error('复制API密钥失败');
     } finally {
       setLoadingCopy(null);
     }
@@ -397,11 +384,11 @@ function ApiKeyModal({ apiKey, onClose, onSave }: ApiKeyModalProps) {
         onSave(data);
       } else {
         const error = await response.json();
-        alert(error.message || '保存失败');
+        toast.error(error.message || '保存失败');
       }
     } catch (error) {
       console.error('Error saving API key:', error);
-      alert('保存失败');
+      toast.error('保存失败');
     } finally {
       setLoading(false);
     }

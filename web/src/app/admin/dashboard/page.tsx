@@ -11,6 +11,7 @@ export default function AdminDashboardPage() {
     totalExperiences: 0,
     publishedExperiences: 0,
     deletedExperiences: 0,
+    pendingReviews: 0,
     recentSubmissions: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -36,6 +37,7 @@ export default function AdminDashboardPage() {
           totalResponse,
           publishedResponse,
           deletedResponse,
+          pendingResponse,
           recentResponse
         ] = await Promise.all([
           fetch('/api/admin/experiences?limit=1&page=1', {
@@ -47,24 +49,29 @@ export default function AdminDashboardPage() {
           fetch('/api/admin/experiences?status=deleted&limit=1&page=1', {
             headers: { 'Authorization': `Bearer ${sessionToken}` }
           }),
+          fetch('/api/admin/experiences?status=pending&limit=1&page=1', {
+            headers: { 'Authorization': `Bearer ${sessionToken}` }
+          }),
           fetch('/api/admin/experiences?status=published&limit=1&page=1', {
             headers: { 'Authorization': `Bearer ${sessionToken}` }
           })
         ]);
 
-        if (!totalResponse.ok || !publishedResponse.ok || !deletedResponse.ok || !recentResponse.ok) {
+        if (!totalResponse.ok || !publishedResponse.ok || !deletedResponse.ok || !pendingResponse.ok || !recentResponse.ok) {
           throw new Error('Failed to fetch stats');
         }
 
         const totalData = await totalResponse.json();
         const publishedData = await publishedResponse.json();
         const deletedData = await deletedResponse.json();
+        const pendingData = await pendingResponse.json();
         const recentData = await recentResponse.json();
 
         setStats({
           totalExperiences: totalData.pagination?.total || 0,
           publishedExperiences: publishedData.pagination?.total || 0,
           deletedExperiences: deletedData.pagination?.total || 0,
+          pendingReviews: pendingData.pagination?.total || 0,
           recentSubmissions: recentData.pagination?.total || 0, // Note: This should be filtered by date in API
         });
       } catch (err) {
@@ -124,6 +131,14 @@ export default function AdminDashboardPage() {
           change="已审核通过"
         />
         <StatCard
+          title="待审核"
+          value={stats.pendingReviews}
+          icon="fas fa-clock"
+          iconClass="warning"
+          link="/admin/review"
+          change="等待审核"
+        />
+        <StatCard
           title="已删除"
           value={stats.deletedExperiences}
           icon="fas fa-trash"
@@ -135,7 +150,7 @@ export default function AdminDashboardPage() {
           title="最近7天"
           value={stats.recentSubmissions}
           icon="fas fa-clock"
-          iconClass="warning"
+          iconClass="info"
           link="/admin/review?status=published&sort=recent"
           change="新增提交"
         />

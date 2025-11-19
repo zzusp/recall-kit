@@ -28,13 +28,13 @@ Recall Kit 由三个核心模块组成：
 **详细文档**: [web/README.md](web/README.md)
 
 ### 3. 数据库
-基于 Supabase (PostgreSQL) 的数据存储，支持向量搜索和全文搜索。
+基于 PostgreSQL 的数据存储，支持向量搜索和全文搜索。
 
 ## 技术栈概览
 
 - **前端**: Next.js 15, React 18, TypeScript, Tailwind CSS
 - **后端**: MCP Server (TypeScript), Express
-- **数据库**: Supabase (PostgreSQL + pgvector)
+- **数据库**: PostgreSQL (pgvector)
 - **搜索**: 向量搜索 (OpenAI Embedding) + 全文搜索 (PostgreSQL FTS)
 - **协议**: Model Context Protocol (MCP)
 
@@ -49,7 +49,8 @@ recall-kit/
 │   └── README.md          # MCP Server 详细文档
 │
 ├── supabase/              # 数据库迁移文件
-│   └── migrations/
+│   └── migrations/        # SQL 迁移脚本
+├── database_init.sql      # 数据库初始化脚本
 │
 ├── specs/                 # 项目规范和文档
 │   └── 001-experience-sharing-platform/
@@ -65,7 +66,7 @@ recall-kit/
 
 - Node.js 18+
 - npm 或 yarn
-- Supabase 账户和项目
+- PostgreSQL 数据库
 - OpenAI API Key（可选，用于向量搜索）
 
 ### 安装步骤
@@ -89,11 +90,19 @@ cd ../mcp-server && npm install
 - Web 应用：在 `web` 目录下创建 `.env.local`，参考 [web/README.md](web/README.md#环境变量配置)
 - MCP Server：在 `mcp-server` 目录下创建 `.env`，参考 [mcp-server/README.md](mcp-server/README.md#环境变量配置)
 
-4. **运行数据库迁移**
+4. **设置数据库**
 
-在 Supabase Dashboard 中执行 `supabase/migrations/` 目录下的 SQL 文件，或使用 Supabase CLI：
+创建 PostgreSQL 数据库并运行迁移脚本：
 ```bash
-supabase db push
+# 创建数据库
+createdb recall_kit
+
+# 运行初始化脚本
+psql -d recall_kit -f database_init.sql
+
+# 或者按顺序运行迁移文件
+psql -d recall_kit -f supabase/migrations/001_initial_schema.sql
+# ... 依次运行其他迁移文件
 ```
 
 5. **启动服务**

@@ -7,7 +7,7 @@
 
 - Node.js 20.x LTS
 - npm 10+
-- Supabase账户
+- PostgreSQL数据库
 - Git
 
 ## 项目初始化
@@ -32,17 +32,20 @@ cd web && npm install
 cd ../mcp-server && npm install
 ```
 
-### 3. 配置Supabase
+### 3. 配置PostgreSQL
 
-1. 在Supabase创建新项目
-2. 复制项目URL和anon key
+1. 创建PostgreSQL数据库
+2. 记录数据库连接信息
 3. 创建`.env`文件：
 
 ```bash
 # .env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+DATABASE_URL=postgresql://user:password@host:port/database
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=recall_kit
+DATABASE_USER=postgres
+DATABASE_PASSWORD=your_password
 
 # AI服务配置
 OPENAI_API_KEY=your-openai-api-key
@@ -56,22 +59,21 @@ MCP_SERVER_PORT=3001
 ### 4. 运行数据库迁移
 
 ```bash
-cd supabase
-supabase db push
+psql -d recall_kit -f database_init.sql
 ```
 
 或手动执行迁移文件：
 ```bash
-psql -h <supabase-host> -U postgres -d postgres -f migrations/001_initial_schema.sql
-psql -h <supabase-host> -U postgres -d postgres -f migrations/002_rls_policies.sql
-psql -h <supabase-host> -U postgres -d postgres -f migrations/003_indexes.sql
-psql -h <supabase-host> -U postgres -d postgres -f migrations/004_functions_triggers.sql
-psql -h <supabase-host> -U postgres -d postgres -f migrations/005_seed_data.sql
+psql -h localhost -U postgres -d recall_kit -f supabase/migrations/001_initial_schema.sql
+psql -h localhost -U postgres -d recall_kit -f supabase/migrations/002_rls_policies.sql
+psql -h localhost -U postgres -d recall_kit -f supabase/migrations/003_indexes.sql
+psql -h localhost -U postgres -d recall_kit -f supabase/migrations/004_functions_triggers.sql
+psql -h localhost -U postgres -d recall_kit -f supabase/migrations/005_seed_data.sql
 ```
 
 ### 5. 创建第一个管理员账户
 
-执行seed脚本或通过Supabase Dashboard手动创建：
+执行seed脚本或通过psql命令手动创建：
 
 ```sql
 INSERT INTO profiles (id, username, email, role)
@@ -118,7 +120,8 @@ recall-kit/
 │   ├── src/api/         # Next.js API Routes（后端API）
 │   └── src/components/  # React组件
 ├── mcp-server/          # MCP Server项目（独立服务）
-├── supabase/            # Supabase配置和迁移（共享）
+├── supabase/            # 数据库迁移文件（共享）
+├── database_init.sql    # 数据库初始化脚本
 └── tests/               # 测试文件
 ```
 
@@ -215,25 +218,23 @@ docker run -p 3001:3001 recall-kit-mcp-server
 
 ```bash
 NODE_ENV=development
-SUPABASE_URL=...
-SUPABASE_ANON_KEY=...
+DATABASE_URL=postgresql://user:password@host:port/database
 ```
 
 ### 生产环境 (.env.production)
 
 ```bash
 NODE_ENV=production
-SUPABASE_URL=...
-SUPABASE_ANON_KEY=...
+DATABASE_URL=postgresql://user:password@host:port/database
 ```
 
 ## 常见问题
 
-### 1. Supabase连接失败
+### 1. PostgreSQL连接失败
 
 检查：
-- `.env`文件中的URL和key是否正确
-- Supabase项目是否已创建
+- `.env`文件中的连接字符串是否正确
+- Postgre
 - 网络连接是否正常
 
 ### 2. 数据库迁移失败

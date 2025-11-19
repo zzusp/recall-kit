@@ -91,7 +91,7 @@
 
 ### 5. 后端即服务(BaaS)选择
 
-**Decision**: Supabase
+**Decision**: PostgreSQL (Native)
 
 **Rationale**:
 - 开箱即用：提供PostgreSQL、认证、实时订阅
@@ -101,12 +101,12 @@
 
 **Alternatives considered**:
 - **Firebase**: 功能强大但使用NoSQL，不符合需求
-- **自建PostgreSQL + Express**: 灵活性高但开发工作量大
-- **PlanetScale**: MySQL数据库，但功能不如Supabase全面
+- **Supabase**: PostgreSQL+但需要依赖第三方服务
+- **PlanetScale**: MySQL数据库，但功能不如PostgreSQL全面
 
 **References**:
-- [Supabase documentation](https://supabase.com/docs)
-- [Supabase vs Firebase](https://supabase.com/docs/guides/getting-started/comparing-supabase-vs-firebase)
+- [PostgreSQL documentation](https://www.postgresql.org/docs/)
+- [pgvector documentation](https://github.com/pgvector/pgvector)
 
 ### 6. 数据库设计
 
@@ -230,7 +230,7 @@
 
 ### 3. 数据访问层
 
-**Pattern**: Supabase Client + RLS Policies
+**Pattern**: PostgreSQL Client + Native SQL
 
 **Benefits**:
 - 类型安全：TypeScript类型自动生成
@@ -247,7 +247,7 @@
 
 ### 2. 权限控制
 
-- 使用Supabase RLS策略
+- 使用自定义权限系统
 - 匿名用户只能读取已发布记录
 - 管理员操作记录审计日志
 
@@ -261,7 +261,7 @@
 
 ### 1. 数据库扩展
 
-- 使用Supabase自动扩展
+- 使用PostgreSQL连接池
 - 优化查询和索引
 - 考虑读写分离（如需要）
 
@@ -273,7 +273,7 @@
 
 ### 3. 成本优化
 
-- 使用Supabase免费额度
+- 自建PostgreSQL成本可控
 - AI API调用优化（缓存、批量处理）
 - CDN缓存静态资源
 

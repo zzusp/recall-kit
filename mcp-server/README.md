@@ -33,9 +33,6 @@ Recall Kit MCP Server 是基于 Model Context Protocol (MCP) 的服务器，为 
 - ✅ **MCP 协议支持** - 完全兼容 MCP 2025-06-18 协议
 - ✅ **HTTP 传输** - 使用 StreamableHTTPServerTransport
 - ✅ **会话管理** - 支持多客户端并发连接
-- ✅ **向量搜索** - 基于 OpenAI embedding 的语义搜索
-- ✅ **全文搜索** - 关键词匹配搜索（降级方案）
-- ✅ **自动降级** - 向量搜索不可用时自动使用全文搜索
 - ✅ **数据验证** - 使用 Zod 进行严格的输入验证
 - ✅ **错误处理** - 完善的错误处理和日志记录
 
@@ -44,7 +41,6 @@ Recall Kit MCP Server 是基于 Model Context Protocol (MCP) 的服务器，为 
 - **框架**: Model Context Protocol SDK (@modelcontextprotocol/sdk)
 - **语言**: TypeScript 5.3+
 - **运行时**: Node.js 18+
-- **数据库**: Supabase (PostgreSQL)
 - **HTTP 服务器**: Express
 - **数据验证**: Zod
 - **开发工具**: tsx (开发时热重载)
@@ -54,24 +50,14 @@ Recall Kit MCP Server 是基于 Model Context Protocol (MCP) 的服务器，为 
 ```
 mcp-server/
 ├── src/
-│   ├── index.ts              # 入口文件（Express 服务器）
-│   ├── lib/
-│   │   └── supabase.ts       # Supabase 客户端初始化
 │   ├── mcp/                  # MCP 协议相关
 │   │   ├── index.ts          # MCP 初始化
-│   │   ├── mcpServer.ts      # MCP 服务器实现
 │   │   ├── queryHandler.ts   # 查询处理器
 │   │   ├── submitHandler.ts  # 提交处理器
 │   │   ├── sessionManager.ts # 会话管理
 │   │   ├── config.ts         # 配置管理
 │   │   └── types.ts          # MCP 类型定义
-│   ├── services/             # 业务逻辑服务
-│   │   ├── experienceService.ts  # 经验服务
-│   │   ├── embeddingService.ts   # Embedding 服务
-│   │   └── rankingService.ts      # 排序服务
 │   └── types/                # TypeScript 类型定义
-│       ├── database.ts       # 数据库类型
-│       └── supabase.ts       # Supabase 类型
 ├── dist/                     # 编译输出目录
 ├── tsconfig.json             # TypeScript 配置
 └── package.json              # 依赖配置
@@ -83,7 +69,6 @@ mcp-server/
 
 - Node.js 18+
 - npm 或 yarn
-- Supabase 项目（已配置数据库）
 - OpenAI API Key（可选，用于向量搜索）
 
 ### 安装
@@ -98,10 +83,6 @@ npm install
 在项目根目录创建 `.env` 文件：
 
 ```env
-# Supabase 配置
-SUPABASE_URL=your-supabase-project-url
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-
 # OpenAI 配置（用于向量搜索，可选）
 OPENAI_API_KEY=your-openai-api-key
 
@@ -301,28 +282,13 @@ keywords:
 
 **重要提示**: 此 prompt 不会对文档内容进行任何修改或总结，会原样提取并提交文档中的内容。
 
-## 核心服务
+## MCP 核心功能
 
-### ExperienceService
+### 查询和提交
 
-经验记录的核心服务，提供：
-- 查询经验记录（支持向量搜索和全文搜索）
-- 创建经验记录
-- 自动生成关键字
-- 自动降级机制
-
-### EmbeddingService
-
-向量搜索服务，提供：
-- 生成文本 embedding
-- 向量搜索
-- 可用性检查
-
-### RankingService
-
-排序服务，提供：
-- 相关性排序
-- 综合排序（相关性 + 使用频率 + 时间）
+- **查询经验记录**: 支持关键词搜索和ID查询
+- **提交新经验**: 支持创建新的经验记录
+- **数据验证**: 严格的输入验证和格式检查
 
 ## 配置说明
 
@@ -334,11 +300,6 @@ keywords:
 - `QUERY_MAX_LIMIT`: 最大查询数量（默认：50）
 - `ALLOWED_ORIGINS`: CORS 允许的来源（默认：*）
 
-### 数据库配置
-
-- 使用 Supabase Service Role Key 进行数据库操作
-- 支持向量搜索（需要 pgvector 扩展）
-- 支持全文搜索（PostgreSQL FTS）
 
 ## 会话管理
 
@@ -349,16 +310,6 @@ MCP Server 支持多客户端并发连接：
 - 支持会话级别的资源管理
 - 优雅关闭时会清理所有会话资源
 
-## 向量搜索
-
-向量搜索功能特点：
-
-1. **自动检测** - 自动检测向量搜索是否可用
-2. **自动降级** - 不可用时自动使用全文搜索
-3. **自动生成** - 提交新经验时自动生成 embedding
-4. **批量处理** - 支持批量生成 embedding
-
-详细说明请参考根目录的 `docs/VECTOR_SEARCH.md`。
 
 ## 错误处理
 
@@ -426,8 +377,6 @@ CMD ["node", "dist/index.js"]
 ### 环境变量检查
 
 部署前确保以下环境变量已设置：
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`（可选，用于向量搜索）
 - `PORT`（可选，默认 3001）
 - `HOST`（可选，默认 0.0.0.0）
@@ -459,10 +408,10 @@ npm run test:coverage
    - 确认数据库迁移已执行
    - 检查 embedding 数据是否存在
 
-3. **数据库连接失败**
-   - 检查 Supabase URL 和 Service Role Key
-   - 确认数据库迁移已执行
-   - 检查网络连接
+3. **工具调用失败**
+   - 检查输入参数格式
+   - 查看服务器日志
+   - 确认服务正常运行
 
 4. **工具调用失败**
    - 检查输入参数格式
@@ -475,7 +424,6 @@ npm run test:coverage
 
 - 所有代码使用 TypeScript 编写
 - 类型定义位于 `src/types/` 目录
-- 数据库类型通过 Supabase 自动生成
 
 ### 代码规范
 
@@ -485,9 +433,8 @@ npm run test:coverage
 
 ### 性能优化
 
-- 使用连接池管理数据库连接
-- 适当的缓存策略（如需要）
 - 异步处理长时间运行的任务
+- 适当的错误处理和日志记录
 
 ## 相关文档
 

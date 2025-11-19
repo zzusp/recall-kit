@@ -87,8 +87,9 @@ export class ExperienceService {
     let sql = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
-        er.solution, er.context, er.status, er.query_count, er.view_count, 
-        er.relevance_score, er.created_at, er.updated_at, er.deleted_at,
+        er.solution, er.context, er.status, er.publish_status, er.is_deleted,
+        er.query_count, er.view_count, er.relevance_score, er.created_at, 
+        er.updated_at, er.deleted_at,
         COALESCE(
           json_agg(
             CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
@@ -97,7 +98,7 @@ export class ExperienceService {
         ) as keywords
       FROM experience_records er
       LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
-      WHERE er.status = 'published'
+      WHERE er.publish_status = 'published' AND er.is_deleted = false
     `;
 
     const params: any[] = [];
@@ -156,7 +157,7 @@ export class ExperienceService {
     let countSql = `
       SELECT COUNT(DISTINCT er.id) as total
       FROM experience_records er
-      WHERE er.status = 'published'
+      WHERE er.publish_status = 'published' AND er.is_deleted = false
     `;
     
     const countParams: any[] = [];
@@ -204,8 +205,9 @@ export class ExperienceService {
     const sql = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
-        er.solution, er.context, er.status, er.query_count, er.view_count, 
-        er.relevance_score, er.created_at, er.updated_at, er.deleted_at,
+        er.solution, er.context, er.status, er.publish_status, er.is_deleted,
+        er.query_count, er.view_count, er.relevance_score, er.created_at, 
+        er.updated_at, er.deleted_at,
         COALESCE(
           json_agg(
             CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
@@ -214,7 +216,7 @@ export class ExperienceService {
         ) as keywords
       FROM experience_records er
       LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
-      WHERE er.id = $1 AND er.status = 'published'
+      WHERE er.id = $1 AND er.review_status = 'approved' AND er.is_deleted = false
       GROUP BY er.id
     `;
 
@@ -233,37 +235,22 @@ export class ExperienceService {
       throw new Error(`Failed to get experience: ${error}`);
     }
   }
-
   async incrementViewCount(experienceId: string): Promise<number> {
     try {
-      // Try to use the increment_view_count function first
-      try {
-        const result = await db.query(
-          'SELECT increment_view_count($1) as new_count',
-          [experienceId]
-        );
-        return result.rows[0]?.new_count || 0;
-      } catch (rpcError) {
-        console.warn('RPC function not available, using manual update:', rpcError);
-        
-        // Fallback to manual update
-        try {
-          const result = await db.query(
-            'UPDATE experience_records SET view_count = COALESCE(view_count, 0) + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING view_count',
-            [experienceId]
-          );
-          return result.rows[0]?.view_count || 0;
-        } catch (updateError) {
-          // If view_count column doesn't exist, just return 0
-          if (updateError instanceof Error && updateError.message.includes('does not exist')) {
-            console.warn('view_count column does not exist, skipping update. Please run migration 005_add_view_count.sql');
-            return 0;
-          }
-          throw updateError;
-        }
-      }
+      // Direct SQL update to increment view count
+      const result = await db.query(
+        'UPDATE experience_records SET view_count = COALESCE(view_count, 0) + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND publish_status = $2 AND is_deleted = false RETURNING view_count',
+        [experienceId, 'published']
+      );
+      
+      return result.rows[0]?.view_count || 0;
     } catch (error) {
       console.error('Error in incrementViewCount:', error);
+      // If view_count column doesn't exist, just return 0
+      if (error instanceof Error && error.message.includes('does not exist')) {
+        console.warn('view_count column does not exist, skipping update. Please run migration 005_add_view_count.sql');
+        return 0;
+      }
       return 0;
     }
   }
@@ -293,7 +280,7 @@ export class ExperienceService {
 
       // First, check how many experiences have embeddings
       const countResult = await db.query(
-        'SELECT COUNT(*) as count FROM experience_records WHERE status = $1 AND embedding IS NOT NULL',
+        'SELECT COUNT(*) as count FROM experience_records WHERE publish_status = $1 AND is_deleted = false AND embedding IS NOT NULL',
         ['published']
       );
       
@@ -407,21 +394,11 @@ export class ExperienceService {
       }
       console.log(`Generated embedding with ${embedding.length} dimensions for experience ${experienceId}`);
 
-      // Update embedding in database
-      try {
-        // Try RPC function first
-        await db.query(
-          'SELECT update_experience_embedding($1, $2)',
-          [experienceId, `[${embedding.join(',')}]`] // Convert to JSON array string for PostgreSQL vector type
-        );
-      } catch (rpcError) {
-        console.warn('RPC update failed, trying direct update:', rpcError);
-        // Fallback to direct update
-        await db.query(
-          'UPDATE experience_records SET embedding = $1, has_embedding = true, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-          [`[${embedding.join(',')}]`, experienceId] // Convert to JSON array string for PostgreSQL vector type
-        );
-      }
+      // Update embedding in database using direct SQL
+      await db.query(
+        'UPDATE experience_records SET embedding = $1, has_embedding = true, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [`[${embedding.join(',')}]`, experienceId] // Convert to JSON array string for PostgreSQL vector type
+      );
 
       console.log(`Successfully updated embedding for experience ${experienceId}`);
       return true;

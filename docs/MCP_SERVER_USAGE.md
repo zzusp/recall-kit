@@ -214,6 +214,65 @@ curl -X DELETE \
      http://localhost:3001/mcp
 ```
 
+## API Key 认证
+
+MCP Server 支持 API Key 认证机制。客户端可以在建立连接时提供 API Key，也可以在后续请求中提供。
+
+### 认证方式
+
+支持以下三种方式传递 API Key：
+
+1. **Authorization Header (Bearer Token)**
+   ```http
+   Authorization: Bearer <api-key>
+   ```
+
+2. **X-API-Key Header**
+   ```http
+   X-API-Key: <api-key>
+   ```
+
+3. **API-Key Header**
+   ```http
+   API-Key: <api-key>
+   ```
+
+### 初始化时认证（推荐）
+
+在 `initialize` 请求时提供 API Key，验证成功后会在整个会话中保持认证状态：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "test-client",
+      "version": "1.0.0"
+    }
+  }
+}
+```
+
+请求头示例：
+```http
+Content-Type: application/json
+Authorization: Bearer your-api-key
+```
+
+### 错误处理
+
+- **初始化时验证失败**：连接将被拒绝，返回错误信息
+- **缺少必需的 API Key**：对于需要认证的操作，返回错误提示
+
+### 认证范围
+
+- `query_experiences`：无需认证，公开访问
+- `submit_experience`：需要有效的 API Key
+
 ## 工具说明
 
 ### 1. query_experiences

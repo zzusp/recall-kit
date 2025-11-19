@@ -6,10 +6,10 @@
 
 #### 📦 安装MCP
 
-开发前，我们先来配置一下常用的两个MCP：`Supabase`和`Context7`，这两个工具这里不做过多介绍。在`Comate`中配置MCP也非常简单：展开AI侧边栏，点击右上角的MCP，在MCP市场搜索到添加就可以
+开发前，我们先来配置一下常用的MCP工具：`Context7`等。在`Comate`中配置MCP也非常简单：展开AI侧边栏，点击右上角的MCP，在MCP市场搜索到添加就可以
 
 ![image.png](https://p0-xtjj-private.juejin.cn/tos-cn-i-73owjymdk6/d34bea66e7584ae7a355336558325272~tplv-73owjymdk6-jj-mark-v1:0:0:0:0:5o6Y6YeR5oqA5pyv56S-5Yy6IEAgQ29kZXZh:q75.awebp?policy=eyJ2bSI6MywidWlkIjoiMjE0MDEyMTAzOTExNTE5NSJ9&rk3s=f64ab15b&x-orig-authkey=f32326d3454f2ac7e96d3d06cdbb035152127018&x-orig-expires=1764000939&x-orig-sign=VaSX9zh9u4exG9NYVXfer1J0Rs8%3D)
-`Supabase`在MCP市场里找不到，没有关系，点击右上角手动配置，打开json文件，手动添加就可以了
+如果某个MCP在市场里找不到，可以点击右上角手动配置，打开json文件，手动添加即可
 
 ![image.png](https://p0-xtjj-private.juejin.cn/tos-cn-i-73owjymdk6/12a4b7116f74489c99665fc7546bb9a3~tplv-73owjymdk6-jj-mark-v1:0:0:0:0:5o6Y6YeR5oqA5pyv56S-5Yy6IEAgQ29kZXZh:q75.awebp?policy=eyJ2bSI6MywidWlkIjoiMjE0MDEyMTAzOTExNTE5NSJ9&rk3s=f64ab15b&x-orig-authkey=f32326d3454f2ac7e96d3d06cdbb035152127018&x-orig-expires=1764000939&x-orig-sign=2HQgnLHI8BouV48j%2BNISzU4kJP0%3D)
 

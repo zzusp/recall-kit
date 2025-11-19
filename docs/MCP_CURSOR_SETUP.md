@@ -111,9 +111,6 @@
       "url": "http://localhost:3001/mcp",
       "description": "Recall Kit Experience Sharing Platform"
     },
-    "supabase": {
-      "url": "https://mcp.supabase.com/mcp?project_ref=your-project-ref"
-    },
     "context7": {
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp"]

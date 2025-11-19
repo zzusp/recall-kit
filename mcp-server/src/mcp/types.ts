@@ -71,9 +71,4 @@ export interface InitializedNotification {
   method: 'initialized';
 }
 
-export interface Session {
-  id: string;
-  createdAt: number;
-  lastActivity: number;
-}
 
