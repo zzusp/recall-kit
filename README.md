@@ -4,6 +4,18 @@
 
 Recall Kit 是一个基于 MCP (Model Context Protocol) 协议的经验分享平台，旨在解决 AI 开发过程中重复对话和 token 浪费的问题。通过记录、分享和复用开发经验，让 AI Agent 能够自动查询和复用历史经验，提高开发效率。
 
+### 📹 项目演示
+
+[观看项目演示视频](docs/recall-kit.mp4)
+
+### 首页
+![alt text](docs/dashboard.png)
+
+### 相关文档
+- [用Comate开发我的第一个MCP🚀](https://juejin.cn/post/7573528564026425390)
+- [🤦让你的Vibe Coding长长脑子🧠](https://juejin.cn/post/7572749797469650953)
+
+
 ## 项目背景
 
 在 vibe coding 过程中，经常会出现 AI 抓不到重点、而用户又不知道问题在哪里的情况。用户往往只能通过"问题没修复"、"不是我要的效果"等模糊提示词继续对话，导致 AI 不断尝试各种解决方案，造成对话成本增加、token 浪费。或者为了保留之前的上下文记录，始终使用一个对话，导致上下文压缩再压缩。
