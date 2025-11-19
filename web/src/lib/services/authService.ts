@@ -106,7 +106,12 @@ export async function logout(sessionToken: string): Promise<void> {
   );
 }
 
-export async function getCurrentUser(sessionToken: string): Promise<AuthUser | null> {
+export async function getCurrentUser(sessionToken: string | undefined): Promise<AuthUser | null> {
+  // Check if sessionToken is provided
+  if (!sessionToken) {
+    return null;
+  }
+
   // Validate session
   const sessionResult = await db.query(
     'SELECT user_id, expires_at FROM user_sessions WHERE session_token = $1',

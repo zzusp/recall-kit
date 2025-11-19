@@ -1,8 +1,14 @@
 import express from 'express';
 import { createServer } from 'http';
 import { initMCP } from './mcp/index.js';
+import { logger } from './services/loggerService.js';
 
 async function main() {
+  // 记录服务启动日志
+  const PORT = process.env.PORT || 3001;
+  const HOST = process.env.HOST || '0.0.0.0';
+  
+  logger.logServiceStart(Number(PORT), HOST);
 
   // Create Express app
   const app = express();
@@ -31,31 +37,39 @@ async function main() {
 
   // Create HTTP server
   const httpServer = createServer(app);
-  const PORT = process.env.PORT || 3001;
-  const HOST = process.env.HOST || '0.0.0.0'; // For remote deployment
 
   // Start server
   httpServer.listen(Number(PORT), HOST, () => {
-    console.log(`MCP Server running on ${HOST}:${PORT}`);
-    console.log(`MCP Protocol endpoint: /mcp`);
-    console.log(`Protocol version: 2025-06-18`);
-    console.log(`Allowed origins: ${process.env.ALLOWED_ORIGINS || '*'}`);
+    logger.logServiceReady(Number(PORT), HOST);
+    logger.info('MCP Server configuration', {
+      endpoint: '/mcp',
+      protocolVersion: '2025-06-18',
+      allowedOrigins: process.env.ALLOWED_ORIGINS || '*',
+      logLevel: process.env.LOG_LEVEL || 'info'
+    });
   });
 
   // Handle server shutdown gracefully
   process.on('SIGINT', async () => {
-    console.log('Shutting down server...');
-    console.log('Server shutdown complete');
+    logger.info('Received SIGINT, shutting down server...');
+    // 清理资源
+    logger.info('Server shutdown complete');
     process.exit(0);
   });
 
   process.on('SIGTERM', async () => {
-    console.log('Received SIGTERM, shutting down gracefully...');
+    logger.info('Received SIGTERM, shutting down gracefully...');
     process.exit(0);
   });
 }
 
 main().catch((err) => {
-  console.error('Failed to start MCP Server:', err);
+  logger.error('Failed to start MCP Server', {
+    error: {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    }
+  });
   process.exit(1);
 });

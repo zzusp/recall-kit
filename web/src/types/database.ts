@@ -15,8 +15,7 @@ export interface ApiKey {
   id: string;
   user_id: string;
   name: string;
-  key_hash: string;
-  key_prefix: string;
+  api_key: string;
   is_active: boolean;
   last_used_at: string | null;
   created_at: string;
@@ -97,8 +96,7 @@ export interface Database {
           id: string;
           user_id: string;
           name: string;
-          key_hash: string;
-          key_prefix: string;
+          api_key: string;
           is_active: boolean;
           last_used_at: string | null;
           created_at: string;
@@ -108,8 +106,7 @@ export interface Database {
           id?: string;
           user_id: string;
           name: string;
-          key_hash: string;
-          key_prefix: string;
+          api_key: string;
           is_active?: boolean;
           last_used_at?: string | null;
           created_at?: string;
@@ -119,8 +116,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           name?: string;
-          key_hash?: string;
-          key_prefix?: string;
+          api_key?: string;
           is_active?: boolean;
           last_used_at?: string | null;
           created_at?: string;
@@ -289,8 +285,8 @@ export interface Database {
           root_cause: string | null;
           solution: string;
           context: string | null;
-          publish_status: 'publishing' | 'published' | 'rejected' | 'draft';
-          review_status: 'pending' | 'approved' | 'rejected';
+          publish_status: 'published' | 'draft';
+          review_status: 'approved';
           reviewed_by: string | null;
           reviewed_at: string | null;
           review_note: string | null;
@@ -313,8 +309,8 @@ export interface Database {
           root_cause?: string | null;
           solution: string;
           context?: string | null;
-          publish_status?: 'publishing' | 'published' | 'rejected' | 'draft';
-          review_status?: 'pending' | 'approved' | 'rejected';
+          publish_status?: 'published' | 'draft';
+          review_status?: 'approved';
           reviewed_by?: string | null;
           reviewed_at?: string | null;
           review_note?: string | null;
@@ -336,8 +332,8 @@ export interface Database {
           root_cause?: string | null;
           solution?: string;
           context?: string | null;
-          publish_status?: 'publishing' | 'published' | 'rejected' | 'draft';
-          review_status?: 'pending' | 'approved' | 'rejected';
+          publish_status?: 'published' | 'draft';
+          review_status?: 'approved';
           reviewed_by?: string | null;
           reviewed_at?: string | null;
           review_note?: string | null;
@@ -398,32 +394,6 @@ export interface Database {
           response_time_ms?: number | null;
           experience_ids?: string[] | null;
           query_source?: string;
-          created_at?: string;
-        };
-      };
-      submission_logs: {
-        Row: {
-          id: string;
-          experience_id: string | null;
-          submission_status: string;
-          error_message: string | null;
-          validation_errors: any | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          experience_id?: string | null;
-          submission_status: string;
-          error_message?: string | null;
-          validation_errors?: any | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          experience_id?: string | null;
-          submission_status?: string;
-          error_message?: string | null;
-          validation_errors?: any | null;
           created_at?: string;
         };
       };

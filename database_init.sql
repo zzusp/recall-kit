@@ -1,493 +1,878 @@
--- PostgreSQL Database Initialization Script
--- Generated from supabase migrations, converted to standard PostgreSQL
+/*
+ Navicat Premium Dump SQL
 
--- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS vector;
+ Source Server         : huawei_pg
+ Source Server Type    : PostgreSQL
+ Source Server Version : 180001 (180001)
+ Source Host           : 115.120.218.110:5432
+ Source Catalog        : recall-kit
+ Source Schema         : public
 
--- Create independent user authentication and authorization system
+ Target Server Type    : PostgreSQL
+ Target Server Version : 180001 (180001)
+ File Encoding         : 65001
 
--- Create roles table
-CREATE TABLE roles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name VARCHAR(50) NOT NULL UNIQUE,
-  description TEXT,
-  is_system_role BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+ Date: 19/11/2025 21:21:19
+*/
 
--- Create permissions table
-CREATE TABLE permissions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name VARCHAR(100) NOT NULL UNIQUE,
-  resource VARCHAR(50) NOT NULL,
-  action VARCHAR(50) NOT NULL,
-  description TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT unique_permission UNIQUE (resource, action)
-);
 
--- Create role_permissions junction table
-CREATE TABLE role_permissions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
-  permission_id UUID REFERENCES permissions(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT unique_role_permission UNIQUE (role_id, permission_id)
-);
-
--- Create users table (replaces profiles table)
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  username VARCHAR(100) NOT NULL UNIQUE,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
-  is_active BOOLEAN DEFAULT true,
-  is_superuser BOOLEAN DEFAULT false,
-  last_login_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create user_roles junction table
-CREATE TABLE user_roles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT unique_user_role UNIQUE (user_id, role_id)
-);
-
--- Create user_sessions table for session management
-CREATE TABLE user_sessions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  session_token VARCHAR(255) NOT NULL UNIQUE,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create experience_records table
-CREATE TABLE experience_records (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  title VARCHAR(500) NOT NULL,
-  problem_description TEXT NOT NULL,
-  root_cause TEXT,
-  solution TEXT NOT NULL,
-  context TEXT,
-  status VARCHAR(20) NOT NULL DEFAULT 'published',
-  query_count INTEGER NOT NULL DEFAULT 0,
-  view_count INTEGER NOT NULL DEFAULT 0,
-  relevance_score FLOAT DEFAULT 0.0,
-  fts tsvector GENERATED ALWAYS AS (
-    to_tsvector('english',
-      COALESCE(title, '') || ' ' || 
-      COALESCE(problem_description, '') || ' ' || 
-      COALESCE(root_cause, '') || ' ' || 
-      COALESCE(solution, '') || ' ' || 
-      COALESCE(context, '')
-    )
-  ) STORED,
-  embedding vector(1024),
-  has_embedding BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-
--- Create experience_keywords table
-CREATE TABLE experience_keywords (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  experience_id UUID REFERENCES experience_records(id) ON DELETE CASCADE,
-  keyword VARCHAR(100) NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT unique_experience_keyword UNIQUE (experience_id, keyword)
-);
-
--- Create query_logs table
-CREATE TABLE query_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  query_keywords TEXT NOT NULL,
-  result_count INTEGER NOT NULL DEFAULT 0,
-  response_time_ms INTEGER,
-  experience_ids UUID[],
-  query_source VARCHAR(50) NOT NULL DEFAULT 'mcp',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create submission_logs table
-CREATE TABLE submission_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  experience_id UUID REFERENCES experience_records(id) ON DELETE SET NULL,
-  submission_status VARCHAR(20) NOT NULL,
-  error_message TEXT,
-  validation_errors JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create admin_actions table
-CREATE TABLE admin_actions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  action_type VARCHAR(50) NOT NULL,
-  target_type VARCHAR(50) NOT NULL,
-  target_id UUID,
-  target_ids UUID[],
-  action_details JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create system_settings table for storing AI configuration and other system settings
-CREATE TABLE system_settings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  setting_key VARCHAR(100) NOT NULL UNIQUE,
-  setting_value JSONB NOT NULL,
-  description TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create indexes for performance optimization
--- users table indexes
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_is_active ON users(is_active);
-CREATE INDEX idx_users_created_at ON users(created_at DESC);
-
--- user_sessions table indexes
-CREATE INDEX idx_user_sessions_token ON user_sessions(session_token);
-CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
-CREATE INDEX idx_user_sessions_expires_at ON user_sessions(expires_at);
-
--- user_roles table indexes
-CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
-CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
-
--- role_permissions table indexes
-CREATE INDEX idx_role_permissions_role_id ON role_permissions(role_id);
-CREATE INDEX idx_role_permissions_permission_id ON role_permissions(permission_id);
-
--- experience_records table indexes
-CREATE INDEX idx_experience_records_status ON experience_records(status) WHERE status = 'published';
-CREATE INDEX idx_experience_records_created_at ON experience_records(created_at DESC);
-CREATE INDEX idx_experience_records_query_count ON experience_records(query_count DESC);
-CREATE INDEX idx_experience_records_view_count ON experience_records(view_count DESC) WHERE status = 'published';
-CREATE INDEX idx_experience_records_relevance_score ON experience_records(relevance_score DESC);
-CREATE INDEX idx_experience_records_user_id ON experience_records(user_id);
-CREATE INDEX idx_experience_records_has_embedding ON experience_records(has_embedding) WHERE has_embedding = true;
-
--- Full-text search indexes for experience_records
-CREATE INDEX idx_experience_records_fts ON experience_records USING GIN (fts);
-CREATE INDEX idx_experience_records_search ON experience_records 
-USING GIN (to_tsvector('english', 
-  COALESCE(title, '') || ' ' || 
-  COALESCE(problem_description, '') || ' ' || 
-  COALESCE(root_cause, '') || ' ' || 
-  COALESCE(solution, '') || ' ' || 
-  COALESCE(context, '')
-));
-
--- Vector search index for experience_records
-CREATE INDEX idx_experience_records_embedding 
-ON experience_records 
-USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 64)
-WHERE status = 'published' AND embedding IS NOT NULL;
-
--- experience_keywords table indexes
-CREATE INDEX idx_experience_keywords_experience_id ON experience_keywords(experience_id);
-CREATE INDEX idx_experience_keywords_keyword ON experience_keywords(keyword);
-
--- query_logs table indexes
-CREATE INDEX idx_query_logs_created_at ON query_logs(created_at DESC);
-CREATE INDEX idx_query_logs_query_source ON query_logs(query_source);
-
--- submission_logs table indexes
-CREATE INDEX idx_submission_logs_experience_id ON submission_logs(experience_id);
-CREATE INDEX idx_submission_logs_created_at ON submission_logs(created_at DESC);
-CREATE INDEX idx_submission_logs_status ON submission_logs(submission_status);
-
--- admin_actions table indexes
-CREATE INDEX idx_admin_actions_admin_id ON admin_actions(admin_id);
-CREATE INDEX idx_admin_actions_created_at ON admin_actions(created_at DESC);
-CREATE INDEX idx_admin_actions_action_type ON admin_actions(action_type);
-
--- system_settings table indexes
-CREATE INDEX idx_system_settings_key ON system_settings(setting_key);
-
--- Create functions
--- Function to increment view count
-CREATE OR REPLACE FUNCTION increment_view_count(experience_id UUID)
-RETURNS INTEGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  new_count INTEGER;
-BEGIN
-  UPDATE experience_records
-  SET 
-    view_count = view_count + 1,
-    updated_at = NOW()
-  WHERE id = experience_id
-    AND status = 'published'
-  RETURNING view_count INTO new_count;
-  
-  RETURN COALESCE(new_count, 0);
-END;
-$$;
-
--- Function for vector similarity search
-CREATE OR REPLACE FUNCTION match_experiences_by_embedding(
-    query_embedding vector(1024),
-    match_threshold float DEFAULT 0.7,
-    match_count int DEFAULT 10
+-- ----------------------------
+-- Table structure for admin_actions
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."admin_actions";
+CREATE TABLE "public"."admin_actions" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "admin_id" uuid,
+  "action_type" varchar(50) COLLATE "pg_catalog"."default" NOT NULL,
+  "target_type" varchar(50) COLLATE "pg_catalog"."default" NOT NULL,
+  "target_id" uuid,
+  "target_ids" uuid[],
+  "action_details" jsonb,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now()
 )
-RETURNS TABLE (
-    id uuid,
-    title varchar(500),
-    problem_description text,
-    root_cause text,
-    solution text,
-    context text,
-    status varchar(20),
-    query_count integer,
-    view_count integer,
-    relevance_score float,
-    similarity float,
-    created_at timestamptz,
-    updated_at timestamptz
+;
+
+-- ----------------------------
+-- Records of admin_actions
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for api_key_usage_logs
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."api_key_usage_logs";
+CREATE TABLE "public"."api_key_usage_logs" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "api_key_id" uuid NOT NULL,
+  "endpoint" varchar(255) COLLATE "pg_catalog"."default" NOT NULL,
+  "method" varchar(10) COLLATE "pg_catalog"."default" NOT NULL,
+  "ip_address" inet,
+  "user_agent" text COLLATE "pg_catalog"."default",
+  "status_code" int4,
+  "response_time_ms" int4,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now()
 )
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        er.id,
-        er.title,
-        er.problem_description,
-        er.root_cause,
-        er.solution,
-        er.context,
-        er.status,
-        er.query_count,
-        er.view_count,
-        er.relevance_score,
-        1 - (er.embedding <=> query_embedding) as similarity,
-        er.created_at,
-        er.updated_at
-    FROM experience_records er
-    WHERE er.status = 'published'
-        AND er.embedding IS NOT NULL
-        AND 1 - (er.embedding <=> query_embedding) > match_threshold
-    ORDER BY er.embedding <=> query_embedding
-    LIMIT match_count;
-END;
-$$;
+;
+COMMENT ON COLUMN "public"."api_key_usage_logs"."ip_address" IS 'IP address of the API request';
+COMMENT ON COLUMN "public"."api_key_usage_logs"."response_time_ms" IS 'Response time in milliseconds';
+COMMENT ON TABLE "public"."api_key_usage_logs" IS 'Stores usage logs for API keys with endpoint and performance data';
 
--- Function to update experience embedding
-CREATE OR REPLACE FUNCTION update_experience_embedding(
-    experience_id uuid,
-    embedding_vector vector(1024)
+-- ----------------------------
+-- Records of api_key_usage_logs
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for api_key_validation_logs
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."api_key_validation_logs";
+CREATE TABLE "public"."api_key_validation_logs" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "api_key_id" uuid,
+  "user_id" uuid,
+  "api_key_prefix" varchar(20) COLLATE "pg_catalog"."default",
+  "validation_result" varchar(20) COLLATE "pg_catalog"."default" NOT NULL,
+  "ip_address" inet,
+  "user_agent" text COLLATE "pg_catalog"."default",
+  "created_at" timestamptz(6) NOT NULL DEFAULT now()
 )
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  UPDATE experience_records
-  SET embedding = embedding_vector,
-      has_embedding = true,
-      updated_at = NOW()
-  WHERE id = experience_id;
-END;
-$$;
+;
 
--- Function to automatically update updated_at timestamp for system_settings
-CREATE OR REPLACE FUNCTION update_system_settings_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- ----------------------------
+-- Records of api_key_validation_logs
+-- ----------------------------
+INSERT INTO "public"."api_key_validation_logs" VALUES ('da825104-26bf-4382-a062-0d584c3b0e05', NULL, NULL, 'invalid-', 'failed', NULL, NULL, '2025-11-19 13:00:25.630093+00');
+INSERT INTO "public"."api_key_validation_logs" VALUES ('f0c9cac1-70ee-4651-98a2-f859f31a71e7', '792f0a1b-9e19-43b6-8716-250322240717', NULL, '703e186d', 'success', NULL, NULL, '2025-11-19 13:02:33.718958+00');
 
--- Create triggers
-CREATE TRIGGER update_system_settings_updated_at
-  BEFORE UPDATE ON system_settings
-  FOR EACH ROW
-  EXECUTE FUNCTION update_system_settings_updated_at();
-
--- Insert default data
--- Insert default system roles
-INSERT INTO roles (name, description, is_system_role) VALUES
-('superuser', 'Superuser with all permissions', true),
-('admin', 'Administrator with most permissions', true),
-('editor', 'Content editor with limited permissions', true),
-('user', 'Regular user with basic permissions', true),
-('guest', 'Guest user with minimal permissions', true);
-
--- Insert default permissions
-INSERT INTO permissions (name, resource, action, description) VALUES
--- User management permissions
-('users.view', 'users', 'view', 'View user list and details'),
-('users.create', 'users', 'create', 'Create new users'),
-('users.edit', 'users', 'edit', 'Edit existing users'),
-('users.delete', 'users', 'delete', 'Delete users'),
-('users.activate', 'users', 'activate', 'Activate/deactivate users'),
-
--- Role management permissions
-('roles.view', 'roles', 'view', 'View role list and details'),
-('roles.create', 'roles', 'create', 'Create new roles'),
-('roles.edit', 'roles', 'edit', 'Edit existing roles'),
-('roles.delete', 'roles', 'delete', 'Delete roles'),
-
--- Permission management permissions
-('permissions.view', 'permissions', 'view', 'View permission list'),
-('permissions.assign', 'permissions', 'assign', 'Assign permissions to roles'),
-
--- Experience management permissions
-('experiences.view', 'experiences', 'view', 'View experiences'),
-('experiences.create', 'experiences', 'create', 'Create new experiences'),
-('experiences.edit', 'experiences', 'edit', 'Edit own experiences'),
-('experiences.edit_any', 'experiences', 'edit_any', 'Edit any experiences'),
-('experiences.delete', 'experiences', 'delete', 'Delete own experiences'),
-('experiences.delete_any', 'experiences', 'delete_any', 'Delete any experiences'),
-('experiences.publish', 'experiences', 'publish', 'Publish experiences'),
-('experiences.review', 'experiences', 'review', 'Review and approve experiences'),
-
--- Admin permissions
-('admin.dashboard', 'admin', 'dashboard', 'Access admin dashboard'),
-('admin.settings', 'admin', 'settings', 'Manage system settings'),
-('admin.logs', 'admin', 'logs', 'View system logs');
-
--- Assign permissions to roles
--- Superuser gets all permissions
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id 
-FROM roles r, permissions p 
-WHERE r.name = 'superuser';
-
--- Admin gets most permissions except user deletion
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id 
-FROM roles r, permissions p 
-WHERE r.name = 'admin' 
-AND p.name NOT IN ('users.delete');
-
--- Editor gets content management permissions
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id 
-FROM roles r, permissions p 
-WHERE r.name = 'editor' 
-AND p.name IN ('experiences.view', 'experiences.create', 'experiences.edit', 'experiences.delete', 'experiences.publish');
-
--- User gets basic permissions
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id 
-FROM roles r, permissions p 
-WHERE r.name = 'user' 
-AND p.name IN ('experiences.view', 'experiences.create', 'experiences.edit', 'experiences.delete');
-
--- Guest gets view-only permissions
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id 
-FROM roles r, permissions p 
-WHERE r.name = 'guest' 
-AND p.name IN ('experiences.view');
-
--- Create superuser account
--- Default credentials: username='admin', password='admin123'
-INSERT INTO users (
-  id,
-  username,
-  email,
-  password_hash,
-  is_active,
-  is_superuser,
-  created_at,
-  updated_at
-) VALUES (
-  gen_random_uuid(),
-  'admin',
-  'admin@example.com',
-  '$2a$10$SHxaHwGyix3SOLWoocthTOotxFe7LUUgY8zRXSqRFPVL7JJCCs6Hy', -- TODO: In production, use proper password hashing (bcrypt)
-  true,
-  true,
-  NOW(),
-  NOW()
-) ON CONFLICT (username) DO NOTHING;
-
--- Assign superuser role to the admin user
-INSERT INTO user_roles (
-  id,
-  user_id,
-  role_id,
-  created_at
-) 
-SELECT 
-  gen_random_uuid(),
-  u.id,
-  r.id,
-  NOW()
-FROM users u
-CROSS JOIN roles r
-WHERE u.username = 'admin' 
-  AND r.name = 'superuser'
-ON CONFLICT DO NOTHING;
-
--- Grant all existing permissions to superuser role (in case some permissions were added after role creation)
-INSERT INTO role_permissions (
-  id,
-  role_id,
-  permission_id,
-  created_at
+-- ----------------------------
+-- Table structure for api_keys
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."api_keys";
+CREATE TABLE "public"."api_keys" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "user_id" uuid NOT NULL,
+  "name" varchar(100) COLLATE "pg_catalog"."default" NOT NULL,
+  "api_key" varchar(255) COLLATE "pg_catalog"."default" NOT NULL,
+  "is_active" bool DEFAULT true,
+  "last_used_at" timestamptz(6),
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
 )
-SELECT 
-  gen_random_uuid(),
-  r.id,
-  p.id,
-  NOW()
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'superuser'
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+;
 
--- Insert sample experience records for testing
-INSERT INTO experience_records (title, problem_description, root_cause, solution, context, status, query_count, relevance_score)
-VALUES 
-(
-  'Next.js API Route CORS Issue',
-  'When making requests to Next.js API routes from external domains, getting CORS errors',
-  'Next.js API routes don''t have CORS headers configured by default',
-  'Add CORS headers to the API route response or use a middleware like next-connect with cors',
-  '// Example of adding CORS headers in Next.js API route\nimport { NextApiRequest, NextApiResponse } from ''next'';\n\nexport default function handler(req: NextApiRequest, res: NextApiResponse) {\n  res.setHeader(''Access-Control-Allow-Origin'', ''*'');\n  res.setHeader(''Access-Control-Allow-Methods'', ''GET, POST, PUT, DELETE, OPTIONS'');\n  res.setHeader(''Access-Control-Allow-Headers'', ''Content-Type, Authorization'');\n  \n  if (req.method === ''OPTIONS'') {\n    return res.status(200).end();\n  }\n  \n  // Your API logic here\n  res.status(200).json({ message: ''Hello World'' });\n}',
-  'published',
-  15,
-  0.85
-),
-(
-  'TypeScript Type Narrowing Issue',
-  'TypeScript not properly narrowing types in conditional statements',
-  'Type guards need to be explicit for complex types',
-  'Use explicit type guards or type predicates to help TypeScript understand the type narrowing',
-  '// Example of type predicate\ninterface Cat { meow(): void; }\ninterface Dog { bark(): void; }\n\nfunction isCat(animal: Cat | Dog): animal is Cat {\n  return (animal as Cat).meow !== undefined;\n}\n\nfunction handleAnimal(animal: Cat | Dog) {\n  if (isCat(animal)) {\n    animal.meow(); // TypeScript knows this is a Cat\n  } else {\n    animal.bark(); // TypeScript knows this is a Dog\n  }\n}',
-  'published',
-  8,
-  0.92
+-- ----------------------------
+-- Records of api_keys
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for experience_keywords
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."experience_keywords";
+CREATE TABLE "public"."experience_keywords" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "experience_id" uuid,
+  "keyword" varchar(100) COLLATE "pg_catalog"."default" NOT NULL,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+
+-- ----------------------------
+-- Records of experience_keywords
+-- ----------------------------
+INSERT INTO "public"."experience_keywords" VALUES ('66bfddba-83de-4129-a192-6cface519de8', '3ca407ea-86f4-4c05-b99e-540f521cde64', 'nextjs', '2025-11-18 10:27:01.63904+00');
+INSERT INTO "public"."experience_keywords" VALUES ('1af7051a-df74-42fb-a7cd-472c09ead68a', '3ca407ea-86f4-4c05-b99e-540f521cde64', 'cors', '2025-11-18 10:27:01.63904+00');
+INSERT INTO "public"."experience_keywords" VALUES ('c85e0b64-555e-4026-9e07-d50ad88d4a5b', '3ca407ea-86f4-4c05-b99e-540f521cde64', 'api', '2025-11-18 10:27:01.63904+00');
+INSERT INTO "public"."experience_keywords" VALUES ('19f1cd99-ad59-4625-b1a8-9c25695eefd2', '3ca407ea-86f4-4c05-b99e-540f521cde64', 'headers', '2025-11-18 10:27:01.63904+00');
+INSERT INTO "public"."experience_keywords" VALUES ('27ac2034-29ed-432a-b43d-8f6c3fc95bc9', '3ca407ea-86f4-4c05-b99e-540f521cde64', 'middleware', '2025-11-18 10:27:01.63904+00');
+INSERT INTO "public"."experience_keywords" VALUES ('293bbcef-e990-4753-92d7-075625a4f691', 'cf3d9a04-6bbd-4cf5-af70-236dc435244e', 'typescript', '2025-11-18 10:27:01.655338+00');
+INSERT INTO "public"."experience_keywords" VALUES ('071d2478-ce04-41f6-99c4-cd9d401ece67', 'cf3d9a04-6bbd-4cf5-af70-236dc435244e', 'type-narrowing', '2025-11-18 10:27:01.655338+00');
+INSERT INTO "public"."experience_keywords" VALUES ('45d50e91-3f9e-4219-b1a0-ba8a5938139a', 'cf3d9a04-6bbd-4cf5-af70-236dc435244e', 'type-guards', '2025-11-18 10:27:01.655338+00');
+INSERT INTO "public"."experience_keywords" VALUES ('a060c8ba-cd2d-423f-b935-5c87b39b1ef5', 'cf3d9a04-6bbd-4cf5-af70-236dc435244e', 'type-predicates', '2025-11-18 10:27:01.655338+00');
+INSERT INTO "public"."experience_keywords" VALUES ('3f8ad4ca-9f6f-4da8-8773-709c3934fe79', 'c841d916-c6c8-4a95-bd89-7d9c47983471', 'PostgreSQL', '2025-11-19 12:14:09.99566+00');
+INSERT INTO "public"."experience_keywords" VALUES ('9445144f-1b1f-4c96-8bae-51cb26049558', 'c841d916-c6c8-4a95-bd89-7d9c47983471', 'RLS', '2025-11-19 12:14:09.99566+00');
+INSERT INTO "public"."experience_keywords" VALUES ('24cea371-7fcc-4a42-b663-ddafaa0f3953', 'c841d916-c6c8-4a95-bd89-7d9c47983471', 'Row Level Security', '2025-11-19 12:14:09.99566+00');
+INSERT INTO "public"."experience_keywords" VALUES ('d295fbfd-30e0-4624-9c21-1cabc276a63f', 'c841d916-c6c8-4a95-bd89-7d9c47983471', 'database migration', '2025-11-19 12:14:09.99566+00');
+INSERT INTO "public"."experience_keywords" VALUES ('fe34ffd3-d094-4477-bf32-0d7471e3ef36', 'c841d916-c6c8-4a95-bd89-7d9c47983471', 'TypeScript', '2025-11-19 12:14:09.99566+00');
+INSERT INTO "public"."experience_keywords" VALUES ('cf52629f-030a-4e13-9f4a-6485b5e67d6e', 'c841d916-c6c8-4a95-bd89-7d9c47983471', 'permissions', '2025-11-19 12:14:09.99566+00');
+INSERT INTO "public"."experience_keywords" VALUES ('a2093162-6985-4283-942a-9f101d8f02e1', 'c841d916-c6c8-4a95-bd89-7d9c47983471', 'access control', '2025-11-19 12:14:09.99566+00');
+INSERT INTO "public"."experience_keywords" VALUES ('e789d652-4b07-44e9-9300-59c7232ed51f', 'f8c5bab3-8cc1-4f85-b683-1c805e34ab02', 'logging', '2025-11-19 12:15:46.087976+00');
+INSERT INTO "public"."experience_keywords" VALUES ('386f30ed-9c0d-42db-a6d7-068457c9c0c5', 'f8c5bab3-8cc1-4f85-b683-1c805e34ab02', 'testing', '2025-11-19 12:15:46.087976+00');
+INSERT INTO "public"."experience_keywords" VALUES ('84704459-c4c3-4da1-bb31-aa896c0f41c7', 'f8c5bab3-8cc1-4f85-b683-1c805e34ab02', 'submission', '2025-11-19 12:15:46.087976+00');
+INSERT INTO "public"."experience_keywords" VALUES ('b24007b9-dc77-4599-aff5-d716ac050bb4', 'f8c5bab3-8cc1-4f85-b683-1c805e34ab02', 'database', '2025-11-19 12:15:46.087976+00');
+INSERT INTO "public"."experience_keywords" VALUES ('8296c317-560a-4412-be75-5730227f754a', '55e56934-d6e1-4d27-83a3-8b569f79be80', 'Next.js', '2025-11-19 12:29:48.84715+00');
+INSERT INTO "public"."experience_keywords" VALUES ('418a1a5c-a684-4308-b934-fd5314195268', '55e56934-d6e1-4d27-83a3-8b569f79be80', 'React', '2025-11-19 12:29:48.84715+00');
+INSERT INTO "public"."experience_keywords" VALUES ('37510a3b-afd5-4a48-a038-ff72a323f404', '55e56934-d6e1-4d27-83a3-8b569f79be80', 'hydration', '2025-11-19 12:29:48.84715+00');
+INSERT INTO "public"."experience_keywords" VALUES ('f48bbc88-91c7-4287-8de1-dd3ff07f9a9b', '55e56934-d6e1-4d27-83a3-8b569f79be80', 'SSR', '2025-11-19 12:29:48.84715+00');
+INSERT INTO "public"."experience_keywords" VALUES ('a3c7061c-5bfb-4820-b5d4-0ab3f489f276', '55e56934-d6e1-4d27-83a3-8b569f79be80', 'App Router', '2025-11-19 12:29:48.84715+00');
+INSERT INTO "public"."experience_keywords" VALUES ('6df90876-2beb-4618-a6e6-fcb35ed78982', '55e56934-d6e1-4d27-83a3-8b569f79be80', 'TypeScript', '2025-11-19 12:29:48.84715+00');
+INSERT INTO "public"."experience_keywords" VALUES ('56f2e30f-4fb5-4a38-9acc-963c775e6010', '09aa93ca-aa69-4cce-90aa-e10f50e2a9f5', 'PostgreSQL', '2025-11-19 12:40:28.48146+00');
+INSERT INTO "public"."experience_keywords" VALUES ('48706052-0747-47e3-850c-1ef41ca50676', '09aa93ca-aa69-4cce-90aa-e10f50e2a9f5', '数据库权限', '2025-11-19 12:40:28.48146+00');
+INSERT INTO "public"."experience_keywords" VALUES ('bb07c60e-23aa-478b-8318-7a8c86a8cdb9', '09aa93ca-aa69-4cce-90aa-e10f50e2a9f5', 'INSERT操作', '2025-11-19 12:40:28.48146+00');
+INSERT INTO "public"."experience_keywords" VALUES ('a398b521-8522-4ff5-b6d1-b3e724592df9', '09aa93ca-aa69-4cce-90aa-e10f50e2a9f5', '权限策略', '2025-11-19 12:40:28.48146+00');
+INSERT INTO "public"."experience_keywords" VALUES ('4ccb076d-5bd4-49ab-abce-74d2842ad224', '09aa93ca-aa69-4cce-90aa-e10f50e2a9f5', '权限配置', '2025-11-19 12:40:28.48146+00');
+INSERT INTO "public"."experience_keywords" VALUES ('0361bbce-6929-4da8-9d09-20140c051f6e', '69bf5dba-1ca8-4f93-9522-e81f46b67bad', 'PostgreSQL', '2025-11-19 12:50:09.22619+00');
+INSERT INTO "public"."experience_keywords" VALUES ('d374a82b-18e6-49b1-a16c-7942f71e4a77', '69bf5dba-1ca8-4f93-9522-e81f46b67bad', 'RLS', '2025-11-19 12:50:09.22619+00');
+INSERT INTO "public"."experience_keywords" VALUES ('58896adf-3dac-45c3-acfa-db3acd2c7ad0', '79406719-a857-42d6-98e0-5b9ff04f9570', 'PostgreSQL', '2025-11-19 12:50:09.238875+00');
+INSERT INTO "public"."experience_keywords" VALUES ('ea2196f1-23de-4c04-af58-c846f401a398', '69bf5dba-1ca8-4f93-9522-e81f46b67bad', 'Row Level Security', '2025-11-19 12:50:09.22619+00');
+INSERT INTO "public"."experience_keywords" VALUES ('f97a983e-d6ac-4bc2-ad05-4c4b8ecca787', '69bf5dba-1ca8-4f93-9522-e81f46b67bad', 'database migration', '2025-11-19 12:50:09.22619+00');
+INSERT INTO "public"."experience_keywords" VALUES ('31296c31-4763-42ed-b0d7-19560acb15bb', '79406719-a857-42d6-98e0-5b9ff04f9570', 'RLS', '2025-11-19 12:50:09.238875+00');
+INSERT INTO "public"."experience_keywords" VALUES ('d956e800-9989-4fa9-83ea-5afc1dfee419', '69bf5dba-1ca8-4f93-9522-e81f46b67bad', 'TypeScript', '2025-11-19 12:50:09.22619+00');
+INSERT INTO "public"."experience_keywords" VALUES ('7c1f5025-22fc-4351-b1ad-e40599e37081', '79406719-a857-42d6-98e0-5b9ff04f9570', 'database migration', '2025-11-19 12:50:09.238875+00');
+INSERT INTO "public"."experience_keywords" VALUES ('b61e4a23-3f02-4111-ba70-59a03d423f73', '69bf5dba-1ca8-4f93-9522-e81f46b67bad', 'permissions', '2025-11-19 12:50:09.22619+00');
+INSERT INTO "public"."experience_keywords" VALUES ('890ddd58-9bc5-4471-b06e-f079972821f0', '79406719-a857-42d6-98e0-5b9ff04f9570', 'TypeScript', '2025-11-19 12:50:09.238875+00');
+INSERT INTO "public"."experience_keywords" VALUES ('27c1c2e5-2841-465d-b922-d159c9f83003', '69bf5dba-1ca8-4f93-9522-e81f46b67bad', 'access control', '2025-11-19 12:50:09.22619+00');
+INSERT INTO "public"."experience_keywords" VALUES ('c8dd1e15-f524-4df2-a683-8975b342a7aa', '79406719-a857-42d6-98e0-5b9ff04f9570', 'permissions', '2025-11-19 12:50:09.238875+00');
+INSERT INTO "public"."experience_keywords" VALUES ('4791747a-fa67-441c-b5fc-9998a8cc3b7b', '79406719-a857-42d6-98e0-5b9ff04f9570', 'access control', '2025-11-19 12:50:09.238875+00');
+
+-- ----------------------------
+-- Table structure for experience_records
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."experience_records";
+CREATE TABLE "public"."experience_records" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "user_id" uuid,
+  "title" varchar(500) COLLATE "pg_catalog"."default" NOT NULL,
+  "problem_description" text COLLATE "pg_catalog"."default" NOT NULL,
+  "root_cause" text COLLATE "pg_catalog"."default",
+  "solution" text COLLATE "pg_catalog"."default" NOT NULL,
+  "context" text COLLATE "pg_catalog"."default",
+  "query_count" int4 NOT NULL DEFAULT 0,
+  "view_count" int4 NOT NULL DEFAULT 0,
+  "relevance_score" float8 DEFAULT 0.0,
+  "fts" tsvector GENERATED ALWAYS AS (
+to_tsvector('english'::regconfig, (((((((((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(problem_description, ''::text)) || ' '::text) || COALESCE(root_cause, ''::text)) || ' '::text) || COALESCE(solution, ''::text)) || ' '::text) || COALESCE(context, ''::text)))
+) STORED,
+  "embedding" "public"."vector",
+  "has_embedding" bool NOT NULL DEFAULT false,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "deleted_at" timestamptz(6),
+  "publish_status" varchar(20) COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'published'::character varying,
+  "is_deleted" bool NOT NULL DEFAULT false,
+  "review_status" varchar(20) COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'pending'::character varying,
+  "reviewed_by" uuid,
+  "reviewed_at" timestamptz(6),
+  "review_note" text COLLATE "pg_catalog"."default"
+)
+;
+COMMENT ON COLUMN "public"."experience_records"."publish_status" IS 'Publication status: draft, publishing, published, rejected';
+COMMENT ON COLUMN "public"."experience_records"."is_deleted" IS 'Soft delete flag: false = active, true = deleted';
+COMMENT ON COLUMN "public"."experience_records"."review_status" IS 'Review status: pending, approved, rejected';
+COMMENT ON COLUMN "public"."experience_records"."reviewed_by" IS 'ID of the admin who reviewed this experience';
+COMMENT ON COLUMN "public"."experience_records"."reviewed_at" IS 'Timestamp when the experience was reviewed';
+COMMENT ON COLUMN "public"."experience_records"."review_note" IS 'Note from the reviewer explaining the decision';
+COMMENT ON TABLE "public"."experience_records" IS 'Experience records with unified status system using publish_status, review_status, and is_deleted fields';
+
+-- ----------------------------
+-- Records of experience_records
+-- ----------------------------
+INSERT INTO "public"."experience_records" ("id", "user_id", "title", "problem_description", "root_cause", "solution", "context", "query_count", "view_count", "relevance_score", "embedding", "has_embedding", "created_at", "updated_at", "deleted_at", "publish_status", "is_deleted", "review_status", "reviewed_by", "reviewed_at", "review_note") VALUES ('3ca407ea-86f4-4c05-b99e-540f521cde64', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'Next.js API Route CORS Issue', 'When making requests to Next.js API routes from external domains, getting CORS errors', 'Next.js API routes don''t have CORS headers configured by default', 'Add CORS headers to the API route response or use a middleware like next-connect with cors', '// Example of adding CORS headers in Next.js API route\nimport { NextApiRequest, NextApiResponse } from ''next'';\n\nexport default function handler(req: NextApiRequest, res: NextApiResponse) {\n  res.setHeader(''Access-Control-Allow-Origin'', ''*'');\n  res.setHeader(''Access-Control-Allow-Methods'', ''GET, POST, PUT, DELETE, OPTIONS'');\n  res.setHeader(''Access-Control-Allow-Headers'', ''Content-Type, Authorization'');\n  \n  if (req.method === ''OPTIONS'') {\n    return res.status(200).end();\n  }\n  \n  // Your API logic here\n  res.status(200).json({ message: ''Hello World'' });\n}', 15, 15, 0.85, '[-0.031757582,-0.0027032627,-0.0069676945,0.051762648,-0.04697322,0.01691036,-0.0061387555,-0.020447167,-0.020815585,0.018669553,0.0003315757,-0.027870778,0.029362869,-0.0019526123,-0.014847222,0.012719612,0.0016417601,-0.0013930784,-0.0026157638,-0.012056461,-0.027631307,0.020041907,-0.016726151,0.009095306,0.0011265514,-0.004020355,-0.044983767,-0.023578715,-0.012010408,0.022049783,-0.008183472,-0.017020885,0.051504757,0.018024823,0.0031338506,-0.030983904,-0.01353013,-0.045389026,-0.02790762,0.0068848007,-0.031241797,0.0007771305,0.0151419565,-0.022068204,0.03938382,0.004992056,0.0055723134,-0.019710332,0.009201225,-0.03172074,-0.03912593,0.002820696,0.03194179,-0.039089087,0.030210229,0.021699786,-0.013852495,-0.02980497,-0.02239978,0.046457436,-0.056109972,-0.01395381,-0.050878447,0.0066959867,0.014460384,0.03127864,0.0037233187,0.0165051,-0.027631307,-0.037799627,0.0053834994,-0.004222985,-0.0034539134,-0.04041539,-0.02895761,0.012074881,0.027318152,-0.038389094,0.025512906,-0.008597941,-0.021644523,-0.0333602,0.009367013,0.021883994,0.011080154,-0.0074604526,-0.021036634,0.01651431,0.03067075,0.00782887,0.012240669,-0.018420871,0.0140551245,-0.048631098,-0.013557761,0.007230192,-0.035257548,0.004349628,0.046789013,-0.015501163,-0.018899813,0.005328237,0.013069608,-0.026286583,0.07913606,0.024315549,0.06296254,0.000511467,0.011338046,-0.02239978,0.02599185,0.002173663,-0.012516982,-0.012028829,-0.0043312074,-0.064436205,-0.011936724,-0.015059062,-0.027170785,-0.021902416,-0.008344655,0.02792604,0.058467846,-0.015611689,0.022933984,0.0065900665,0.0031269428,0.0595731,-0.0019767897,0.02053927,-0.0067558545,-0.001709687,0.0029058924,0.018328767,-0.024905019,0.026249742,-0.012185406,0.0019123167,0.0017154437,-0.054046836,0.009836745,0.03588386,0.0050795553,-0.008989385,0.011439361,-0.026157636,0.05367842,0.030707592,0.019286651,-0.028165512,0.013502498,-0.01864192,-0.0013124871,0.0024269498,0.016431417,-0.028626034,-0.022547146,-0.024020815,0.041815378,0.03452071,0.006737434,0.03595754,-0.022326095,-0.019912962,0.06812038,-0.043841675,0.0033410855,-0.01881692,-0.02028138,-0.04037855,-0.0073821642,0.0025098438,0.015280113,-0.041594326,0.027447099,0.04973635,0.028570771,0.022786617,0.007547952,0.011724885,-0.025568169,-0.0046535726,0.040120658,-0.05651523,-0.020520851,0.012535403,-0.030928643,0.0026848419,0.004216077,0.027649727,-0.032844413,-0.024978701,0.07515715,0.03129706,0.01671694,0.038425937,0.023099773,-0.0085334685,0.0077690026,-0.053383686,-0.03831541,0.009104515,0.015160377,0.016440628,-0.028902346,-0.0089110965,-0.028386563,-0.026286583,-0.003097009,-0.022233991,0.037118055,0.03280757,-0.05036266,-0.0024983305,-0.057031017,0.008998595,-0.0002812061,-0.028441826,-0.0072440077,-0.026544476,-0.00993806,0.023081351,-0.009606484,-0.030412858,0.014405121,0.03129706,0.043289047,0.017776141,-0.022731354,-0.029012872,0.012001198,0.004137788,0.015703792,-0.04166801,0.034318082,-0.037357528,-0.003214442,-0.023339244,0.02328398,0.0405996,0.0012284418,-0.028239196,0.021920837,-0.0030762856,-0.030504962,0.017840615,0.024112921,-0.0033756245,-0.041594326,-0.028626034,0.0042966683,-0.009560432,-0.0035828594,0.03886804,0.013465657,-0.0042529185,-0.0101499,-0.0030924038,-0.00067524007,-0.022786617,-0.027557623,0.014524857,0.03172074,0.003207534,0.005982178,0.05032582,-0.014994589,-0.019618228,-0.025733957,-0.041520644,-0.04634691,0.035773333,0.04244169,-0.016532732,-0.024776071,0.03568123,-0.009215041,-0.04631007,0.088935964,0.043510098,-0.0066959867,0.015151166,0.040046975,0.028920768,0.032475997,0.038831197,-0.027152363,-0.027852356,0.011669622,0.012093302,0.022289254,0.0313339,0.057252068,-0.033268094,-0.04885215,-0.013511709,-0.001656727,-0.14132492,-0.029491814,0.06819406,-0.031407584,0.014469595,0.04144696,-0.048189,0.015353796,-0.0038177255,0.01820903,0.005153239,-0.04269958,-0.00866702,-0.024057658,0.004771006,-0.0014195584,-0.00813742,0.008289392,0.015353796,-0.0414838,-0.015620898,-0.019084023,0.03361809,-0.031610213,-0.016348524,-0.039273296,0.043067995,0.003838449,-0.04037855,0.045573235,-0.030597067,-0.050804764,0.0020032697,0.02873656,-0.0052913954,-0.010232794,0.03890488,0.01904718,0.006198623,-0.031168114,0.00867623,0.072136134,-0.013216975,-0.021184001,0.025844483,-0.038941722,0.017499827,-0.021810312,-0.053015266,0.031868108,0.023615558,-0.0074742683,0.011135417,-0.02138663,-0.024647126,0.0073499274,0.0020021184,0.025070805,-0.031370744,-0.005245343,-0.019305073,-0.043252204,0.04487324,-0.025255015,-0.019728754,0.036933847,0.03809436,-0.014018283,0.014847222,-0.004738769,0.02704184,-0.06369937,0.010840682,-0.005899284,-0.065467775,0.014313017,-0.0065071727,-0.029418131,-0.006217044,-0.08318865,-0.00475719,0.027815515,-0.009753851,0.0046950197,-0.067420386,-0.028294459,0.0028874716,-0.018098505,0.055262614,0.2275346,0.031997055,-0.0053374474,0.022307675,0.08539916,-0.03172074,0.017601142,0.022657672,0.032697048,-0.037099633,0.01522485,-0.023265561,0.0021356698,-0.012719612,0.01502222,0.037799627,-0.042589054,0.037136476,0.016643258,-0.057362594,-0.0013389671,0.015197218,0.0043127863,0.0076492666,-0.09836745,-0.012664349,-0.009984112,0.0091735935,-0.025770798,0.042589054,-0.03234705,0.032936517,0.025973428,-0.0333602,-0.07884133,0.006359806,-0.023633977,-0.02809183,0.028404983,0.014119598,0.006746644,0.013732759,0.032273367,0.026526054,0.044062722,-0.016376154,-0.013990652,-0.0024453707,-0.028073408,-0.024278708,-0.030560225,-0.04675217,-0.01945244,0.017085359,-0.023394506,-0.07655714,0.0051486334,-0.024665546,-0.016781414,0.03805752,0.03897856,0.008745309,-0.031131273,0.030099703,-0.029160239,-0.03002602,0.039089087,-0.023652399,0.021276107,0.0557784,-0.024555022,-0.003403256,0.052278433,-0.0026042506,-0.0032374682,-0.011853831,0.021718208,0.062004652,-0.058725737,0.015795898,-0.009569642,0.023597136,-0.052536324,0.010509107,0.030320754,-0.0052315276,0.028294459,0.041962743,0.007041378,0.0017948836,-0.017039306,-0.025918165,0.017140621,0.035773333,-0.02199452,-0.012259089,-0.0070091416,-0.0031983238,-0.0074558477,-0.0038016073,-0.054046836,0.008404522,-0.019139284,-0.0047525847,-0.019268231,-0.05537314,0.027797094,0.015952474,-0.015731424,-0.052094225,0.004561468,-0.0006953879,0.012609086,-0.027207626,-0.010186742,0.042552214,0.008183472,-0.007151903,0.06952037,-0.016431417,0.016661678,0.029270764,0.010582791,0.008634783,0.018706394,-0.02494186,-0.018936656,-0.011918304,-0.04841005,0.03280757,0.0063552004,-0.008584126,-0.025955008,0.042478528,-0.0027470123,0.031223377,0.013180133,-0.004054894,-0.014184071,-0.0006689079,-0.007953211,0.0080315,0.006488752,0.008349259,0.017748509,0.011485413,0.028791822,-0.027539203,0.019710332,-0.0042782472,0.027594466,0.049957402,0.040083814,-0.060936242,-0.0014679132,-0.07442032,0.029749706,-0.022362938,0.027962882,-0.0027746437,-0.0058394163,0.039641716,-0.0053190268,0.009919639,0.03398651,-0.0020665915,-0.020484008,0.04922057,0.0015254784,-0.017112989,-0.008593337,-0.035625964,-0.04826268,0.045536395,0.021091897,-0.062704645,-0.065873034,0.033341777,0.029878654,-0.023265561,0.045610078,0.04166801,-0.038425937,-0.03277073,0.022786617,-0.034170717,0.00835847,-0.010435424,0.017214304,-0.04122591,-0.038389094,0.10389371,-0.004973635,0.0114946235,0.055962607,0.012305142,0.09107279,0.03087338,-0.017048515,0.031186534,0.01353013,-0.0017223514,-0.01668931,0.028018145,0.013613024,-0.039604872,0.008211103,0.0013424209,-0.08223077,-0.0038775934,-0.032383893,0.034428608,-0.09586221,-0.0070551937,0.029326027,-0.022786617,0.06638882,0.037541736,0.028276037,0.012747243,-0.025973428,-0.0091966195,0.048299525,-0.0354786,-0.019581387,-0.005457183,-0.00909991,0.0011530314,0.030210229,-0.023026088,0.0034424004,0.028478667,0.0042713396,-0.029252343,0.022860302,0.03697069,-0.009495959,0.024591863,0.036307536,-0.008128209,-0.005061134,0.008330839,0.029270764,0.016984044,0.036510166,0.010334109,-0.048704784,-0.012747243,0.023541873,0.0579889,-0.027741833,-0.020999793,0.02729973,-0.008920307,0.052573167,-0.0021471828,0.0009083792,0.022178728,-0.005097976,0.03321283,0.012148565,0.014718276,-0.021110319,-0.03321283,-0.030762855,-0.047415324,0.041520644,-0.018291924,-0.041778535,-0.03654701,-0.010619632,0.010407792,-0.02514449,-0.0019687307,0.010702526,-0.019857699,-0.061194133,0.03151811,0.055594187,-0.025126068,-0.057841536,-0.017112989,0.0013240001,0.04251537,0.028036566,0.040452234,0.060346775,0.02348661,0.0024499758,-0.02770499,0.022178728,-0.011384099,-0.027207626,0.019268231,-0.031149693,-0.012572245,-0.009542012,-0.010177531,0.012240669,0.05308895,-0.0041723275,-0.009652536,-0.0074144006,-0.021368211,-0.0519837,0.028054986,-0.023191877,-0.0027032627,0.01162357,-0.009122936,-0.03614175,-0.07117824,0.043436415,0.0052821846,0.07994658,-0.0028045776,0.0709572,-0.022952406,0.003391743,-0.025697116,0.0025213568,-0.029731287,-0.025476065,0.025826061,0.013907758,0.008542679,0.0047203484,-0.008026894,-0.0082939975,-0.01395381,-0.043215364,-0.0030647723,-0.026470792,0.0014679132,0.0048124525,-0.021036634,0.004038776,-0.025052385,-0.007718345,0.012397246,-0.03398651,-0.017020885,0.023910291,-0.034373347,0.0015231757,-0.030597067,-0.018043242,-0.0024108314,-0.0052315276,0.008846624,-0.008865044,0.032420732,0.00014247393,-0.060678348,0.02707868,0.025826061,0.008183472,0.011743305,-0.013843285,0.015316954,-0.035294387,0.044836402,-0.0148103805,0.0017050819,-0.0003284096,0.00031401828,0.007695319,-0.032457575,0.0141932815,-0.012526193,-0.0015335375,-0.046383753,0.029049713,-0.0043657464,0.022049783,0.022676092,-0.016984044,0.014911695,0.02114716,-0.03568123,-0.039457507,-0.0062953327,-0.007230192,-0.022068204,-0.056994174,-0.021902416,0.0036703586,-0.01627484,0.011043312,0.02538396,-0.0038960143,0.019102443,-0.05692049,0.05522577,-0.12754612,0.0063736215,-0.007999264,0.012765664,-0.0030394436,0.012682769,0.0058670472,-0.014138019,-0.008183472,-0.03616017,-0.055962607,-0.010205163,0.00751111,-0.019176127,0.009178199,0.023928711,0.006534804,0.004605218,-0.0009406157,-0.034373347,0.00013218414,0.0082939975,0.050878447,0.015547215,-9.36874e-05,-0.02724447,-0.026673421,-0.024352392,-0.010380161,0.0013113357,-0.04634691,-0.04866794,0.0041400907,0.042883787,-0.023357665,0.016578784,0.03978908,-0.015998527,-0.016237998,0.04546271,0.05835732,0.0032950332,-0.03700753,-0.0036519377,0.015289323,0.013695918,-0.011816989,-0.043694306,-0.040268023,-0.047304798,-0.027520781,0.06480462,0.009040043,0.004549955,0.034575976,-0.02580764,-0.06277833,0.0041953535,-0.0022784316,-0.0038085151,-0.07780976,0.026341846,-0.014018283,-0.018245872,-0.046420597,0.015289323,-0.024702389,0.026157636,0.0047664004,0.018549817,-0.0017304106,-0.07825186,-0.002620369,0.018218242,-0.012074881,-0.015888002,0.038831197,-0.01987612,0.01036174,-0.004646665,-0.022970825,-0.028110249,-0.08097815,0.039052248,0.09247278,0.051873174,0.021184001,0.0020999792,-0.006276912,-0.05408368,-0.032273367,-0.015188009,0.009993322,0.0034516107,0.026783947,0.01309724,0.0024614888,0.0040364736,0.02284188,-0.023836607,-0.03173916,-0.016597206,0.049110044,0.0027285914,0.00073510787,-0.016237998,-0.019747173,0.025476065,-0.016026158,-0.018973498,-0.047489006,-0.009459117,-0.02429713,0.013041977,-0.037670683,0.0351286,0.019931383,0.019010339,0.01817219,0.029141817,0.0011869948,0.008142025,0.03551544,-0.023762925,-0.0050795553,-0.015261692,0.039273296,0.04056276,0.015335375,0.036454905,-0.0006879044,-0.06296254,-0.009753851,-0.006180202,0.028681297,0.0283313,-0.04398904,0.024757652,-0.0068617747,0.02260241,-0.056404706,0.0068663796,0.03429966,-0.058909945,-0.026599739,-0.0068249325,-0.003985816,-0.030523384,-0.009542012,-0.017601142,0.02558659,-0.011153838,0.0092887245,0.04992056,-0.045241658,0.0048907413,-0.011107786,-0.02514449,-0.037910152,0.064841464,-0.0015934054,-0.058173113,-0.015491952,-0.04756269,-0.0014379793,0.011457782,0.0077736075,0.028018145,-0.014580119,0.030339174,-0.01987612,0.08827282,0.006792696,0.04502061,0.027097102,-0.035607543,-0.0010448088,-0.037946995,0.06841511,-0.0069124317,0.02558659,-0.025476065,0.030099703,0.02449976,-0.013253816,-0.056146815,0.0141472295,0.010463055,0.013474868,-0.015068272,-0.05272053,-0.0011593635,0.03975224,0.022289254,0.013244607,-0.018697184,0.0034999654,-0.004821663,0.0240945,0.09107279,0.03194179,-0.033654932,0.006534804,-0.03446545,-0.0067742756,0.026562896,-0.021607682,-0.017702457,-0.024389233,0.015814317,-0.04465219,-0.031904947,-0.008754519,0.04656796,0.004126275,-0.013511709,0.0033595064,0.0003770522,0.020815585,-0.0032720072,0.062483594,0.039089087,-0.021883994,-0.050178453,-0.033931244,-0.010223583,-0.043215364,0.034133874,0.015178798,0.0042966683,-0.023799766,0.007294665,0.0015577149,0.030118125,0.00792558,0.002027447,-0.027576044,0.02094453,-0.067420386,0.04358378,0.0169472,0.023118194,0.043215364,0.0073913746]', 'f', '2025-11-18 10:27:01.624283+00', '2025-11-19 02:58:40.492861+00', NULL, 'published', 'f', 'approved', NULL, NULL, NULL);
+INSERT INTO "public"."experience_records" ("id", "user_id", "title", "problem_description", "root_cause", "solution", "context", "query_count", "view_count", "relevance_score", "embedding", "has_embedding", "created_at", "updated_at", "deleted_at", "publish_status", "is_deleted", "review_status", "reviewed_by", "reviewed_at", "review_note") VALUES ('79406719-a857-42d6-98e0-5b9ff04f9570', NULL, '数据库权限策略缺失导致关键字无法保存', '使用 Recall Kit MCP 服务器提交经验时，经验记录创建成功但关联关键字未保存到数据库，查询接口无法通过关键字检索到经验记录。错误表现：submit_experience 返回成功，但 experience_keywords 表无记录。', '数据库权限策略配置不完整。experience_keywords 表启用了权限控制但只配置了读取权限，缺少插入权限，导致匿名用户无法插入关键字记录。代码错误处理仅记录日志未抛异常，造成静默失败。', '修复权限策略：在数据库迁移文件中添加插入权限 - GRANT INSERT ON experience_keywords TO public。为已部署数据库创建新迁移文件应用修复。修复后允许匿名用户插入关键字记录，与 experience_records 表策略一致。', '技术栈：PostgreSQL, TypeScript, 权限控制。项目：Recall Kit 经验分享平台。相关表：experience_records（已有INSERT策略）和 experience_keywords（缺少INSERT策略）。', 0, 0, 0, '[-0.040118676,-0.006697142,-0.006027886,-0.0020616287,-0.02057274,-0.011138983,0.025009997,-0.021232828,0.019069206,-0.009672121,-0.008562807,-0.005615331,-0.022497997,0.011524035,0.007737697,-0.018179921,0.007091361,0.0045289365,0.048443116,0.015548738,0.013834342,0.0045358124,0.021122813,-0.014925321,-0.008576559,0.013696824,-0.002693067,-0.0049919146,0.017244797,-0.014503598,0.015072007,-0.036653213,-0.02400153,-0.013595977,-0.031005796,-0.02130617,-0.023194756,-0.00072311715,-0.01670389,0.02200293,-0.030015664,-0.008906603,0.032325972,-0.037735026,-0.027320305,-0.027577005,0.03307774,-0.0044808052,0.009424589,0.023414785,-0.036396515,-0.009727129,0.037239958,-0.026568538,0.046462853,0.011203159,-0.0430524,-0.0016914753,-0.01674973,0.0107447645,-0.022424653,-0.044849306,-0.027063604,-0.005551156,0.029868977,0.07165621,0.0015906285,0.011459859,-0.0023767748,-0.069125876,-0.016126314,0.060141344,-0.041732226,-0.056987587,-0.06267168,0.031097475,0.0656054,0.014769467,-0.02009601,0.008379449,-0.024093209,-0.017391482,0.032050934,0.051780228,-0.015081175,0.008952443,-0.03580977,0.01058891,0.0141368825,0.022718025,0.04448259,-0.028915517,0.02590845,-0.0515602,0.0041324254,0.0012124531,0.02695359,0.016217994,0.013513466,0.042722356,0.017272301,0.011661553,0.02686191,-0.028365444,0.058931183,-0.0023446872,0.059004523,-0.012981729,0.07495665,-0.0022724902,-0.0312625,0.022718025,0.011010633,-0.0237815,0.017263133,-0.036213156,0.025926786,-0.033939518,0.015246197,0.020646082,0.020774433,0.06802572,0.020737762,-0.019564273,0.01649303,0.022718025,0.00047844913,0.014246897,-0.00052887254,0.02070109,0.04235564,0.0045266445,-0.023983194,-0.039605275,-0.051926915,-0.0134859625,0.0017843001,0.06102146,0.033994526,-0.07077609,-0.009218311,0.023268098,-0.0027343226,-0.02400153,0.030235693,-0.012312473,0.021672886,0.034727957,-0.0027847458,0.012119947,0.0016215701,0.0042653596,0.01506284,-0.018729994,0.042172283,-0.09893984,-0.022773033,0.029832305,0.02851213,-0.0002693067,-0.014384416,0.006270835,-0.027833708,0.069272555,0.044775963,-0.007283887,0.023744829,-0.012495831,-0.006610047,0.008915771,0.02660521,-0.041768897,-0.0012284969,0.0073068063,-0.010836443,0.007114281,0.03949526,0.036689885,0.0143019045,-0.058527794,0.0038000895,0.023488129,0.03861514,-0.038688485,0.0019137965,-0.0019756798,-0.007847711,-0.031354174,-0.007916471,0.03857847,-0.02721029,-0.015924621,0.007343478,0.0030643665,0.0107447645,-0.0007168142,-0.0050469222,-0.045289364,0.02920889,0.011285669,-0.030235693,0.04594945,0.035424717,-0.013045904,-0.02625683,-0.029172217,0.015347044,-0.006376266,0.033334438,-0.039348572,0.030070672,0.017849877,-0.03307774,0.04044872,-0.010836443,-0.0027939137,-0.031757563,0.030529065,-0.025670085,-0.056400843,-0.06054473,0.059517927,-0.04517935,-0.035956454,0.008856179,0.011918254,0.07018935,0.0044005862,0.0147878025,-8.451646e-06,-0.029025532,-0.007251799,-0.008342777,-0.0091266325,0.07103279,-0.00603247,-0.007829376,-0.03536971,0.05299039,-0.007879799,-0.040118676,-0.049726624,0.03133584,0.0130184,-0.03810174,-0.041072138,0.01588795,0.020737762,-0.00028735597,0.013055072,-0.04686624,0.039458588,-0.028182086,-0.015961293,-0.0064954483,-0.005949959,0.028365444,-0.017391482,-0.008081493,0.008035653,0.0016387599,0.0012537086,0.017501498,0.016126314,-0.006623799,-0.0182716,-0.014164386,-0.060984787,0.0033210672,-0.0002903642,-0.037349973,0.017813206,0.0478197,0.015915453,0.043235756,-0.009644617,-0.030675752,-0.016758898,0.05724429,0.038175084,-0.032656014,0.016685555,0.03476463,0.017547337,0.03168422,-0.0035296367,0.0515602,-0.041365508,-0.015310372,-0.028622145,-0.0046320753,0.024551602,0.07246298,0.0023401033,0.0013614313,0.017721526,0.0081502525,-0.13619813,0.0046549947,0.02543172,-0.021489529,0.0026197238,-0.020242697,-0.032619342,0.011212327,-0.048076402,0.0042836955,-0.039385244,-0.047636345,0.023598142,-0.012954225,-0.023506464,-0.021562872,-0.0100938445,0.0009706501,-0.011982429,-0.048993193,-0.0014187306,-0.058821168,0.052000258,0.03580977,0.0011815116,-0.046242826,0.05794105,0.038688485,-0.033829506,-0.0060645575,-0.01740065,-0.011771568,0.0023561472,0.05324709,0.006037054,0.019729294,-0.019215893,0.010277202,0.039935317,-0.018344942,0.036048133,0.036139812,0.014760299,0.021562872,0.028420452,0.03467295,0.013403452,-0.011010633,-0.036433186,0.021709558,-0.038945187,-0.012825875,-0.01514535,-0.0049094036,-0.009497931,0.016025467,0.022993062,0.03780837,-0.041768897,0.009827975,0.01740065,0.01905087,0.0039490676,0.0018232636,0.0056061633,0.0079989815,0.039898645,0.006940091,0.03711161,-0.007187624,0.026696889,-0.003497549,0.0037129945,0.025761764,-0.026660217,0.0237815,0.050570067,-0.031354174,-0.05299039,-0.1211628,-0.0020169353,0.017428154,0.016162986,-0.015649583,-0.026183488,-0.0032385562,0.003350863,0.04521602,0.058491122,0.22266966,0.0037152865,-0.018629147,-0.024514932,0.017859045,0.023194756,-0.014567774,0.029135548,0.0255234,-0.036561538,-0.025321705,0.044079203,0.009882983,-0.009727129,0.00092767563,0.02508334,-0.0067979884,-0.005702426,0.057867706,-0.022589674,0.015182022,0.008232763,-0.001792322,0.02460661,-0.039128546,-0.051376842,-0.03901853,-0.0054273894,-0.033884514,0.054053865,-0.019857645,0.046462853,0.09959993,-0.07781703,-0.0478197,0.0021922712,0.016300505,0.007018018,-0.019857645,0.029703956,0.032142613,-0.012009933,0.0049414914,-0.013265933,-0.0030781182,0.024753297,-0.023708157,-0.037514996,0.016291337,-0.020041002,-0.03689158,-0.025028333,-0.008338193,-0.017107278,0.026110144,-0.019435922,0.008351945,-0.007105113,-0.03791838,0.014586109,0.022112945,0.027393648,-0.0823643,0.062414978,-0.029062204,0.012532502,0.04374916,-0.026678553,0.025670085,0.07723028,0.02673356,0.03661654,0.030419052,0.02130617,0.018179921,-0.015163686,-0.0028053736,0.05082677,-0.067879036,0.024331573,-0.0066604703,0.012504999,-0.019417586,-0.009254983,0.019600943,0.017932389,0.006463361,0.06248832,-0.015915453,-0.014036036,-0.03159254,-0.023891514,-0.007769785,0.020334374,0.028237093,0.039605275,-0.026660217,-0.011368181,-0.015732095,-0.042062268,-0.029318905,-0.0049598273,0.016768066,-0.04110881,-0.0013201758,-0.03883517,0.022186289,-0.0048681484,-0.008439041,-0.008535303,-0.07921055,0.023323106,-0.024661617,-0.005221112,-0.0043891263,0.008773669,0.009717961,0.0029956072,0.010772268,0.06813574,0.0031468775,0.011450691,-0.03806507,-0.008594895,0.0032339722,-0.016978927,-0.0039284397,-0.041292164,-0.050936785,0.0043868343,0.030419052,-0.030070672,0.05537404,-0.0027136947,-0.012880882,-0.017382314,0.00083485077,0.032234292,-0.025926786,0.025230026,-0.012294137,-0.009140384,-0.007930223,-0.0016548038,0.0020639207,-0.010423888,-0.020719426,-0.0060599735,-0.010808939,0.024148216,0.040118676,0.007746865,0.0422823,-0.029905649,-0.0023607311,-0.02816375,-0.017043103,0.018830841,0.024789969,-0.035186354,-0.0134859625,0.0027274466,0.020242697,0.019197557,0.016813906,0.0029497677,0.025945121,-0.0043937103,-0.03397619,0.018464126,0.015878782,-0.03520469,-0.07403986,0.027925385,0.01895919,0.008008149,-0.026880246,-0.031849243,-0.01544789,-0.04921322,0.031354174,-0.025413385,-0.041475523,0.026293501,0.026055137,0.041695554,-0.023891514,-0.01423773,0.008251099,-0.016227162,-0.019380914,0.121456176,-0.001950468,-0.0024432421,-0.024221558,0.046756227,0.044152547,0.042025596,-0.022754697,-0.027833708,-0.029190553,-0.022241294,0.033884514,-0.009662953,-0.014210226,-0.00670631,0.016786402,0.016529702,-0.023359777,-0.041475523,0.009415421,0.024844976,-0.11727562,-0.0016227161,0.064065196,-0.040302034,0.054603938,-0.019894317,-0.027852042,0.016410518,-0.0074580763,-0.02686191,0.019582609,-0.01758401,-0.01466862,0.0037221625,-0.030620744,-0.0518169,0.014696124,-0.033352774,-0.008072325,-0.010698925,0.0010841027,-0.033994526,0.032014262,0.032142613,0.018849177,0.024496596,0.06593545,-0.0048819003,-0.006779653,-0.083904505,-0.033664484,0.0128442105,-0.02447826,0.009882983,-0.02942892,-0.0010663399,-0.008865347,0.022277966,-0.0049139876,0.024973325,0.021086141,0.0039101043,0.025743429,0.06894252,-0.023231426,-0.028970525,-0.038248427,-0.039568603,-0.029410584,0.040155347,0.020077674,0.006545872,-0.022644682,-0.045289364,0.025193356,-0.045729425,0.029227225,-0.02981397,0.00065034704,0.005537404,-0.019619279,0.0061424845,0.012660853,-0.0017327308,-0.03247266,-0.022883048,0.010350545,0.005959127,-0.043639146,0.028218757,-0.014219394,0.051413514,0.0013820591,0.05988464,0.062378306,-0.0012216211,-0.000978672,-0.04400586,-0.010295537,-0.011404852,-0.02000433,0.014650284,-0.025046669,0.019582609,0.007013434,0.03516802,0.0035227607,0.030529065,-0.015411219,0.0028718407,-0.05885784,0.04110881,-0.043932516,0.009782136,-0.009424589,-0.023579806,0.0069813463,0.02343312,0.019380914,-0.017804038,0.037386645,0.023286434,0.019179221,0.010158019,0.06494532,-0.012275801,0.026366845,-0.010625581,0.018079074,-0.014613613,-0.038211755,-0.018134082,-0.035149682,-0.026641881,-0.055227354,-0.0021544537,-0.0014427963,-0.010313873,-0.01753817,-0.031280834,0.015356212,0.007774369,0.008425289,0.037661683,0.035956454,-0.05533737,-0.016474694,0.013036736,0.024991661,-0.06175489,0.03832177,-0.039238557,-0.031665884,-0.009328325,-0.030584073,-0.008205259,-0.039825305,0.016630549,0.012926722,0.011918254,-0.03271102,-0.0123583125,0.024294902,-0.03337111,-0.055777427,0.035058003,0.017694023,0.01354097,-0.045839436,0.067292295,-0.009232063,-0.008118165,0.04092545,-0.0039398996,0.011404852,-0.021232828,-0.008562807,0.0011316611,-0.039788634,-0.00473063,-0.014430255,0.0353147,-0.038211755,0.036048133,-0.031757563,-0.022424653,-0.0014599861,-0.048626475,-0.04301573,-0.020151017,0.01141402,-0.009369581,-0.023414785,0.02908054,-0.07253633,0.010643917,-0.018381614,0.006678806,-0.0040040747,0.0042814035,-0.026531866,0.028237093,-0.1397186,-0.0115515385,-0.003431082,0.008416121,-0.011193991,0.01306424,-0.014861146,-0.024679953,-0.01679557,-0.050093338,-0.07877049,0.0073939012,0.016951425,-0.05042338,-0.029062204,0.008429873,0.02673356,-0.01693309,-0.020407718,0.0062204115,-0.0280354,-0.021214493,0.03883517,0.0086361505,-0.0041484693,0.008677405,-0.010964793,0.04521602,-0.03623149,0.0074718283,0.011074808,-0.017180622,0.024991661,0.019692622,0.012624181,0.0054778126,0.0015585409,-0.0035708921,-0.020847777,-0.006935507,-0.015585409,0.011835743,-0.013220094,-0.007824792,-0.00341733,0.028053736,-0.033389445,-0.032032598,-0.018482462,-0.03327943,-0.024313238,-0.0061379005,-0.054567266,-0.015567073,0.04191558,-0.004726046,-0.08016401,0.0117624,-0.022149617,0.021672886,-0.022369646,0.014466926,-0.018940855,-0.064468585,-0.0012262049,-0.016978927,-0.008746165,0.029153882,-0.04451926,0.057500992,0.035002995,-0.034819636,0.011844911,0.0018129498,-0.004487681,0.016328007,0.023634814,-0.06226829,-0.030712424,-0.034636278,-0.025266698,0.05390718,-0.028420452,0.0433091,0.07099612,0.027155284,-0.00326606,-0.03740498,0.011826575,-0.012504999,-0.045729425,-0.016502198,0.019894317,0.030400716,-0.0016582416,0.01762068,-0.013183422,0.0118724145,0.0074626603,-0.012871714,-0.0073939012,-0.03667155,0.032912716,-0.011450691,-0.015438722,-0.016685555,0.018729994,-0.0104147205,0.011835743,0.010946458,0.032876045,-0.011780735,0.012129115,0.037771698,-0.06340511,0.021929586,0.021947922,0.020316038,-0.033096075,0.034177884,0.029978992,0.0012193291,0.006674222,-0.010863947,0.018473294,0.022626346,0.01670389,-0.0058536963,-0.016162986,-0.03650653,0.0054090535,-0.018225761,-0.029575605,0.044812635,0.012981729,-0.041512195,-0.020554405,0.03502133,0.009901319,-0.012981729,-0.01635551,-0.038138412,0.0028855926,-0.03190425,-0.018766666,-0.017244797,0.016868914,0.00015198639,-0.049836636,-0.05442058,0.022773033,0.02886051,0.024313238,0.026110144,0.006775069,0.035644747,-0.026238494,0.014879482,0.0126791885,0.025248362,0.0018897308,-0.039055202,-0.018812506,-0.036488194,-0.03810174,-0.024679953,0.018766666,0.0117624,-0.023854844,0.020756098,-0.048809834,0.01640135,-0.005308207,0.046059467,0.038541798,-0.076496854,0.016969759,-0.03150086,0.0063120904,-0.059957985,-0.010451392,0.017033935,0.03260101,-0.011248998,0.04257567,-0.026623545,0.020829441,0.02304807,0.006605463,0.03311441,-0.0039605275,-0.033572804,0.010295537,0.012009933,0.012202458,-0.0005520787,0.010616414,-0.02209461,-0.005633667,0.057794362,0.00030798372,-0.038688485,-0.042538997,-0.020151017,0.051706888,0.024019865,0.022571338,-0.026971925,-0.00054205133,0.06681556,-0.017675687,-0.017666519,-0.020389382,-0.018500797,0.0084757125,-0.021636214,0.035791434,0.0016043803,0.018198257,-0.04613281,-0.0040499144,-0.022663018,0.0020570448,-0.01823493,-0.04371249,0.010964793,0.049139876,-0.02191125,0.049323235,0.011102312,-0.013229262,-0.010176355,-0.011166487,0.0015665628,0.064908646,-0.02847546,-0.015200358,0.055190682,-0.041292164,0.021269498,0.028603809,0.024093209,0.011001465,0.02304807]', 'f', '2025-11-19 12:50:09.238875+00', '2025-11-19 12:50:09.238875+00', NULL, 'published', 'f', 'approved', NULL, NULL, NULL);
+INSERT INTO "public"."experience_records" ("id", "user_id", "title", "problem_description", "root_cause", "solution", "context", "query_count", "view_count", "relevance_score", "embedding", "has_embedding", "created_at", "updated_at", "deleted_at", "publish_status", "is_deleted", "review_status", "reviewed_by", "reviewed_at", "review_note") VALUES ('cf3d9a04-6bbd-4cf5-af70-236dc435244e', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'TypeScript Type Narrowing Issue', 'TypeScript not properly narrowing types in conditional statements', 'Type guards need to be explicit for complex types', 'Use explicit type guards or type predicates to help TypeScript understand the type narrowing', '// Example of type predicate\ninterface Cat { meow(): void; }\ninterface Dog { bark(): void; }\n\nfunction isCat(animal: Cat | Dog): animal is Cat {\n  return (animal as Cat).meow !== undefined;\n}\n\nfunction handleAnimal(animal: Cat | Dog) {\n  if (isCat(animal)) {\n    animal.meow(); // TypeScript knows this is a Cat\n  } else {\n    animal.bark(); // TypeScript knows this is a Dog\n  }\n}', 8, 23, 0.92, '[-0.028479962,-0.006188664,-0.03729031,0.03663838,-0.0049919095,-0.040084288,-0.020619566,0.027809406,-0.011306303,-0.009806867,-0.0037439321,-0.035930574,-0.02006077,-0.020191155,-0.011734713,-0.03632173,0.0027357712,-0.021420507,0.038668673,-0.04768391,-0.05926961,-0.042580243,-0.021047976,-0.013923329,-0.012312135,0.001422601,-0.007455268,-0.031162182,0.022761617,0.011036218,0.038221635,0.0051548914,-0.059642144,-0.027380995,0.009033866,-0.015832549,0.028777985,-0.0011496061,-0.017760394,0.01654967,0.0021047976,-0.0021886171,0.036172718,-0.051595483,0.00048283453,-0.01027253,0.005490169,-0.024642896,0.03326698,0.009438993,-0.004246848,-0.007138617,0.04168617,-0.04194694,0.05010536,-0.00268222,-0.046231043,-0.03851966,-0.037737347,0.014128221,-0.028926998,-0.016456537,-0.032335654,0.020898964,-0.008684618,0.004458725,-0.0111759165,0.007753292,-0.022072436,-0.011231796,0.05111119,0.03395616,-0.035576668,-0.03309934,-0.05010536,0.04656632,-0.032168012,-0.0074738944,-0.06303217,0.026263405,0.0026961898,0.007059454,0.064522296,0.037662838,0.021383254,0.0064587486,0.0098813735,-0.023376292,0.0019290098,0.009750987,0.024493884,-0.040866602,0.012535653,-0.026710441,0.01663349,-0.02194205,0.027511382,-0.0056252116,0.03213076,0.019222576,0.005797507,0.026542801,-0.015161994,-0.028871119,0.037457947,-0.011967544,0.042170458,0.01963236,0.015609031,-0.010374976,0.03723443,0.030323988,-0.0011746354,0.012144496,0.0061979773,-0.035856064,-0.0070035746,-0.017760394,0.009406396,-0.0025914158,-0.010198024,0.035762932,0.0853095,-0.023506679,-0.030137721,-0.012535653,0.013494919,0.029970083,0.0046845716,-0.015106115,0.023320412,0.010561242,-0.01572079,-0.010179398,-0.06686924,-0.020749953,-0.015646283,0.03540903,0.01737855,-0.049881842,0.04719962,0.056252114,-0.01737855,-0.023208654,0.03378852,-0.006910442,0.047274128,0.021606773,-0.00080501527,0.008540263,-0.020805832,0.018552022,0.032968953,0.03207488,0.03581881,-0.050924927,-0.03641486,0.0016775517,0.0014284218,0.014184101,0.023115521,-0.03481298,0.036489367,0.024531137,0.009685795,-0.011054845,0.005490169,0.045560487,-0.025164438,-0.031590592,0.0010157279,-0.019911759,0.026915332,0.0128895575,0.00034953843,0.03481298,0.070259266,0.022575352,0.03615409,-0.027362369,-0.017471682,0.004838241,-0.00023486887,-0.010654374,0.0107568195,0.0058673564,0.005136265,-0.046044778,0.0028661569,-0.0028777986,-0.029374035,-0.012079303,-0.019092191,0.0038347365,0.006184007,-0.0064820317,0.02028429,-0.0301936,0.017769707,0.012321448,-5.6134242e-05,-0.043548822,0.009695108,-0.036750138,-0.03863142,-0.056252114,-0.05226604,-0.024438005,0.032540545,-0.031888615,0.028275069,-0.0021420508,-0.029057384,0.00540635,-0.06329294,0.018384382,-0.054575726,-0.015506584,0.026803574,-0.018738287,0.0060675913,0.03702954,0.02091759,-0.0031897929,0.053122856,-0.00023312264,-0.008009407,0.02644967,0.0061188145,-0.053085603,-0.0046682735,0.032372907,-0.01603744,0.01985588,0.00582079,-0.014212041,-0.04291552,0.038221635,0.0044098306,0.015962934,0.014528692,-0.05289934,0.07674129,0.005201458,-0.033769894,-0.025574222,-0.021793038,-0.030808277,0.00055006467,-0.049919095,-0.018021166,-0.0043446375,-0.030957289,-0.020582313,0.01389539,0.01820743,0.020880338,0.014184101,0.011371495,-0.01663349,0.02767902,0.0222587,0.03889219,-0.004996566,0.012964063,-0.018216744,0.013960582,-0.01700602,-0.0025378645,0.032391533,-0.013923329,-0.025071306,0.005271307,-0.006225917,0.030808277,0.058822576,-0.022668485,0.018328503,0.067614295,0.0024284336,-0.014929162,0.022593979,0.044405643,0.030230856,0.027567262,0.05219153,-0.04038231,-0.053867918,0.024698775,-0.02870348,0.01732267,0.003036124,0.048130948,-0.041909687,-0.040345058,-0.035260018,0.0049686264,-0.15094939,0.0053597833,0.03378852,-0.014277234,0.021923423,0.03298758,-0.013113076,-0.011213169,-0.01775108,0.013643932,0.009164251,-0.041760676,0.037457947,0.012535653,0.015795296,-0.0030966604,0.015962934,0.014482126,0.0084191905,-0.021848917,-0.031460207,-0.024903668,0.042878266,-0.024326246,0.009005927,-0.03794224,0.031590592,-0.005033819,-0.028740732,0.0031269283,-0.038594164,-0.02119699,-0.0023294801,0.01786284,0.02237046,0.02661731,-0.022761617,-0.017043274,0.028796611,-0.01555315,0.030435747,0.024251739,-0.041015614,0.025089933,-0.047125116,-0.03304346,0.006943038,0.042990025,0.008204985,-0.02237046,-0.01206999,0.04619379,0.025369331,-0.026691815,-0.035576668,0.040866602,0.013513546,0.050030854,-0.029262275,0.015571778,-0.0050384756,-0.00045867826,0.0035599952,-0.058710817,-0.05621486,0.0016309853,0.02553697,0.018216744,0.0737238,-0.010961711,0.03755108,-0.0926111,0.035576668,-0.001296872,0.012088616,0.021960676,0.04474092,0.013783631,-0.0457095,-0.10445757,0.009397083,-0.002159513,0.020358795,0.04120188,0.0066543273,-0.04362333,-0.003485489,-0.0074971775,0.037308935,0.23350215,0.06143029,-0.016829068,0.003604233,0.030100469,-0.05841279,0.009276011,0.031199435,0.01668937,-0.034850232,0.027697647,0.037625585,-0.012293508,0.008326058,0.00096799736,0.014873283,-0.01957648,0.012544966,0.008172389,-0.013727751,0.01743443,-0.0037090073,0.088811286,0.048689745,-0.043846846,-0.04097836,-0.019008372,0.0030174975,-0.026952585,0.018440263,-0.04153716,0.046529066,0.06962596,-0.058338284,0.0037322906,0.022146942,0.0072177798,-0.029485794,-0.0084611,0.03304346,-0.021848917,0.0019837252,-0.016652117,-0.022892002,-0.00799078,0.02231458,-0.018579962,-0.0059046093,-0.027082972,-0.06549087,-0.02097347,-0.025611475,-0.0004333578,-0.0072596893,-0.048577983,-0.027418248,0.005438946,-0.008628739,-0.031329818,0.024493884,0.0064866883,0.02371157,-0.038445152,-0.009685795,-0.013113076,0.0198,-0.00450762,-0.057332452,0.058114767,0.038482405,0.013513546,0.037755974,0.0463428,-0.010104892,-0.00670555,-0.0013108419,-0.0009086253,0.010654374,0.010365663,0.018840732,-0.023618437,-0.01389539,-0.058114767,-0.00992794,0.018114299,0.010533301,0.012284195,0.054203197,-0.016372718,-0.0068126526,-0.034365945,-0.025108559,-0.0225381,-0.013476293,0.004544873,0.01786284,-0.009937253,-0.02183029,-0.02902013,0.026356537,-0.008484383,-0.0021106184,0.02339492,0.0074040447,0.03809125,-0.04693885,-0.004693885,0.03326698,-0.05140922,-0.03090141,-0.02639379,-0.0058254465,-0.021513639,-0.04731138,-0.019073565,0.06962596,-0.04000978,0.027716273,-0.0014307501,-0.01851477,-0.0059046093,0.0347571,0.003669426,-0.032745436,0.011893038,-0.019446095,0.018728973,0.03851966,-0.047236875,0.029038757,-0.00016792979,-0.022202821,-0.028628973,0.065416366,0.02274299,0.03572568,0.020470554,-0.0078045153,0.018170178,0.01985588,0.009760301,0.00847507,0.0076880995,0.028628973,0.015040921,0.065677136,-0.045187958,-0.03723443,-0.012796424,0.014184101,0.03717855,0.0045332313,-0.029392662,-0.014463499,0.005601928,-0.057593223,-0.041984193,-0.043176293,-0.028088804,-0.009611288,-0.023245906,0.0035762934,-0.023301786,0.03702954,0.001097801,0.0027520694,0.026840826,-0.021588147,-0.06545362,0.013886076,0.0014423918,-0.016354091,-0.027883912,0.04228222,-0.024456631,-0.0046543037,-0.046864346,-0.047274128,0.003632173,-0.027883912,0.016707996,0.02140188,-0.042356726,0.019334337,-0.0022968836,0.01780696,1.7880739e-05,-0.021793038,0.024438005,-0.013988523,-0.0136811845,0.078082405,-0.0068126526,0.009648541,0.03606096,0.014333113,0.03196312,0.017704515,0.006216604,-0.046640825,-0.016130574,-0.0216254,-0.013085136,0.029578926,-0.041984193,0.038668673,-0.028330948,0.023506679,0.0032666274,0.039041203,0.022892002,0.02322728,-0.05573057,0.01606538,0.00029045742,-0.008950046,0.04842897,0.008400564,-0.0051409216,-0.03278269,-0.018095672,0.039786264,-0.01643791,-0.01386745,-0.0021769754,0.0012910512,-0.040754844,-0.0098813735,-0.010021072,0.022221448,-0.0057416274,0.0006431973,-0.014128221,-0.025667356,0.0122190025,0.021420507,0.024102727,0.047460392,0.01894318,-0.033117965,-0.009685795,-0.0117254,0.008409877,0.055022765,-0.050142612,0.010058325,-0.045523234,0.0049127466,0.020414675,-0.011399435,0.010905832,-0.03160922,0.047609404,0.023003763,-0.008954703,0.034105174,0.004619379,-0.019613734,-0.004398189,0.009099059,-0.015450705,-0.0009918626,-2.3264969e-05,-0.0075204605,-0.02048918,-0.0013760347,0.0098813735,-0.023339039,-0.0076974127,-0.019241203,0.023432173,0.00050087896,0.0029965427,-0.025350705,0.020079397,0.04157441,-0.02048918,0.022724364,0.04693885,-0.0034505643,-0.03809125,0.030715145,-0.022184195,0.033714015,0.02456839,0.04243123,0.042468484,0.0045495294,-0.0063935556,-0.049881842,0.011604327,0.0034948024,-0.028889745,0.027325116,-0.006957008,-0.00630508,-0.02548109,0.045821257,-0.013327281,-0.023376292,0.010598495,0.030305361,-0.0022130643,-0.016754562,-0.024438005,0.026505549,0.044815425,-0.053160112,0.007580997,0.039674506,-0.004540216,-0.058673564,0.006225917,0.043548822,0.051744495,-0.0013527516,0.03911571,0.003147883,0.082254745,-0.0066543273,-0.021122484,-0.021066602,-0.012358701,0.034216933,-0.0013655573,0.0013783631,0.0026892049,-0.008014063,-0.024009595,-0.03170235,-0.09439924,-0.025183065,-0.038445152,0.01295475,0.07696481,0.025015427,0.059455875,-0.042766508,0.038705926,-0.010998964,-0.0072829723,0.0050943554,0.031255312,-0.028237816,0.0091269985,-0.028498588,-0.026691815,-0.04693885,-0.029876951,-0.011650893,-0.045634992,0.0105053615,-0.034682594,-0.028871119,0.045448728,0.041313637,-0.00210829,0.052862085,0.009532126,0.010943085,-0.01708984,0.010579868,-0.063181184,-0.0450762,0.029616179,0.028926998,0.0034668625,-0.018756913,-0.0136811845,-0.03540903,-0.04157441,0.00046770048,-0.009210818,0.040419567,-0.00671952,0.057108935,-0.017453056,0.06493208,0.0077486355,-0.030398494,-0.04585851,-0.010263217,0.010440169,0.012377328,-0.005858043,-0.043437064,-0.038482405,0.012684666,-0.026412416,0.04839172,0.017369237,0.0329317,-0.0003940675,0.039041203,-0.14059304,0.022389086,0.013029256,0.007981467,-0.007376105,-0.009285324,-0.028144684,-0.022295954,-0.018542709,-0.10170084,0.001650776,0.03986077,-0.0006030338,-0.023022389,-0.008260865,0.040047035,-0.010617121,-0.0051316083,-0.0035716367,0.064894825,-0.0087311845,0.03395616,-0.014826716,-0.01072888,0.012293508,-0.019483348,-0.022593979,-0.021439133,-0.023003763,-0.06034995,0.025183065,-0.04291552,0.009741674,0.048503477,0.0030011993,0.012544966,0.001996531,0.00067579374,-0.03971176,-0.0042282217,-0.031590592,-0.004090851,-0.010710253,-0.0074878642,-0.026840826,-0.0028102775,-0.027977046,0.0038719894,-0.05885983,0.00012441938,-0.0054249763,0.031329818,-0.084340915,0.024493884,-0.02091759,0.0143238,-0.059679396,0.012293508,-0.03131119,0.040754844,-0.0092946375,0.00022657425,-0.030603385,-0.038482405,-0.026412416,0.0063190497,-0.08456444,0.014081655,0.014677704,0.027809406,0.018952493,-0.053607147,-0.023786075,-0.037402067,0.026058512,0.032000374,-0.009173565,-0.03755108,0.026505549,0.009094402,-0.0056764344,-0.024531137,-0.03971176,0.031534713,0.022724364,0.029318156,0.009583348,0.026039885,-0.056103103,-0.016642803,-0.05327187,-0.01518062,-0.044852678,0.042021446,-0.028610347,0.0013166626,-0.030491626,0.008535607,0.00222587,-0.012759171,-0.024493884,0.013662558,-0.041276384,0.032019,0.0042491765,0.027921164,0.024773283,0.030156348,0.013513546,8.876705e-05,-0.029783819,0.0150968,-0.017816273,-0.011976858,-0.0652301,0.0036391579,0.0134111,0.07830592,-0.051632736,0.031795483,0.031404328,-0.006831279,0.008265521,-0.011427375,0.0027613828,-0.018617215,0.049174033,0.027567262,-0.0048661805,-0.048205454,-0.008344685,-0.061355785,-0.018496143,0.030528879,0.017769707,-0.021420507,-0.044778172,0.040531326,-0.013569426,0.010943085,-0.008628739,0.02430762,-0.006682267,0.0065192846,-0.013792944,-0.013811571,0.04630555,0.019427469,-0.02413998,-0.04097836,0.048950516,0.048093695,0.0060303384,0.027157478,-0.013001316,0.0037648869,-0.023767449,0.0035180855,-0.004237535,0.06798682,-0.03190724,-0.033080712,-0.006989605,-0.00055006467,0.009685795,-0.025984006,0.018281937,0.00039144812,0.005033819,0.04109012,0.023953715,0.04511345,0.009397083,0.007236406,0.021904796,-0.011306303,-0.0022992122,-0.0069290684,0.028330948,-0.0004671184,0.015460018,0.015972247,0.008139793,0.050328877,0.034794353,-0.029746566,-0.013820884,0.036098212,0.03326698,0.012144496,-0.03792361,-0.03490611,0.0054342896,-0.01386745,0.019446095,-0.011632266,-0.003618203,0.019911759,-0.010021072,0.038184382,0.009723048,-0.056550138,0.036340356,-0.04496444,0.006491345,-0.013224835,-0.043846846,-0.03797949,-0.01472427,0.003683396,-0.014714957,0.010365663,-0.008284148,0.024400752,0.029225022,-0.04153716,0.054985512,0.03971176,0.011418061,-0.006272483,0.06046171,0.027362369,-0.011716086,-0.047981936,-0.058487296,-0.016242333,-0.022146942,0.030640638,-0.011250423,-0.03941373,-0.04496444,-0.080839135,-0.016763875,0.026635936,-0.00978824,0.012358701,-0.013578739,0.03514826,0.038817685,0.015124741,0.05155823,-0.00811651,0.049174033,0.0006862711]', 'f', '2025-11-18 10:27:01.624283+00', '2025-11-19 06:10:09.445158+00', NULL, 'published', 'f', 'approved', NULL, NULL, NULL);
+INSERT INTO "public"."experience_records" ("id", "user_id", "title", "problem_description", "root_cause", "solution", "context", "query_count", "view_count", "relevance_score", "embedding", "has_embedding", "created_at", "updated_at", "deleted_at", "publish_status", "is_deleted", "review_status", "reviewed_by", "reviewed_at", "review_note") VALUES ('c841d916-c6c8-4a95-bd89-7d9c47983471', NULL, '数据库权限策略缺失导致关键字无法保存', '在使用 Recall Kit MCP 服务器提交经验记录时，经验记录本身创建成功，但关联的关键字（keywords）没有保存到数据库中。通过 MCP 查询接口也无法通过关键字检索到刚提交的经验记录。
+
+错误表现：
+- `submit_experience` 接口返回成功状态
+- 经验记录 ID 正常返回
+- 但 `experience_keywords` 表中没有对应的关键字记录
+- 查询接口无法通过关键字找到该经验记录', '问题根源在于数据库的权限策略配置不完整。
+
+具体原因：
+1. `experience_keywords` 表启用了权限控制
+2. 但只配置了读取权限，允许所有用户读取关键字
+3. **缺少插入权限**，导致匿名用户无法插入关键字记录
+4. 代码中的错误处理只是记录日志（`console.error`），没有抛出异常，所以经验记录创建成功，但关键字插入被静默失败
+
+权限控制的工作原理是：如果启用了权限控制，默认情况下会拒绝所有操作，除非有明确的权限允许该操作。由于没有插入权限，所有插入操作都被拒绝。', '1. **修复权限策略**：在数据库迁移文件中添加插入权限
+   ```sql
+   -- 为匿名用户授予插入权限
+   GRANT INSERT ON experience_keywords TO public;
+   ```
+
+2. **创建迁移文件**：为已部署的数据库创建新的迁移文件，包含相同的权限，用于应用修复
+
+3. **应用修复**：
+   - 新部署：权限已包含在初始权限配置中
+   - 现有数据库：需要运行新的迁移文件
+
+修复后的策略允许匿名用户（通过 API）插入关键字记录，与 `experience_records` 表的策略保持一致。', '- **技术栈**：PostgreSQL, TypeScript, 权限控制
+- **项目结构**：Recall Kit 经验分享平台
+- **相关表**：
+  - `experience_records` - 经验记录主表（已有 INSERT 策略）
+  - `experience_keywords` - 关键字关联表（缺少 INSERT 策略）
+- **相关文件**：
+  - `supabase/migrations/002_rls_policies.sql` - 权限策略定义
+  - `mcp-server/src/services/experienceService.ts` - 经验服务（关键字插入逻辑）', 0, 0, 0, '[-0.03354226,0.0006257115,-0.022404252,-0.0011346388,-0.018813709,-0.0034073514,0.014004947,-0.010267852,0.00970912,-0.017348181,-0.01133036,0.0018628228,-0.021378381,0.0114585925,0.01354697,-0.013235545,0.007950487,-0.009590046,0.047812834,0.022679036,-0.000570468,0.005582744,0.017815318,-0.0115410285,-0.013015715,0.018630518,-0.008348927,-0.0036203107,0.011247924,-0.0067597455,0.007158186,-0.03191186,-0.02181804,-0.020847129,-0.026690919,-0.0140507445,-0.020920405,0.00727268,-0.020022769,0.022111146,-0.04601756,-0.011412795,0.028119808,-0.03574055,-0.021891316,-0.018447326,0.033395708,-0.007213143,0.0213967,0.023393482,-0.04543135,-0.011000616,0.026690919,-0.03127069,0.060306456,0.026397813,-0.03843346,-0.0033684233,-0.004836241,0.010222054,-0.007355116,-0.047629643,-0.010231214,0.009873991,0.022624081,0.07334965,-0.005234681,-0.004339335,-0.00022011535,-0.06100258,-0.014087383,0.070638426,-0.050560698,-0.06045301,-0.05854782,0.031820264,0.058474544,0.013198907,-0.017705403,0.021543253,-0.022514166,-0.022880547,0.024565903,0.057485316,-0.016917683,0.022770632,-0.040082175,0.008838963,0.0014781218,0.013281343,0.033670492,-0.033615537,0.027258812,-0.04539471,-0.0034004818,-0.0053629144,0.014252255,0.01353781,0.007822253,0.044588674,0.008701569,0.00929236,0.01817254,-0.02971357,0.0702354,0.0150033375,0.046347305,-0.0068055433,0.06862333,-0.009177865,-0.025866559,0.019363282,0.0041859127,-0.033011004,0.011073892,-0.039495964,0.024932286,-0.039202858,0.01939992,0.03132565,0.021653168,0.071884125,0.02969525,-0.011073892,0.007602424,0.01473771,-0.0040530995,0.012035645,-0.002866938,0.023356844,0.045907646,-0.0034073514,-0.028467871,-0.032223284,-0.050670613,-0.0052942177,7.019934e-05,0.050267592,0.035832148,-0.074705265,-0.005555265,0.021872997,-0.00059479807,-0.02870602,0.03154548,-0.023668269,0.013949989,0.037077844,-0.00929236,0.009187025,0.006205593,-0.0025578034,0.021250147,-0.021433339,0.030611204,-0.10148778,-0.02768015,0.02687411,0.032772858,0.0043782634,-0.01737566,0.014481243,-0.040045537,0.07012549,0.053418476,-0.016807768,0.02626958,-0.013263023,-0.007052851,0.00030942092,0.021671487,-0.04986457,0.00036008467,-0.003414221,-0.005981184,0.015323921,0.054700814,0.03308428,0.023540035,-0.05858446,-0.00046713688,0.038250268,0.032882772,-0.029237272,0.0010081226,0.00262879,-0.00988315,-0.042097278,-0.0033157559,0.040558472,-0.0197663,-0.011495231,0.010231214,0.010615914,0.0044194814,0.0017277194,-0.0030180707,-0.04425893,0.0319485,0.023998013,-0.03172867,0.03938605,0.03817699,-0.011522709,-0.0400089,-0.035227615,0.0004425206,-0.019344963,0.031527158,-0.0412546,0.03515434,0.015296442,-0.020352513,0.04187745,0.0019647228,-0.0058941683,-0.031655394,0.033505622,-0.021744763,-0.055580128,-0.06320087,0.05719221,-0.054004688,-0.023906417,0.008646612,0.019747982,0.08302213,0.007249781,0.022276018,0.012044804,-0.03238816,0.0006812413,-0.011202126,-0.0023379743,0.06855005,0.0024501786,-0.00869241,-0.035062745,0.06323751,-0.0012010456,-0.043929186,-0.04601756,0.031179097,0.02159821,-0.031362288,-0.03658323,0.02647109,0.013299662,-0.0047996026,0.0031348548,-0.046090838,0.038689926,-0.0290724,-0.023320206,-0.0069383564,-0.011174647,0.030079952,-0.0213967,-0.0070436914,0.000798598,-0.004300407,0.012786727,0.018886985,0.010423564,-0.008513799,-0.009049632,-0.015910132,-0.06492287,0.0061918534,0.017467255,-0.034256704,0.01897858,0.059243947,0.011907411,0.036858015,-0.021781402,-0.027423682,-0.02222106,0.07027204,0.019949492,-0.029402144,0.020883767,0.03312092,0.015378878,0.033670492,-0.00037267906,0.047153346,-0.040118814,-0.021524934,-0.023466758,0.0059308065,0.014710232,0.07334965,0.00465076,-0.0032424794,0.0128874825,0.0022715675,-0.13548802,0.011843294,0.028449552,-0.01394083,0.0060315616,-0.014856785,-0.024217842,0.0032882772,-0.05111027,0.0062513906,-0.041181322,-0.04627403,0.0123287495,-0.0050835484,-0.019363282,-0.030831033,-0.005010272,0.005958285,-0.0074283923,-0.050267592,-0.00012007593,-0.040924855,0.049791295,0.04381927,0.0027409943,-0.048545595,0.059353862,0.03537417,-0.041144684,0.0007213143,-0.012768408,-0.012896642,-0.0012067703,0.052209415,0.0008403884,0.021433339,-0.021854678,0.008413044,0.03934941,-0.018273296,0.036638185,0.041364513,0.01474687,0.0135927675,0.032589667,0.021763083,0.015104093,-0.017073395,-0.02625126,0.016102483,-0.03596038,-0.0073780147,-0.024455989,-0.01111053,-0.00788637,0.014288893,0.022935504,0.043892547,-0.034824595,0.012392866,0.017146671,0.021048639,0.011595986,0.0027822123,0.0035813828,0.008733627,0.041327875,0.014069064,0.03975243,-0.007029952,0.03476964,-0.013446215,0.0028760976,0.0331026,-0.03211337,0.024162885,0.044112377,-0.02909072,-0.054957278,-0.123690516,-0.009397695,0.019528154,0.020279236,-0.0046942676,-0.015085774,0.002848619,0.0022337844,0.04323306,0.056239616,0.21792394,0.013702681,-0.023759864,-0.019693024,0.020847129,0.01656046,-0.016862726,0.03009827,0.030812714,-0.033652175,-0.032937728,0.040118814,0.013391257,-0.010148778,-0.011083052,0.02040747,-0.0150033375,0.003091347,0.04708007,-0.031435564,0.025701689,0.003938605,0.004795023,0.024602542,-0.045724455,-0.044332206,-0.03916622,-0.00026634245,-0.042243827,0.043269698,-0.016386429,0.036326762,0.092181675,-0.08602646,-0.044991694,-0.0058300514,0.0173665,0.0068605,-0.013556129,0.03678474,0.018630518,-0.014774349,0.007327637,-0.015699463,0.006768905,0.020096045,-0.011870773,-0.029658612,0.0027730528,-0.02407129,-0.045174886,-0.0197663,-0.014893423,-0.013601927,0.010405245,-0.014014106,0.00017503322,-0.006324667,-0.02568337,0.006942936,0.031362288,0.029420463,-0.08412128,0.06085603,-0.03416511,0.00057075423,0.035429128,-0.03517266,0.013088992,0.077526405,0.01998613,0.023137014,0.033688813,0.022202741,0.023796503,-0.0077718752,0.025573455,0.06426338,-0.065655634,0.02000445,-0.0086695105,0.013382098,-0.015067454,-0.011953209,0.020700576,0.03471468,0.001757488,0.06876988,-0.022514166,-0.01009382,-0.026068069,-0.022404252,-0.016249036,0.024346074,0.026068069,0.04165762,-0.045248162,-0.013363779,-0.010176256,-0.042170554,-0.02266072,0.00031113834,0.017119193,-0.037444226,0.005372074,-0.041144684,0.021323424,-0.004410322,-0.009031313,-0.008912239,-0.078625545,0.014728551,-0.02000445,0.006746006,-0.011266243,0.010634233,0.002724965,-0.0034829176,0.017027598,0.060746115,0.010331969,0.015214007,-0.034659725,-0.009397695,-0.006278869,-0.020938724,-0.013473693,-0.051806394,-0.054041326,0.003801212,0.041144684,-0.0335789,0.04587101,-0.0033798728,-0.009058791,-0.029328868,0.014279733,0.037627418,-0.04869215,0.02117687,-0.016294833,-0.014691913,-0.01877707,-0.002642529,-0.0032378996,-0.0072406214,-0.008504639,-0.013611087,-0.0013624826,0.007538307,0.031014225,0.00888934,0.039239496,-0.03330411,0.0021925664,-0.015076614,-0.014178978,0.020480746,0.024364393,-0.026635962,-0.00807872,0.0005209492,0.0056468607,0.013143949,0.018832028,-0.012282952,0.028156446,-0.0049598943,-0.03235152,0.01839237,0.0073871743,-0.052649073,-0.07301991,0.042097278,0.012814206,0.006278869,-0.029365506,-0.031234054,-0.011174647,-0.063274145,0.023576673,-0.025701689,-0.035722233,0.0339636,0.034678042,0.033615537,-0.012438664,-0.014609477,0.00012472726,-0.015708622,-0.02647109,0.11966032,0.009159546,0.0004473866,-0.021048639,0.047336537,0.041730896,0.04022873,-0.020315874,-0.024346074,-0.021653168,-0.012466143,0.034806278,-0.0036294702,-0.010460203,-0.007561206,0.022111146,0.018099263,-0.02282559,-0.035539042,0.0028967066,0.026819153,-0.10104812,-0.0036523691,0.065325886,-0.03777397,0.052612435,-0.0145270405,-0.030464653,0.0035103962,-0.00848632,-0.03354226,0.026489409,-0.02121351,-0.019106815,0.012264633,-0.012493622,-0.044588674,0.0007459306,-0.034256704,-0.0049598943,-0.020517385,0.014270574,-0.040705025,0.018905304,0.027496958,0.018209178,0.018254977,0.06613193,-0.0080466615,-0.01051516,-0.07979797,-0.02806485,0.01394083,-0.026324537,0.013647725,-0.01634979,0.004101187,-0.009617524,0.033395708,-0.0046530496,0.029768527,0.02626958,0.008367246,0.026306218,0.065325886,-0.015241485,-0.033670492,-0.032223284,-0.017091714,-0.02181804,0.035319213,0.015864335,0.0037325153,-0.026929067,-0.04766628,0.019161772,-0.03372545,0.019619748,-0.037700694,-0.0015868915,0.0070665902,-0.019949492,0.0122463135,0.013913351,0.008811484,-0.02909072,-0.02082881,0.015919292,-0.0050240112,-0.034421574,0.03145388,-0.013464534,0.057118934,-0.00039128438,0.06276121,0.06862333,-0.0064712195,0.0073367967,-0.03879984,-0.012658494,-0.013876713,-0.0153514,0.012392866,-0.020773852,0.013263023,0.008101619,0.036656506,0.0044492497,0.039239496,-0.011586826,-0.0025417742,-0.055580128,0.034879554,-0.039935622,0.0072039836,-0.007561206,-0.014627796,0.010533479,0.025152115,0.03191186,-0.029035762,0.03777397,0.025903197,0.021506615,0.011257083,0.076500535,-0.018923623,0.016532982,-0.020334193,0.019363282,-0.0063155075,-0.03376209,-0.027222173,-0.03313924,-0.019638067,-0.04689688,0.013162268,-0.009599205,-0.008568756,-0.023338525,-0.02081049,0.014939221,0.005642281,0.009525929,0.03858001,0.027496958,-0.04708007,-0.008449682,0.009324418,0.043929186,-0.06268793,0.032150008,-0.027918298,-0.020480746,-0.01699096,-0.025280349,-0.014911742,-0.026635962,0.012420345,0.012988237,0.027002344,-0.023173653,-0.016688693,0.030043313,-0.03680306,-0.05656936,0.037627418,0.015534591,-0.002160508,-0.04444212,0.05818144,-0.0074467114,-0.016871884,0.044295568,-0.007556626,0.013766798,-0.026232941,0.0008157721,0.0046301507,-0.041950725,-0.0029012864,-0.011247924,0.026855791,-0.031179097,0.029731888,-0.033780407,-0.022953823,-0.0050560697,-0.047996026,-0.03781061,-0.012447824,0.0012892062,-0.01030449,-0.028925847,0.015864335,-0.06909962,0.012237154,-0.033065964,0.0046003824,-0.009993065,0.009974746,-0.028870892,0.018749593,-0.13065177,-0.010973137,0.0028234303,0.008541278,-0.018923623,0.014380489,-0.007213143,-0.034458213,-0.023576673,-0.056056425,-0.08228937,0.008376406,0.0153514,-0.04488178,-0.018410688,0.011733379,0.03630844,-0.016084164,-0.01980294,-0.0020059408,-0.031472202,-0.002284162,0.044955056,0.018749593,-0.0063155075,-0.0011317765,-0.012823366,0.043782633,-0.041767534,-0.00034863525,0.0025371944,-0.012795887,0.027368724,0.01393167,0.0063384064,0.009819034,0.006901718,-0.0065719746,-0.022367613,-0.0073367967,-0.017531373,0.014435446,-0.01697264,0.0045935125,0.0038928073,0.034091834,-0.030244824,-0.03213169,-0.012860004,-0.027185535,-0.031343967,0.007332217,-0.047446452,-0.016670374,0.030537928,-0.0021147104,-0.07203067,-0.004969054,-0.017229106,0.029218953,-0.018703794,0.011211285,-0.026819153,-0.060562924,0.0006234216,-0.014462924,-0.0064712195,0.030171547,-0.052758988,0.056862466,0.036381718,-0.033688813,-0.006388784,0.009338158,-0.010780786,0.0010939933,0.036638185,-0.05781506,-0.015113252,-0.043159783,-0.028156446,0.038103715,-0.031637073,0.0452848,0.07657381,0.02343012,0.009928948,-0.037004568,0.025078839,-0.015296442,-0.04751973,-0.016954321,0.013409576,0.018923623,0.00013538955,0.018245816,-0.021836359,0.009873991,0.006837602,-0.0059537054,-0.0066131926,-0.027606873,0.037883885,-0.012612696,-0.016496344,-0.026929067,0.015644506,-0.00949845,0.009150387,0.0029173156,0.026068069,-0.009461812,0.021140233,0.040082175,-0.06415346,0.024455989,0.016203238,0.026324537,-0.030226504,0.03172867,0.017650446,-0.010625074,0.01231959,-0.0016498633,0.0046530496,0.0127226105,0.020737214,-0.00020981087,-0.012960758,-0.033652175,0.015323921,-0.0142156165,-0.026764195,0.035667274,0.021488296,-0.049644742,-0.028815934,0.033267472,0.0031371447,-0.004504207,-0.007176505,-0.050414145,0.0064025233,-0.034018558,-0.00404394,-0.04297659,0.009040472,-0.009241982,-0.04832577,-0.0500844,0.019546472,0.026690919,0.024254479,0.01514989,-0.0007333362,0.04022873,-0.02989676,0.008156576,0.019491516,0.031142458,-0.0045568743,-0.031380605,-0.0105243195,-0.041364513,-0.04407574,-0.027716788,0.018117582,0.017668765,-0.020279236,0.014911742,-0.041474428,0.019253368,-0.0057842536,0.042866677,0.03938605,-0.09254806,0.022679036,-0.03132565,0.01719247,-0.05154993,-0.0059766043,0.027625192,0.037242718,-0.013052354,0.04242702,-0.029640293,0.023723226,0.011495231,0.011614305,0.031966817,-0.0074009136,-0.028779296,0.027442,0.013766798,0.009974746,-0.006182694,0.008184055,-0.03535585,-0.008110778,0.05356503,0.011696741,-0.04341625,-0.056935742,-0.021763083,0.039276134,0.025884878,0.021433339,-0.025793284,0.0021708126,0.07008885,-0.024126247,-0.02647109,-0.019839577,-0.026782515,0.01292412,-0.010011384,0.030831033,0.010423564,0.01111969,-0.057265487,-0.0016842117,-0.0250422,0.0069383564,-0.027973255,-0.048069302,0.0007699744,0.035484083,-0.03235152,0.04143779,-0.012905801,-0.012969918,0.0004282088,-0.016468864,0.0137393195,0.06525261,-0.014783508,-0.018630518,0.05396805,-0.05012104,0.016798608,0.023778183,0.024529265,0.038726564,0.025720008]', 'f', '2025-11-19 12:14:09.99566+00', '2025-11-19 12:14:09.99566+00', NULL, 'published', 'f', 'approved', NULL, NULL, NULL);
+INSERT INTO "public"."experience_records" ("id", "user_id", "title", "problem_description", "root_cause", "solution", "context", "query_count", "view_count", "relevance_score", "embedding", "has_embedding", "created_at", "updated_at", "deleted_at", "publish_status", "is_deleted", "review_status", "reviewed_by", "reviewed_at", "review_note") VALUES ('f8c5bab3-8cc1-4f85-b683-1c805e34ab02', NULL, '测试日志记录功能', '测试提交经验时的日志记录功能是否正常工作', '之前的submitHandler缺少日志记录逻辑', '在submitHandler中添加了submission_logs表的记录逻辑，记录成功和失败的提交状态', '这是一个测试用例，用于验证日志记录功能是否正常工作', 0, 0, 0, '[-0.06340652,-0.03302883,-0.045106262,0.0025153644,-0.024688775,-0.0077094887,-0.017803166,-0.0021540541,0.008625422,-0.0255909,-0.0094354935,-0.0063332873,0.019662648,0.016873425,0.00070478534,0.04628455,0.00563368,-0.024338972,0.0350356,-0.009545958,-0.013099227,0.016118584,0.037962902,-0.030911598,-0.039730333,-0.0019676457,-0.006931636,0.0015741165,0.06797238,-0.007893596,0.044480298,-0.017545415,0.013679164,0.019681059,-0.06285419,-0.0062182206,0.002667253,-0.00946311,-0.019773113,0.05011398,-0.027560847,-0.0020677538,0.012684986,-0.05854609,0.0072262073,-0.008399891,-0.019809933,-0.0046625147,-0.034225527,0.018870987,-0.009453905,-0.006885609,0.061823197,-0.01739813,0.026787596,0.0111753065,-0.031335045,-0.059540268,0.0064299437,0.014231486,-0.009394069,-0.0023312573,-0.008367672,-0.0094124805,0.023455257,0.038331117,-0.00370976,0.006927033,-0.018281844,-0.03402301,0.033691615,0.02967808,0.0018088531,0.009886556,-0.050040334,0.03295519,0.0007318261,-0.010374441,-0.025756596,0.018189792,-0.035551097,-0.023418436,-0.0036476238,0.0016822795,-0.025811829,0.0009470014,0.017425746,0.042786513,-0.009191551,0.012951941,0.0058177873,0.010328414,0.018060915,-0.010402056,-0.025222685,0.0003184479,-0.0126573695,-0.001753621,0.043559764,-0.0035371594,0.0140381735,-0.014369566,0.017250843,0.0009510287,0.045437656,0.0219824,0.06454798,-0.0035716796,0.03914119,-0.0030377686,-0.011957762,0.028628668,0.022700418,0.013854066,0.007792337,0.025903882,0.009025855,0.00017878534,0.018116148,0.03251333,0.0049478807,0.024486257,0.0032126706,-0.0140842,-0.044480298,-0.028021114,0.00960119,0.01549262,-0.025922293,-0.005191823,0.017628264,0.025369972,-0.0025268712,-0.011920941,-0.030598616,0.0097945025,-0.0015580071,0.0573678,0.0021851223,-0.018263433,0.009426288,-0.013136048,-0.009062677,-0.023418436,0.037778795,-0.062301874,0.01634872,0.005707323,0.02047272,0.01793204,-0.009288208,0.0032402866,-0.0070098815,0.016017325,-0.01997563,-0.010125896,-0.0038961684,0.028849598,0.047536477,0.012823066,0.012961146,0.04193962,-0.01432354,0.04090862,0.035532687,-0.016716933,0.016910246,-0.02227697,-0.019607415,0.0062642475,0.027781775,-0.048788406,0.071875446,-0.0480888,0.04845701,0.022884523,0.06193366,0.044922154,0.0020309326,-0.03531176,-0.0019687964,-0.028573437,0.020546364,-0.028205222,-0.047831047,0.023841882,0.056447264,-0.021651005,0.0023772842,0.00020223025,-0.02993583,-0.051991872,0.04422255,0.05346473,-0.032642204,-0.006370109,0.034943547,0.014047379,-0.0018180585,0.0071111405,-0.015722753,0.032384455,0.004906457,-0.038257476,-0.0003653377,-0.02023338,-0.030009473,-0.060792197,0.004216055,-0.021614185,0.03995126,-0.008712873,-0.046726406,0.013062405,-0.0017559223,-0.01662488,-0.023639364,-0.023105454,-0.025719775,-0.047205083,-0.028278865,0.07010802,0.04330201,-0.0028996882,0.022405846,-0.007907404,0.06524759,0.051770944,0.0491198,-0.012546905,0.029788544,0.0025982128,0.027339919,-0.012758628,0.023933936,-0.033139296,-0.02201922,0.011433057,0.05935616,0.04529037,-0.04908298,-0.03172167,0.03019358,-0.023694595,-0.055710837,-0.042528763,0.046174083,0.027597668,-0.040650867,-0.025885472,-0.0006656626,0.019386487,-0.0094354935,-0.011046432,0.02533315,0.02122756,0.0122983605,-0.0074517387,0.0069546495,-0.011589548,-0.0007237714,-0.0067245155,0.040761333,0.016983889,0.026934883,0.017167997,0.0018376199,-0.04013537,-0.020767292,0.0052102334,0.007824556,-0.025425203,-0.009619601,-0.00070536067,6.0374216e-05,-0.0059006354,-0.01497712,-0.0056566936,0.097724095,0.009665628,-0.009711655,0.01971788,0.023363203,0.0047959923,0.08549938,0.005790171,0.05832516,-0.042418297,0.042086903,-0.048493836,0.056447264,-0.0064299437,0.055710837,-0.0071387566,-0.05048219,0.036545277,0.009960199,-0.1416889,-0.032936778,-0.021871934,-0.030580204,0.01858562,0.020399077,-0.017886015,0.027524026,-0.03166644,0.032642204,0.0035624742,-0.043449298,0.029641258,-0.017563825,-0.058030587,-0.021816703,-0.031555973,0.013596316,0.009417083,-0.05652091,0.0007674969,-0.028481383,0.032605384,-0.009647217,-0.022939757,-0.025149042,0.05328062,0.014047379,-0.011746039,0.030377686,-0.030396098,0.0017869904,0.0047269524,0.011285771,0.00767727,0.057478264,0.031077294,0.019883577,-0.056705017,-0.00139116,0.02557249,0.027947472,-0.010438878,0.03404142,0.0041332063,-0.01112928,0.022737239,-0.05217598,-0.042860154,-0.006181399,-0.018999862,-0.03505401,-0.017195612,-0.006222823,-0.036968723,-0.03295519,0.0026833625,0.010079869,-0.019773113,0.039325297,0.008864761,-0.05328062,0.029125758,-0.014028968,-0.035551097,0.009665628,0.015584674,-0.002977934,0.011874914,-0.052065514,0.013467441,-0.034501687,-0.014157843,0.020583184,-0.0061031533,-0.004110193,-0.024191685,-0.00054656825,-0.026971703,-0.106634885,-0.018870987,-0.009030458,0.009490726,0.023326382,-0.0022886826,-0.010171923,-0.0010166169,0.013071611,0.043817513,0.21827748,0.029475562,-0.03840476,-0.04915662,0.045769047,-0.0501508,-0.05456937,0.04606362,0.0095367525,-0.034133475,-0.038257476,0.040577225,-0.018760523,-0.014746986,0.021558952,-0.0073136585,-0.01971788,0.01920238,0.048862047,0.019368077,0.05243373,0.04094544,0.022313792,-0.017103558,-0.021687828,-0.024025988,-0.036269117,-0.013798834,-0.0056152693,0.036674153,-0.0276529,0.048714764,0.047241908,0.013541084,-0.008317042,0.011433057,0.029899009,-0.0007772776,-0.007516176,0.043154728,0.03682144,-0.0120958425,0.0040112357,0.0045037223,-0.041645046,-0.009941788,-0.019901987,-0.022148095,0.014360361,-0.00985894,-0.022203328,-0.032329224,0.00045796664,-0.012105048,0.008809529,0.007088127,-0.018475156,-0.013366182,-0.020859346,0.052323263,0.02739515,0.032181937,-0.022626774,0.022405846,0.013973736,0.021687828,-0.0075576003,-0.043707047,0.06742006,0.032163527,0.0376131,0.0059052384,0.038588867,0.013320155,0.0048098005,-0.016496005,-0.004407066,0.053059693,-0.04403844,0.047536477,-0.018318666,0.0028559628,-0.05681548,0.038257476,0.04223419,0.024928113,0.02380506,0.07423202,0.0006558819,-0.009058074,-0.043596584,-0.008832542,-0.03170326,0.012583727,0.004934073,0.052102335,-0.05445891,-0.020141328,-0.02457831,-0.020840934,-0.029622847,0.0043955594,0.013651548,-0.008321645,-0.005592256,-0.0024187083,0.036950313,0.004443887,0.033139296,0.014793013,-0.05884066,0.0029503177,-0.028996883,0.010438878,-0.006250439,0.018981451,0.029549204,0.016891835,0.021632595,0.04319155,0.031279813,0.048051976,0.002579802,0.0038846617,-0.016680112,-0.050997693,0.008146743,-0.014507647,-0.02483606,0.016449979,0.09124353,-0.021356434,0.051807765,0.016339513,0.029751722,0.026437793,0.0022230945,0.036232296,-0.0152164595,0.031058883,-0.059319336,-0.05836198,-0.02995424,0.0009999322,-0.008533369,-0.006798158,0.009941788,-0.0029065923,-0.035495866,0.02535156,0.06351698,0.063111946,0.010503315,-0.042639226,-0.007971842,-0.03477785,-0.02894165,-0.04624773,-0.0145997,-0.013513468,-0.01805171,-0.007170975,0.008298632,0.05423798,0.0030768914,-0.025369972,0.031445507,0.028831186,-0.015391361,-0.00023775718,0.029549204,-0.020546364,-0.0516973,0.030340865,0.019883577,-0.013439825,-0.04558494,0.011294976,-0.000810647,0.0009654121,0.04403844,-0.017582238,-0.02557249,-0.0052516577,0.011147691,-0.0062182206,0.030782722,-0.018263433,0.031169347,-0.018742112,-0.0148574505,0.13277811,0.010448083,-0.009246783,0.023878703,0.019147148,0.06267009,-0.00082330435,0.008165154,-0.028444562,0.028352508,-0.030156758,0.004333423,0.010779476,0.008013265,0.016652497,0.0002578939,0.015529442,-0.041313656,0.01856721,0.055968586,-0.014028968,-0.07754595,-0.0011040678,0.013458236,-0.07835602,0.07169134,0.051844586,0.015649112,-0.030138347,-0.04451712,-0.03411506,0.017527005,-0.01844754,-0.02892324,0.06042398,-0.019073505,-0.011018815,0.0019032081,-0.013237307,-0.012961146,-0.027708132,0.024909703,-0.023897113,0.02763449,0.0071479618,0.0082434,0.024246918,0.010015432,0.0025406792,-0.034133475,0.0021920262,0.016256666,-0.0034980366,-0.012592932,0.010899146,0.0016811289,-0.008583998,-0.009104101,0.033397045,-0.022626774,0.0061998097,-0.03150074,-0.027413562,0.011792066,0.071249485,-0.01690104,-0.013218896,-0.020178149,-0.0480888,-0.0030101526,0.040540405,0.029033704,0.0022472583,-0.019331256,-0.05136591,0.0047683762,-0.027358329,-0.0020102204,-0.03455692,-0.008298632,0.018778933,0.002213889,-0.039693512,0.0034036818,-0.014286718,-0.027358329,0.010217949,0.01727846,-0.019239202,-0.04300744,0.006696899,-0.003534858,0.052912407,0.015041558,0.015133611,0.02866549,-0.0034220924,0.03072749,-0.03409665,-0.0033392443,-0.008326248,-0.03203465,0.050813586,-0.03892026,0.02277406,-0.028868008,0.0029825366,-0.025369972,0.010208744,-0.014682549,0.011773655,0.0047499654,-0.014746986,-0.044112083,0.008326248,-0.01739813,-0.011359414,0.069960736,0.038331117,-0.02251631,-0.050592657,0.04532719,0.021430077,0.042050082,0.011515905,0.040798154,-0.023473667,-0.00059029367,0.018742112,0.01509679,-0.034335993,-0.059135232,0.011396235,-0.018198997,-0.031537563,0.010125896,-0.0007709489,-0.0067383233,-0.036747795,-0.04046676,-0.03921483,-0.016993094,-0.023878703,0.019496951,0.010908351,0.038331117,-0.07570488,0.022829292,-0.037741974,0.026400972,-0.050739944,0.04201326,-0.033452276,-0.012813861,0.0180333,0.021908756,-0.009122511,0.005725734,-0.02073047,0.01343062,0.015050763,-0.030267222,-0.0033162308,0.019773113,0.017269256,-0.0022829291,0.03866251,0.049966693,0.0026074182,-0.017839987,0.039325297,-0.008289427,-0.049230263,-0.0018007985,0.011396235,0.06830377,0.030580204,-0.00467172,-0.030874776,-0.013228102,0.02203763,-0.016670907,-0.028978473,-0.022203328,0.029328275,-0.040724512,-0.0039444966,-0.022332203,0.010503315,-0.06174955,-0.04713144,0.026290508,0.002290984,-0.046910513,-0.015584674,-0.031408686,0.015777986,0.0224979,-0.005592256,-0.017867602,-0.008201975,-0.031868957,0.009421686,-0.14345632,-0.0018192092,-0.03499878,-0.009987815,-0.011497494,-0.0069546495,-0.019312844,-0.021264382,-0.04090862,-0.071102194,-0.0680092,-0.010079869,0.014314334,-0.038257476,-0.033176117,0.021153916,-0.024265328,-0.0049110595,-0.035495866,-0.044664405,-0.007433328,-0.028076347,0.056447264,0.0011828888,-0.004425477,0.0035923915,0.0340046,0.0022046836,-0.016799781,1.4823865e-05,0.00068119663,-0.02124597,-0.00022236697,0.03533017,-0.019257613,0.016330307,-0.009941788,-0.028481383,-0.0026143221,0.022884523,-0.020086095,0.028334098,-0.008510355,0.0153177185,0.06602084,0.069850266,-0.02686124,-0.043449298,-0.040319476,-0.013043995,-0.026769185,0.0087589,-0.04403844,0.0024002974,-0.0012806957,-0.030046294,-0.040761333,-0.027781775,-0.050997693,0.029972652,-0.0056751044,0.010540137,-0.053980228,-0.03706078,-0.021025041,-0.019662648,-0.030617027,0.03428076,-0.019220792,0.028205222,-0.03324976,-0.008165154,-0.0005413902,-0.0032932174,-0.04017219,0.009499931,0.037428994,-0.047020976,-0.064400695,-0.002632733,-0.017886015,0.03610342,-0.0747107,0.04945119,0.059798017,-0.009886556,-0.0001517446,-0.026253685,0.020270202,-0.0365821,-0.017177202,-0.012648164,0.012445646,0.010503315,-0.040282656,0.007999457,-0.011331798,0.0012622849,0.019128738,-0.013817245,0.00029974952,-0.016808987,0.021816703,0.007806145,-0.054863945,0.010079869,-0.022682006,-0.011110869,0.0048374166,-0.0029848379,0.0070973323,0.0062872604,-0.003385271,0.013154459,-0.047683764,0.032384455,-0.005159604,0.031611204,-0.024154864,0.013605522,0.032660615,0.023841882,0.0018399212,-0.012648164,-0.013817245,0.01739813,0.012233923,0.005734939,-0.03707919,-0.008841748,-0.021319613,-0.026272096,-0.0007272234,0.07982888,0.051881406,-0.020288613,-0.06300148,0.017241638,-0.050997693,-0.011920941,-0.02942033,-0.042860154,0.009803708,-0.031592794,-0.0142959235,0.017121969,0.04742601,-0.0067475284,0.0021149314,-0.006342493,0.012261539,0.0026028154,-0.02073047,0.045511298,-0.016716933,0.02200081,0.0072400155,0.010862324,0.0017271556,0.019607415,-0.033231348,-0.040614046,-0.017407335,-0.06892973,-0.034593742,-0.016201433,0.014921888,-0.017029915,-0.04429619,-0.009555164,-0.010070664,0.035937723,-0.018180585,-0.020620005,0.065652624,-0.051660478,-0.0057119257,0.0041124946,0.06760416,0.005394341,0.025204275,0.0043288204,0.00021646978,0.034391224,-0.0048558274,-0.018705292,0.041571405,0.019644238,0.044148903,-0.00237038,-0.009564369,0.02253472,0.01946013,0.025682954,0.032550152,-0.037539456,-0.0006996073,0.048935693,-0.012252334,0.075999446,-0.041055903,-0.011055637,-0.027763365,-0.0058131847,0.02763449,0.014305129,0.014829834,-0.037318528,-0.006153783,0.012381209,-0.04124001,-0.015372951,-0.011773655,0.0049386756,-0.002715581,-0.026032757,0.026198454,0.011469878,-0.04624773,-0.017683497,0.0245599,0.0041078916,0.021687828,-0.017729523,-0.052102335,-0.032899957,-0.0064621624,-0.0074977656,0.008114524,0.05987166,-0.04786787,-0.022847703,-0.046763226,0.03455692,0.0034543113,-0.0031942597,-0.07239095,0.0054403674,-0.05143955,0.032181937,0.04407526,0.0046878294,-0.017241638,0.0068810065]', 'f', '2025-11-19 12:15:46.087976+00', '2025-11-19 12:15:46.087976+00', NULL, 'published', 'f', 'approved', NULL, NULL, NULL);
+INSERT INTO "public"."experience_records" ("id", "user_id", "title", "problem_description", "root_cause", "solution", "context", "query_count", "view_count", "relevance_score", "embedding", "has_embedding", "created_at", "updated_at", "deleted_at", "publish_status", "is_deleted", "review_status", "reviewed_by", "reviewed_at", "review_note") VALUES ('55e56934-d6e1-4d27-83a3-8b569f79be80', NULL, 'Next.js App Router 嵌套 Layout 导致 React Hydration 错误', '在 Next.js App Router 项目中，打开 web 端首页时出现 React hydration 错误。错误信息显示服务器渲染的 HTML 与客户端不匹配，具体表现为：
+- `lang` 属性不一致：服务器渲染为 "en"，客户端为 "zh-CN"
+- Font Awesome 样式链接在客户端存在但服务器端缺失
+- 控制台警告显示有多个 `<html>` 和 `<body>` 组件被同时挂载
+
+错误堆栈指向 `(search)/layout.tsx:15` 和 `(search)/layout.tsx:20`，提示不应该同时渲染多个 `<html>` 和 `<body>` 组件。', '在 Next.js 13+ App Router 中，只有根 layout (`app/layout.tsx`) 可以包含 `<html>` 和 `<body>` 标签。嵌套的 layout 文件（如 `app/(search)/layout.tsx`）不应该包含这些标签。
+
+问题根源：
+1. 嵌套 layout 错误地包含了 `<html lang="zh-CN">` 和 `<body>` 标签
+2. 根 layout 使用 `lang="en"`，而嵌套 layout 使用 `lang="zh-CN"`，导致服务器和客户端渲染不一致
+3. 外部样式表链接（Font Awesome、Google Fonts）只在嵌套 layout 中，导致服务器端 HTML 缺少这些链接', '1. **修复根 layout** (`web/src/app/layout.tsx`)：
+   - 将 `lang` 属性从 "en" 改为 "zh-CN"
+   - 将 Font Awesome 和 Google Fonts 的链接移到根 layout 的 `<head>` 中
+   - 更新 metadata 为中文内容
+
+2. **修复嵌套 layout** (`web/src/app/(search)/layout.tsx`)：
+   - 移除 `<html>` 和 `<body>` 标签
+   - 使用 `<div>` 包装内容，保留原有的样式类名
+   - 将函数名从 `RootLayout` 改为 `SearchLayout`（更准确的命名）
+
+修复后的代码结构：
+- 根 layout：包含 `<html>`、`<head>`、`<body>` 和所有全局资源
+- 嵌套 layout：只包含页面特定的内容结构（Header、main 等）', '- **技术栈**：Next.js 13+ App Router, React, TypeScript
+- **项目结构**：使用路由组 `(search)` 组织相关页面
+- **问题场景**：开发环境下的 SSR hydration 不匹配
+- **相关文件**：
+  - `web/src/app/layout.tsx` - 根 layout
+  - `web/src/app/(search)/layout.tsx` - 嵌套 layout', 0, 0, 0, '[-0.043442138,-0.0021638435,-0.010199458,-0.012428229,-0.032638267,0.0025640305,-0.02625416,-0.029918412,-0.013117637,-0.002453064,0.03091947,-0.015846936,-0.012598219,-0.011021081,-0.008121791,0.03906015,-0.006181061,0.01693299,0.0045661465,-0.024856457,-0.012475449,-0.0030362275,0.0034423172,0.024346484,0.010171127,0.012050471,-0.043971,-0.010794426,-0.0099444715,0.013910928,0.078724705,0.008820643,0.02680191,-0.034432616,-0.02804851,-0.10139017,-0.028520707,0.01513864,-0.024195382,0.015790273,-0.008603432,0.0073284996,0.006058289,-0.03947568,0.043933224,-0.016715778,0.025253104,-0.030522823,0.015818605,0.024233157,-0.012626552,0.028161837,0.047559697,-0.031202788,-0.0036028642,-0.003964095,-0.022382144,-0.02608417,-0.03921125,0.035320345,-0.016253026,-0.009736705,-0.023515418,-0.00594024,-0.001906496,0.06697644,0.009698929,-0.024195382,-0.038757943,-0.051752806,-0.016470237,0.009746149,-0.047748577,-0.043215483,-0.029446214,-0.0030149787,0.016583564,0.0144209005,0.016630784,0.025706412,0.008650652,0.016413573,0.017782945,-0.015015869,0.0010949072,-0.00012941154,-0.049372934,-0.030957244,0.06871413,-0.041326694,0.008499549,-0.017376855,0.041326694,-0.022533247,-0.01832125,0.05798581,-0.028539596,0.005449155,0.06958297,-0.02663192,-0.00797541,0.020436693,-0.02823739,-0.017216308,0.046501976,0.012749323,0.07404051,-0.001906496,0.034697045,-0.010681099,0.013249852,-0.03966456,-0.02886069,0.0004294043,-0.019360082,-0.019511186,-0.019643402,-0.036661386,0.036510285,-0.030050626,0.042233314,0.020852227,0.023798736,-0.036963593,0.0035603666,0.0003396868,-0.0023562638,0.05027955,0.024950897,0.02349653,0.011559386,0.0012035124,-0.020115599,0.029805083,-0.040835608,0.05386825,-0.00063215394,-0.016781887,0.021664405,-0.0832578,0.040268973,0.038115755,0.010633879,-0.021418862,0.022835454,-0.002366888,0.023912063,0.038720164,-0.016876325,0.0044457363,-0.018359024,0.01326874,0.02886069,0.010246678,-0.018160703,-0.021721069,0.002972481,-0.011096633,0.023836512,0.010095575,0.0035532834,0.024818681,-0.0305606,0.0026820798,0.049259607,-0.02457314,0.005642756,-0.018906774,-0.041175593,-0.026235273,-0.00625189,0.02680191,0.03010729,-0.00025734745,-0.00249084,0.03509369,0.11453614,0.02857737,0.016149143,-0.001655051,-0.057041414,-0.0038554897,0.012324345,-0.029087344,-0.020701123,-0.008055683,-0.027614089,-0.015525842,-0.024762018,0.022911005,-0.023307651,-0.022816567,0.0575325,0.013967591,0.011266624,0.0076826476,0.04011787,-0.0038696555,0.012985421,-0.002488479,0.0017306026,-0.008183177,-0.011512167,0.03197719,-0.044235427,0.0017140757,-0.08439107,-0.053566042,0.017102981,-0.05545483,0.010747207,-0.035263684,-0.016564677,-0.00019404352,-0.07033849,-0.010662211,-0.025215328,-0.0063982713,0.008348445,-0.011776596,-0.03384709,0.0018545543,-0.0055766483,-0.01523308,0.051677257,0.0056946976,0.073285,0.037662443,-0.008948136,-0.020172263,-0.010728319,0.0044457363,0.0324305,-0.022174377,0.0491085,-0.029956186,0.011276068,-0.012853206,0.0131743,0.0076968134,-0.012116578,-0.04245997,-0.016007483,0.00926923,-0.059723496,0.00065989554,0.016989654,0.049712915,-0.03037172,0.019756729,0.031599432,0.0023055025,-0.029162895,-0.017952936,-0.003935763,0.037473567,0.03125945,-0.009561992,-0.016866881,-0.024422036,0.033204902,0.045595355,0.028539596,0.0029229003,-0.0128437625,-0.02867181,-0.005779693,0.012088247,-0.00046688493,0.0053547155,-0.07014961,0.013202632,0.029559541,-0.024346484,-0.027651865,0.037813548,-0.031221675,0.0047007226,0.08522214,0.056134798,-0.011219404,0.023005445,0.01849124,0.031297226,0.027614089,0.01750907,-0.025328655,-0.02268435,0.050543983,-0.018245697,0.021588853,-0.01549751,0.0810668,0.008008463,-0.00931645,-0.007418217,-0.01693299,-0.16016927,-0.0263486,0.06659868,-0.01657412,0.010190015,0.044235427,-0.016149143,0.0061385627,-0.014647556,-0.0048140497,-0.015620282,-0.067278646,-0.012749323,-0.008485382,-0.0021425944,-0.009585602,-0.027255218,-0.0004943314,0.044537634,-0.02090889,-0.04306438,-0.024516476,0.02546087,0.002146136,-0.027802968,-0.042308863,0.046841957,0.013948703,-0.01599804,-0.0060016257,-0.01156883,-0.019227868,-0.010445001,0.021607742,0.0032038577,0.0043371306,0.015251968,0.008339002,-0.015676945,-0.030522823,0.035055917,0.044953167,0.0056616436,-0.056701433,0.027444098,-0.06074344,0.021003328,-0.014269798,-0.0027859632,-0.03333712,0.006445491,0.0072010066,-0.019237312,-0.04110004,-0.024138719,-0.0048636305,0.020153373,0.028105173,-0.016659115,0.016007483,-0.021872172,-0.025668636,0.04823966,-0.0186329,-0.061234526,-0.039891213,0.022929894,-0.01214491,0.03635918,-0.056852534,0.035773657,-0.01312708,0.010020023,-0.034621496,0.0035768934,0.016989654,-0.0055719265,-0.05715474,0.039966766,-0.11015415,0.012626552,0.0050100116,0.020871114,0.03350711,-0.018765114,0.006327442,-0.015308632,-0.056172572,0.009014243,0.23058331,-0.0042096376,0.012872094,-0.022627687,0.033828203,-0.02268435,-0.020210037,0.0378891,0.009736705,-0.041137815,-0.033016026,0.022665463,0.008060405,-0.015752496,0.011153297,0.058665775,-0.040344525,0.039097924,0.060894545,-0.04933516,0.036812488,-0.00086116954,-0.01188048,0.044915393,-0.054812644,-0.026008619,0.020682234,0.018736783,-0.015063089,0.018859554,-0.060139026,0.027746305,0.026065283,-0.037492454,-0.059307963,-0.031599432,0.0037539674,0.0040467293,0.017952936,0.0113044,-0.030881694,-0.004304077,0.018576236,0.048013005,0.010199458,-0.012635996,-0.022401033,-0.017225752,0.00045242388,-0.014713663,-0.04929738,2.8239603e-05,-0.0016219972,0.020247813,-0.030239506,-0.049561813,-0.025404206,0.009812256,-0.014505897,0.0372658,-0.024422036,0.03233606,-0.055945918,0.031165011,-0.027651865,0.03171276,-0.042233314,-0.026953014,0.016423017,0.030428383,-0.03286492,-0.0027599924,0.0096705975,-0.0042025545,0.02189106,0.0016975488,-0.029880635,0.08673317,-0.06920522,0.03966456,-0.02474313,0.016016927,-0.035490338,0.027104115,0.049184054,-0.0026088892,0.026934125,0.039777886,-0.029597318,-0.028690698,-0.02680191,0.0045283707,0.026329713,0.015044201,0.014770326,0.011776596,-0.015053645,-0.022759903,-0.022004386,0.014402013,-0.02019115,0.021456638,-0.022174377,0.0058552446,0.025763076,-0.033960417,-0.009212567,0.012966533,-0.00036211617,-0.03547145,-0.014184802,0.024610914,0.034697045,-0.012532112,-0.01827403,0.0014142304,0.0058646887,0.04404655,0.049372934,0.027104115,0.004788079,0.03422485,-0.010662211,-0.02850182,-0.011993808,-0.04091116,-0.00032138918,-0.03054171,-0.055039298,0.02689635,0.012598219,-0.043819893,-0.02742521,0.025026448,0.008702593,-0.000498168,0.015960263,0.031146124,-0.011776596,0.03037172,-0.013070417,-0.05889243,0.0034257902,0.024422036,0.006114953,0.028010735,-0.0029960908,-0.04933516,-0.011228848,0.016451348,0.037737995,0.058023587,0.016083036,-0.06546541,-0.017679062,-0.031240564,-0.0009957458,-0.01640413,-0.02179662,-0.017376855,-0.009906696,0.019511186,0.019492298,-0.0063982713,0.036245853,-0.0016101922,-0.0032463553,0.047030836,-0.014609779,-0.005335828,0.016016927,-0.033167128,-0.06572984,0.047559697,-0.011776596,-0.012947646,-0.04306438,0.0016975488,0.0043512965,-0.0026986066,0.009491162,-0.009528939,-0.029823972,-0.023420978,0.019227868,0.046766404,-0.023080997,-0.032732707,0.042913277,-0.030617263,-0.012683216,0.10388337,-0.0416289,0.01916176,0.082124524,-0.032543827,0.04295105,0.04502872,-0.045973115,-0.011049413,0.020058936,-0.005779693,0.008457051,0.02234437,0.0098311445,-0.018717894,-0.011049413,-0.013646497,-0.033034913,0.0035485616,-0.009637544,0.026669694,-0.057079192,-0.0055719265,0.005264998,-0.03375265,0.060327906,0.027292995,0.013731493,0.015875269,-0.020342253,-0.0029181784,0.03940013,-0.019246755,0.0119277,-0.020946665,-0.015506954,-0.00131743,0.020323366,0.013476507,-0.0036264742,0.015629726,-0.023326539,-0.05870355,0.031240564,0.022759903,0.019530075,0.034697045,0.00032434042,-0.040344525,-0.025536422,-0.012928758,0.012881538,0.01688577,-0.017575178,0.036529172,-0.020587796,-0.018963438,0.031070571,0.01348595,0.016130254,0.020077823,0.017792389,-0.0096705975,0.054019354,0.009632822,0.019397859,-0.014770326,-0.022759903,-0.058930203,-0.029767308,0.0065210424,0.008792311,0.0014236744,0.002330293,-0.055681486,0.04359324,-0.023439866,-0.010614992,0.0014555476,0.011294955,-0.013920371,-0.024799794,0.0011775417,0.014194246,-0.0057466393,0.01456256,0.004615727,0.05575704,-0.003947568,-0.043479912,-0.0077204234,0.0026702748,0.043706566,-0.003654806,0.05386825,0.041968882,-0.023968726,-0.013023198,-0.040231198,0.018066263,-0.033469334,0.00598746,-0.0075362665,-0.052659426,-0.0073379437,-0.0183968,0.058099136,0.022438807,0.024440924,-0.011115521,0.03171276,-0.023345428,-0.035754766,-0.06504988,0.043706566,-0.057116967,-0.03921125,0.009935028,-0.0025309767,-0.057305846,-0.0746827,0.02876625,0.03887127,0.040457852,0.022948781,0.05583259,-0.036774714,-0.0009455748,-0.015091421,0.0044079605,0.013854264,-0.035660326,0.02376096,0.064521015,-0.010520552,0.043366585,-0.0040302025,-0.019700065,-0.015582506,-0.029975075,-0.014354793,-0.0039806217,-0.04672863,0.0012926396,0.01188048,-0.006464379,-0.024176493,0.009689486,-0.0005480438,-0.0056852535,0.008513714,0.0077062575,-0.015261412,-0.022892118,-0.0324305,-0.022079939,0.01446812,-0.009878364,-0.00902841,0.011446059,0.005142227,-0.008433441,-0.06996073,-0.007810141,0.047295265,-0.025385318,-0.007947078,0.014099807,0.043291032,-0.034451503,0.036302518,-0.03673694,0.0075315447,0.054661542,0.0047030835,0.027500762,0.005307496,0.027028564,-0.009613934,-0.016593007,-0.001116156,0.0042733843,-0.012475449,-0.036189187,0.03779466,-0.05001512,0.019700065,0.0162908,-0.0015133918,-0.029823972,-0.009576158,-0.023307651,-0.00030028788,-0.0062471684,-0.0023102246,-0.0041033933,-0.012343233,0.0073190555,0.044613186,-0.014609779,0.027255218,-0.039777886,0.017490182,-0.11899368,0.024913121,0.01331596,-0.002048155,0.010690543,0.012975978,-0.00016940072,-0.0183968,-0.026291937,-0.04778635,-0.023515418,-0.0305606,0.03386598,-0.017367411,0.042308863,0.009717817,0.0029960908,-0.017206864,0.012900426,-0.009170068,-0.0070546255,-0.0041151983,-0.004799884,-0.038795717,-0.026575256,-0.027387435,-0.013523726,0.007857361,-0.01429813,0.009160625,0.0011049414,-0.008499549,0.01956785,0.032487165,-0.020398917,0.013098748,0.02064446,0.016224694,0.016281357,-0.0021000968,0.011597162,0.023609858,-0.024327597,0.006105509,0.036510285,0.026386376,-0.030598374,-0.027632976,-0.054434888,-0.0068421364,-0.011398839,0.051412825,0.01911454,-0.04019342,0.0038106309,-0.0004966924,-0.055039298,-0.022533247,-0.023213211,0.02814295,-0.040797833,0.04110004,-0.023402091,-0.02466758,-0.072567254,0.02591418,-0.020833338,0.00428755,0.01595082,-0.03503703,-0.0092833955,-0.083484456,-0.012928758,-0.042535517,0.024252046,0.017697949,0.002469591,-0.038757943,-0.02581974,-0.0015204748,-0.029257335,-0.013504839,-0.046804182,0.057683602,0.10176793,0.04850409,0.007748755,-0.011663269,0.024346484,0.0075032124,-0.040797833,-0.0015629726,-0.030881694,-0.037152473,0.0096705975,0.012768211,0.0008912721,0.065389864,0.03324268,-0.012437672,-0.043971,-0.00013472374,0.04850409,-0.00028007192,0.00859871,0.03431929,0.015488067,0.018151259,0.045784235,-0.015072533,-0.029899523,-0.014845878,-0.021456638,0.021947723,-0.03894682,-0.0055483165,-0.00915118,0.019530075,-0.010888866,0.035452563,0.0051800027,0.03099502,0.0065304865,-0.039173476,-0.018595124,-0.00076850085,0.069469646,0.017575178,0.019303419,0.005973294,0.038266856,-0.057494726,-0.03261938,0.047219716,0.015648613,-0.006572984,-0.018916218,0.046615303,0.016715778,0.034697045,0.0075315447,-0.031788312,0.014335905,-0.0011852148,-0.017546846,-0.052017238,0.0047125276,-0.023893176,-0.00042910915,-0.012739879,0.0077959746,-0.014335905,-0.025668636,-0.010917198,-0.034338176,0.02258991,0.017027428,-0.04359324,-0.07139621,0.044386532,-0.020398917,-0.00034116243,-0.026877461,0.0051941685,0.021966612,0.008792311,0.018906774,0.010114463,0.013400955,0.040986713,0.021683292,0.043631017,-0.022627687,0.0019076765,0.0026891627,-0.015110308,0.050166223,-0.027047452,0.081671216,-0.024818681,0.02893624,-0.017518515,0.032222733,0.01415647,-0.0070546255,0.010114463,0.010690543,-0.0030409496,0.034734823,-0.016659115,-0.028992904,-0.029786196,0.007422939,0.005472765,0.041062262,-0.004809328,-0.020531131,0.0152425235,-0.008782866,0.07691147,0.020247813,-0.044348754,-0.0131743,-0.009363669,0.008395665,-0.0041506127,-0.04752192,-0.016715778,-0.039286803,0.032940473,-0.006785473,-0.03940013,-0.03441373,-0.0023078634,0.016876325,-0.016678004,0.07309612,-0.035509225,0.04876852,-0.029691756,0.045444254,0.030145066,0.014666444,0.017622398,-0.053679373,-0.015308632,-0.0012548639,0.02651859,-0.03520702,0.0070310156,-0.012834318,-0.0048825187,-0.019945607,0.02376096,0.022722127,-0.0065588183,0.0013410399,0.013967591,-0.020077823,0.0006079538,0.028879577,0.02268435,0.03770022,0.040344525]', 'f', '2025-11-19 12:29:48.84715+00', '2025-11-19 12:29:48.84715+00', NULL, 'published', 'f', 'approved', NULL, NULL, NULL);
+INSERT INTO "public"."experience_records" ("id", "user_id", "title", "problem_description", "root_cause", "solution", "context", "query_count", "view_count", "relevance_score", "embedding", "has_embedding", "created_at", "updated_at", "deleted_at", "publish_status", "is_deleted", "review_status", "reviewed_by", "reviewed_at", "review_note") VALUES ('09aa93ca-aa69-4cce-90aa-e10f50e2a9f5', NULL, 'Database permissions policy missing insert operation', '遇到了数据库权限策略问题，缺少插入操作权限，导致无法正常执行数据插入功能', '数据库权限配置不完整，未为相关用户或角色分配INSERT权限', '为相应的数据库用户或角色添加INSERT权限，更新权限策略文档', '在PostgreSQL数据库环境中，应用程序尝试执行INSERT操作时被拒绝，需要检查并修复权限配置', 0, 0, 0, '[-0.016646186,-0.0196425,-0.031701736,0.004730291,-0.010579576,-0.014574661,0.023341652,-0.009155403,0.054562498,-0.01986445,-0.007990169,-0.029630212,-0.011744809,-0.005539481,0.011078962,0.0043025766,0.008415572,0.009437463,0.04028377,0.039321993,-0.008628273,0.010135678,0.025172733,-0.017006854,-0.017302785,-0.0037130243,0.044278856,0.010561081,0.019697987,-0.020197373,0.014408199,-0.03906305,-0.0060249944,-0.01187428,0.005086335,-0.008193623,-0.0031604634,-0.04638737,-0.00890571,0.017080836,-0.036640104,-0.014093771,0.0032413823,-0.029297289,-0.017090084,-0.014759619,0.013992044,-0.017275043,-0.0103113875,0.011421134,-0.054562498,-0.026023539,0.029611716,-0.03029606,0.042540252,0.014029036,-0.020659767,0.018347796,-0.014546917,0.026097521,-0.034106188,-0.019457541,-0.042947162,-0.007574015,0.01182804,0.045499574,0.037546396,0.0040367004,0.016535211,-0.05389665,0.02012339,0.057336863,-0.016008083,-0.013205974,-0.08034559,0.061257966,0.060333177,-0.004739539,0.015018559,0.029445253,-0.048791822,-0.06606686,0.02308271,0.020456314,-0.017016102,-0.0013721543,-0.03614072,0.025505656,-0.011865032,0.008632897,0.015823124,-0.025006272,0.0301111,-0.042022374,-0.005067839,-0.01060732,0.0077589722,0.017136324,0.011707818,0.004503718,-0.0032390705,0.07409403,0.008683761,-0.012179459,0.056892965,0.03116536,0.04390894,-0.037768345,0.0440939,-0.010810773,-0.035863284,0.031479787,0.053637713,-0.01169857,0.007860699,-0.060333177,0.04150449,-0.001957083,-0.008091896,0.016414989,0.016636938,0.051085297,0.038989067,-0.03523443,-0.0029500742,0.01967949,0.005164942,0.020400826,-0.044981696,0.04054271,0.03810127,0.019956928,-0.039469957,-0.05752182,-0.07982771,0.0006155621,-0.0128175635,0.07731229,0.007980921,-0.057595804,-0.018708464,-0.013011769,0.017617214,-0.020900212,0.033458833,0.0026263983,0.019624004,0.037028518,-0.0051048305,-0.00637179,-0.012022246,0.02038233,0.02278678,0.008350837,-0.0004517012,-0.081159405,-0.05626411,0.013205974,0.010718294,0.027817627,-0.009335736,0.03739843,-0.008207494,0.059260424,0.031886693,-0.03810127,-0.0041661705,-0.016525963,-0.014574661,0.002093489,0.018551249,-0.046202414,0.016516715,-0.019476037,-0.015591928,0.024025995,0.00779134,0.032792985,-0.020474808,-0.043539025,-0.00010916835,-0.008669889,0.031109873,-0.021510571,0.021806505,-0.016710922,-0.038841102,-0.018921165,-0.016479725,0.020752246,-0.033588305,-0.023415636,-0.0022426113,-0.0012658037,-0.032497056,-0.0025755349,0.0109494915,-0.017617214,0.05770678,-0.023693072,-0.006334799,0.037472416,0.020234365,-0.02474733,-0.022453856,-0.00023278651,-0.018005624,-0.035585847,0.042799193,-0.026911335,0.033717774,0.037916314,-0.04753411,0.044241864,-0.006644603,-0.010052447,0.0032968696,0.019143114,-0.018079609,-0.037509408,-0.07564767,0.047386143,-0.015212765,-0.0010710203,0.02654142,0.05041945,0.07842203,-0.017515488,-0.0040297643,-0.03077695,-0.041134577,0.015185021,-0.026263982,-0.011532108,0.06133195,0.009747267,-0.001011487,-0.0034101561,0.02561663,-0.010894004,-0.0676575,-0.062959574,0.0001432699,-0.020530296,-0.046017457,-0.055635255,-0.025154237,-0.0040158923,0.014787362,-0.00875312,-0.011735561,0.008249111,-0.019457541,-0.022620318,0.0153329875,-0.031220848,0.014352712,0.0006878112,0.0035951138,0.0008005197,-0.0019050635,-0.005627336,0.019383559,-0.018061113,0.003981213,0.018874926,-0.017820667,-0.026171504,0.016008083,0.003662161,-0.034494597,-0.014528422,0.041615468,0.028464979,0.021473581,0.00077624404,-0.03924801,-0.023212181,0.03340335,0.036455147,-0.012123972,0.027262755,0.03632568,-0.015693655,0.055672247,0.018486515,0.028058073,-0.06525305,-0.012586366,-0.069470085,-0.0065243803,0.0028691553,0.076572455,-0.0027905481,-0.014167754,-0.017312033,0.014509926,-0.14389703,0.020012416,0.011624587,-0.008392452,-0.00700527,0.00026992254,-0.03168324,0.009395847,-0.035678327,-0.0001709413,-0.027947098,-0.050863348,0.027318241,0.0043927436,-0.012086981,-0.0041153072,0.017681949,0.013464916,-0.012910042,-0.02221341,-0.02754019,-0.051973093,0.00265183,-0.012530879,-0.03460557,-0.03427265,0.04842191,0.030924914,-0.016498221,-0.019660996,-0.03221962,-0.003817063,0.0009658256,0.0070653814,0.017265795,0.017090084,0.03129483,-0.016128305,0.053008854,0.001555956,0.016498221,0.05167716,0.0077404766,0.052971862,0.009386599,0.040098812,-0.005211181,-0.023804046,-0.045462586,0.06477216,-0.026467437,-0.00903518,0.00560884,-0.012022246,-0.026226992,-0.004101435,-0.0068156887,0.029297289,-0.028520467,0.0010687083,0.014204746,-0.00944671,0.01283606,-0.005988003,-0.013113496,-0.006602987,0.024432903,0.009076796,0.02025286,-0.0073844334,0.022657309,-0.00892883,0.00934036,0.00855429,-0.027336737,-0.004281769,-0.012355169,0.010810773,-0.04971661,-0.1165233,0.007634126,0.0003415936,0.015508697,-0.007476912,-0.016377999,-0.035030976,-0.022342881,0.007268835,0.04509267,0.20744847,0.038730126,0.018014872,-0.020770742,0.01746,-0.016091313,-0.01842178,0.008480307,0.01728429,-0.029389767,0.0036714089,0.03697303,-0.021898983,0.0084386915,0.017441504,0.01885643,-0.03565983,-0.004984608,0.02619,-0.060666103,-0.0008080336,0.008313845,-0.0052851643,0.019365063,-0.024210954,-0.032349087,-0.029260296,-0.004813522,-0.03456858,0.037546396,-0.029260296,0.022453856,0.061479915,-0.050567415,-0.03924801,-0.004062132,0.0077312286,0.0025269836,-0.005659703,0.018800942,0.028797902,-0.007874571,-0.015952595,-0.014417447,0.004593885,0.03421716,-0.031405807,-0.02016038,-0.00543313,-0.016377999,-0.021714026,-0.028002584,-0.012799067,-0.016553707,0.019180106,-0.015194269,0.00090166845,-0.007407553,-0.034032203,0.007481536,0.04464877,0.0028575952,-0.055487286,0.018689968,-0.035604343,0.013344693,-0.0011398013,-0.0039997087,0.01741376,0.067250594,0.0028945869,0.022472352,0.008161255,0.02374856,0.04091263,-0.008276854,0.039285,0.060481142,-0.079235844,0.008549666,-0.025246715,0.002587095,-0.038693134,0.0017108581,0.013058009,0.013538898,0.0010600383,0.040838644,0.013289206,-0.016960613,0.007301202,-0.011300911,0.012540127,0.041837417,0.023119703,0.009599301,-0.02378555,-0.020104894,-0.018125847,-0.05578322,-0.054932415,-0.012604862,-0.014611652,-0.0009773854,-0.020900212,-0.04198538,-0.034772035,0.015490201,-0.034420613,-0.015175773,-0.05988928,0.035863284,-0.014990816,-0.013714608,0.0014507613,0.015508697,0.01017267,0.014260233,0.042281315,0.05437754,0.0015860116,0.03270051,-0.007888443,-0.024765827,-0.019050635,-0.010755286,-0.0033731647,0.009950721,-0.030444026,0.019956928,0.037638877,-0.02596805,0.011707818,0.008276854,0.024358919,-0.009765763,-0.008938077,0.02108517,0.025783094,0.028797902,-0.022731293,-0.04313212,-0.041171566,0.021640042,0.0070330137,0.024784321,0.033865742,-0.0025986547,-0.030092606,0.060296185,0.049198728,0.016951367,0.05944538,0.008674513,-0.029574724,-0.022028454,-0.009664036,0.00044852225,0.05430356,-0.014380455,-0.006163713,-0.014241737,0.052786905,0.040727668,0.031368814,0.020197373,0.009460582,0.012873051,-0.057595804,-0.029482245,0.00389567,-0.02631947,-0.05123326,0.037990298,0.04383496,-0.02195447,-0.029630212,-0.026393453,-0.03430964,-0.053156823,0.069174156,-0.002272667,-0.055487286,-0.024691842,0.03954394,0.023637585,0.034254152,-0.0037846954,0.043021142,-0.032719005,0.012123972,0.12155415,-0.012355169,0.010875508,0.015601176,0.09462432,0.034328137,0.00576143,0.017950138,-0.0010062851,0.0340507,-0.03312591,0.0020426258,-0.045499574,0.017626463,-0.005516361,0.048680846,-0.0037916314,-0.021880487,-0.0034864512,0.008521923,0.013723856,-0.14212143,0.0090582995,0.08522847,-0.05770678,0.0340507,0.016313262,-0.0067602014,0.015897108,0.034143176,-0.018671472,0.023674576,-0.013501907,-0.026929831,0.0111529445,-0.01623928,-0.03745392,-0.00075832626,-0.04709021,-0.004138427,-0.020567289,0.026504427,-0.021288622,0.017515488,0.03290396,0.019457541,0.017913146,0.052047078,-0.025875572,-0.0082444865,-0.018634481,0.0013918062,0.035215933,-0.005539481,0.006381038,-0.06281161,0.028557457,0.012059237,0.051603176,-0.021935975,-0.012808315,0.016257776,0.007162484,-0.0043233847,0.016433485,-0.005289788,-0.030092606,-0.011088209,-0.042318303,-0.048791822,0.030924914,0.03340335,-0.04246627,-0.045462586,-0.07139365,-0.008327717,-0.033754766,0.015046303,0.019180106,0.020141885,0.010977235,-0.015989587,-0.017127076,0.009243257,0.018911917,0.005229677,-0.027706653,0.010533337,-0.02561663,-0.049642626,-0.020770742,-0.03427265,0.010718294,0.029278792,0.07635051,0.031146863,0.0050169756,-0.023952013,-0.024562372,-0.019402055,-0.008332341,-0.025857076,-0.0028992107,-0.014093771,0.023415636,0.014676387,-0.008221366,-0.014731875,0.028058073,-0.017247299,-0.0060388665,-0.0440939,0.024414407,-0.02535769,-0.0021686282,-0.002896899,-0.0068434323,0.029704195,0.0226943,0.028612945,-0.01889342,0.031442795,0.05556127,0.030277563,-4.616716e-05,0.09972915,-0.018588241,0.020900212,0.0025778469,0.05822466,0.00079762976,-0.021288622,-0.0016727105,-0.021677034,-0.0020518736,-0.045425594,0.03303343,-0.013067257,0.00094501785,-0.03636267,-0.026504427,-0.011189937,-0.0069312872,0.007629502,-0.0070330137,0.022749787,-0.075610675,-0.00014955558,0.017275043,-0.005386891,-0.08981542,0.06443924,-0.03059199,-0.025431674,0.0026841976,-0.028631441,0.01588786,-0.04098661,0.021177648,0.02012339,-0.042799193,0.0068203122,-0.029389767,0.023230677,-0.016683178,-0.033458833,0.03565983,0.013085752,0.02173252,-0.03421716,0.039100043,-0.015342235,-0.0069821505,0.012937786,-0.0030171212,0.033865742,-0.017256547,0.018033369,0.014630148,-0.017404513,-0.012466144,-0.008582034,0.036251694,-0.053156823,0.017922394,-0.03858216,-0.020400826,-0.014889088,-0.04316911,-0.054155592,-0.012438401,-0.009312617,-0.013289206,-0.057114914,0.013982796,-0.048791822,0.018837934,0.005673575,-0.0040898756,-0.0017085461,-0.016137553,-0.025154237,0.048865806,-0.13368738,-0.00718098,-0.00512795,0.008831726,-0.0048042745,0.0113656465,-0.02535769,0.0004892707,-0.008794735,-0.052490976,-0.064402245,0.015702903,0.010857013,-0.020012416,-0.018588241,0.017598718,0.0014392015,-0.0015640479,-0.0353454,0.026966821,-0.0018507323,-0.022731293,0.032441568,0.0028922749,-0.011356398,0.0034078443,0.054932415,0.047941018,-0.031720232,-0.012429153,-0.002249547,0.011513612,0.028039576,0.00012874785,-0.00249924,0.0012831435,0.006390286,0.0040135803,-0.006163713,0.015536441,-0.0006369478,0.016100561,0.016858887,0.023600593,-0.02859445,0.026393453,-0.018468019,-0.02278678,-0.056375083,-0.005622712,-0.042947162,-0.017561726,-0.071689576,0.008484931,0.03344034,-0.0107367905,-0.042096354,-0.01672017,0.011929767,0.025265211,-0.012271939,0.0016599947,-0.023415636,-0.028039576,0.0049198726,-0.01986445,-0.002113141,0.04076466,-0.027984088,0.058816526,0.0115690995,-0.0584836,2.1457974e-05,-0.025006272,-0.019346567,0.028446482,-0.0059047723,-0.055968177,-0.03151678,-0.01444519,-0.015869364,0.023952013,-0.040357754,0.03168324,0.05356373,0.011948262,-0.01340018,0.004762659,0.009025932,-0.024210954,-0.03810127,-0.025376186,0.02426644,-0.025154237,-0.009867489,0.03183121,-0.002416009,0.010339132,0.00908142,-0.038249236,0.011920519,0.007393681,0.019254088,-0.038989067,-0.026116017,0.018236822,-0.011189937,-0.0017073901,0.052269027,-0.007222595,0.0453886,-0.015860116,0.0121979555,0.054784447,-0.034254152,0.016877383,0.021288622,0.04242928,-0.05863157,0.02802108,0.018884173,-0.013686865,0.032792985,-0.019309577,0.024765827,0.031701736,0.0044875345,0.016562955,-0.023582097,-0.013908814,0.026116017,-0.021788009,-0.015009311,0.069470085,0.027910106,-0.019180106,-0.00888259,0.054488517,0.01640574,-0.011920519,-0.009932225,-0.065475,0.00078433595,-0.05482144,0.007236467,0.008165879,0.02391502,-0.02718877,-0.042244323,-0.0816033,-0.011189937,0.00934036,0.013557394,0.009941473,-0.009617796,0.03736144,-0.017349025,-0.030314555,-0.012910042,0.052675933,0.02680036,-0.03684356,-0.0054701217,-0.033273876,-0.04638737,-0.012577118,0.015961843,-6.22787e-05,-0.045906484,0.013788591,-0.02086322,0.021325614,0.0035396265,-0.0031812713,0.066288814,-0.07953178,0.009479078,-0.029278792,0.033754766,-0.033162903,-0.0020044784,0.008022537,0.054451525,0.018995149,0.013381684,-0.022527838,0.0058770287,0.052232035,0.01662769,0.033144407,0.0070700054,0.022657309,0.036177713,0.030444026,0.02086322,0.034124684,0.029556228,0.019309577,0.014667139,0.027336737,0.017607966,-0.013714608,0.0003196299,-0.0103206355,0.011310159,-0.010986483,-0.0013825583,-0.02911233,-0.025339196,0.03116536,-0.03671409,-0.022823771,-0.017820667,0.025080254,0.008133512,-0.04442682,0.04324309,-0.012290434,-0.004455167,-0.036196206,0.024377415,-0.006251568,-0.00049591763,-0.0084340675,-0.049753603,-0.021991462,0.048458897,0.033014935,0.042836186,0.045869492,-0.0123921605,-0.0044805985,-0.040579703,0.012290434,0.045795508,-0.00041153072,-0.028686928,0.025043262,-0.04464877,0.025043262,0.06292258,0.013760847,0.014593157,0.0045638294]', 'f', '2025-11-19 12:40:28.48146+00', '2025-11-19 12:40:28.48146+00', NULL, 'published', 'f', 'approved', NULL, NULL, NULL);
+INSERT INTO "public"."experience_records" ("id", "user_id", "title", "problem_description", "root_cause", "solution", "context", "query_count", "view_count", "relevance_score", "embedding", "has_embedding", "created_at", "updated_at", "deleted_at", "publish_status", "is_deleted", "review_status", "reviewed_by", "reviewed_at", "review_note") VALUES ('69bf5dba-1ca8-4f93-9522-e81f46b67bad', NULL, '数据库权限策略缺失导致关键字无法保存', '在使用 Recall Kit MCP 服务器提交经验记录时，经验记录本身创建成功，但关联的关键字（keywords）没有保存到数据库中。通过 MCP 查询接口也无法通过关键字检索到刚提交的经验记录。错误表现：submit_experience 接口返回成功状态，经验记录 ID 正常返回，但 experience_keywords 表中没有对应的关键字记录，查询接口无法通过关键字找到该经验记录。', '问题根源在于数据库的权限策略配置不完整。具体原因：1. experience_keywords 表启用了权限控制 2. 但只配置了读取权限，允许所有用户读取关键字 3. 缺少插入权限，导致匿名用户无法插入关键字记录 4. 代码中的错误处理只是记录日志（console.error），没有抛出异常，所以经验记录创建成功，但关键字插入被静默失败。权限控制的工作原理是：如果启用了权限控制，默认情况下会拒绝所有操作，除非有明确的权限允许该操作。由于没有插入权限，所有插入操作都被拒绝。', '修复权限策略：在数据库迁移文件中添加插入权限。为匿名用户授予插入权限：GRANT INSERT ON experience_keywords TO public; 创建迁移文件：为已部署的数据库创建新的迁移文件，包含相同的权限，用于应用修复。应用修复：新部署权限已包含在初始权限配置中，现有数据库需要运行新的迁移文件。修复后的策略允许匿名用户（通过 API）插入关键字记录，与 experience_records 表的策略保持一致。', '技术栈：PostgreSQL, TypeScript, 权限控制。项目结构：Recall Kit 经验分享平台。相关表：experience_records - 经验记录主表（已有 INSERT 策略），experience_keywords - 关键字关联表（缺少 INSERT 策略）。相关文件：supabase/migrations/002_rls_policies.sql - 权限策略定义，mcp-server/src/services/experienceService.ts - 经验服务（关键字插入逻辑）。', 0, 0, 0, '[-0.028310047,-0.0042391825,-0.015107237,-0.0028108617,-0.015253732,-0.002778816,0.012186505,-0.011710398,0.013349304,-0.014603662,-0.009769347,-0.0023690895,-0.024464568,0.010803964,0.014557883,-0.015116394,0.007837452,-0.002517873,0.044058196,0.021314938,0.0027627933,0.0068348804,0.016901795,-0.006665496,-0.0074620596,0.020747272,-0.009078076,-0.0083410265,0.011133576,-0.006491534,0.004738179,-0.037319455,-0.016572181,-0.015912956,-0.03089201,-0.016132697,-0.023420796,0.0070912456,-0.01898934,0.018861156,-0.043728586,-0.012708391,0.031239936,-0.0324302,-0.02508717,-0.019337263,0.034517746,-0.00931613,0.015876332,0.028310047,-0.046585225,-0.00933902,0.027467703,-0.030672269,0.057938542,0.023640538,-0.03698984,-0.003795121,-0.0090048285,0.011829425,-0.012909821,-0.049808104,-0.018302647,0.006331306,0.023988461,0.07130616,-0.0046969773,-0.0034655086,-0.0017888342,-0.059549984,-0.016498934,0.06497028,-0.04460755,-0.06105155,-0.056327105,0.033235922,0.060685314,0.013395084,-0.017286342,0.022779882,-0.028969271,-0.020545842,0.028181864,0.059879594,-0.017890632,0.011600527,-0.042263642,0.012342155,0.0047656465,0.011014549,0.04043246,-0.03746595,0.024665998,-0.043105982,-0.0069951084,-0.004287251,0.01605945,0.015638279,0.017652579,0.044204693,0.0140634645,0.008212844,0.016096074,-0.034810737,0.064823784,0.01431983,0.046768345,-0.0034563527,0.07068356,-0.010694093,-0.02417158,0.021150133,0.008038881,-0.034462813,0.0130563155,-0.037118025,0.025032233,-0.034865674,0.019428823,0.02722965,0.021388186,0.068119906,0.030324345,-0.008716418,0.0054340274,0.011801957,-0.0018872601,0.008766776,-0.00046923995,0.026259124,0.045852754,0.0015450583,-0.02935382,-0.03281475,-0.0485629,-0.008917848,0.0029504893,0.04643873,0.027156403,-0.071635775,-0.0018700928,0.020600777,-0.0022798195,-0.023713784,0.03352891,-0.027394457,0.011197668,0.035103727,-0.008386806,0.011298383,0.008702684,-0.0048068482,0.019428823,-0.024867428,0.029408755,-0.099469714,-0.025325224,0.030617334,0.034352943,0.0065418915,-0.019978177,0.014448012,-0.03598269,0.07489527,0.05189565,-0.017057445,0.030599022,-0.0140085295,-0.012827418,-0.0036829612,0.027779005,-0.043105982,0.005269221,-0.0060154274,-0.0100074,0.012232284,0.05068707,0.031477988,0.023017935,-0.056143988,-0.00594218,0.037612442,0.02832836,-0.035488274,0.002039477,-0.0016205945,-0.007718425,-0.04032259,-0.007343033,0.046365485,-0.018330114,-0.020582465,0.013193654,0.008954472,0.0028383294,0.00031502024,-0.005104415,-0.044570927,0.033437353,0.028383294,-0.032137215,0.043142606,0.040615577,-0.0052554873,-0.038637903,-0.029683432,0.0006443466,-0.015061458,0.03069058,-0.044717424,0.03160617,0.019483758,-0.02041766,0.044314563,-0.0011959897,-0.004381099,-0.038015302,0.033162676,-0.019740123,-0.054019816,-0.06529989,0.057755426,-0.047574062,-0.023805343,0.005012856,0.0197035,0.0775688,0.0111518875,0.022688324,0.0029230216,-0.032356955,0.0020692337,-0.009219993,-0.0074986834,0.068339646,0.0021424808,-0.013010535,-0.03515866,0.060465574,-0.0017556441,-0.047976922,-0.04541327,0.026954973,0.015619968,-0.031477988,-0.035891134,0.025837954,0.018165309,-0.003710429,0.0037722313,-0.04684159,0.033638783,-0.026698608,-0.020124672,-0.0115730595,-0.0025361846,0.026259124,-0.017515238,-0.0029069986,0.0025453407,0.0030969835,0.015519253,0.024318075,0.009970777,-0.0026575003,-0.0101447385,-0.019795058,-0.06478716,0.011270914,0.011335006,-0.034719177,0.020142984,0.059147123,0.008844601,0.03709971,-0.016691208,-0.026314061,-0.02570977,0.064823784,0.023036247,-0.02935382,0.022358712,0.035030477,0.017789917,0.029774992,0.004481814,0.04409482,-0.037832186,-0.020875456,-0.02448288,0.006853192,0.015638279,0.07467553,0.00466951,-0.006692964,0.020179607,-0.000105221334,-0.1352876,0.014383921,0.030324345,-0.01742368,0.0038615013,-0.021388186,-0.02651549,0.012488649,-0.05394657,0.009934153,-0.043105982,-0.047354322,0.010227142,-0.004642042,-0.020967014,-0.028071994,-0.008844601,0.003241189,-0.0142740505,-0.04999122,0.003806566,-0.0466951,0.04643873,0.04438781,0.0037905432,-0.042520005,0.059037253,0.03026941,-0.047574062,-0.0013241722,-0.011545592,-0.0118385805,-0.0012383356,0.05240838,-0.003355638,0.017341277,-0.025856266,0.00033504877,0.038637903,-0.018934404,0.037612442,0.045779508,0.017441992,0.018220244,0.033748653,0.016791923,0.01340424,-0.011545592,-0.033950083,0.010904678,-0.038747776,-0.0041316003,-0.02448288,-0.012680924,-0.011261758,0.011078641,0.021369874,0.036312304,-0.03239358,0.014768469,0.017341277,0.02386028,0.009384799,0.009050609,0.0061848112,0.008455475,0.041311428,0.013880347,0.040469084,-4.9570623e-05,0.0344445,-0.013981061,0.0034128623,0.03424307,-0.036348928,0.023146119,0.042629875,-0.033382416,-0.05654685,-0.11873373,-0.0077230027,0.020234542,0.018128684,-0.0026391887,-0.017799072,-0.0039347485,0.0029413332,0.040615577,0.06167415,0.2182767,0.004172802,-0.024299761,-0.024189891,0.016407374,0.01695673,-0.014896652,0.031001883,0.030287722,-0.034792427,-0.031111753,0.037319455,0.015922112,-0.009384799,-0.0077367364,0.016187634,-0.010987082,-0.00074105576,0.050577197,-0.02955525,0.02852979,0.006564781,0.0034563527,0.025343535,-0.04907563,-0.043728586,-0.040688824,-0.006111564,-0.038967516,0.042703126,-0.017597642,0.032942932,0.09295071,-0.080571935,-0.03797868,-0.004529882,0.018485764,0.012809106,-0.018769598,0.040615577,0.025984447,-0.01376132,0.012717547,-0.01615101,0.009361909,0.022377023,-0.010501819,-0.028181864,0.0049487646,-0.018201932,-0.03616581,-0.018952716,-0.011463189,-0.010172206,0.012864041,-0.012149881,0.0028245957,-0.0044429014,-0.02955525,0.008720996,0.029280573,0.026423931,-0.08372156,0.066874705,-0.034389567,0.0063496176,0.03484736,-0.035726327,0.01605945,0.076250345,0.021205068,0.028621348,0.034371253,0.021955851,0.021607928,-0.009622852,0.022834819,0.058744263,-0.071452655,0.022157282,-0.008290669,0.014145868,-0.01335846,-0.005969648,0.019648565,0.0308737,0.0011822558,0.065043524,-0.013880347,-0.014383921,-0.034371253,-0.026643673,-0.015006523,0.023732096,0.025142105,0.047097955,-0.04105506,-0.011444877,-0.014200803,-0.042520005,-0.02539847,-0.007118713,0.017432837,-0.032924622,0.005594256,-0.037282832,0.026790168,-0.0021630817,-0.008725574,-0.011719554,-0.07515164,0.018412517,-0.018037125,0.0059192902,-0.013596513,0.006931017,0.001161655,0.001851781,0.020124672,0.06215026,0.006931017,0.018916093,-0.035579834,-0.008194531,-0.0051685064,-0.02479418,-0.004545905,-0.051126555,-0.05537489,0.0063175717,0.037539195,-0.033235922,0.047903676,-0.007434592,-0.0132669015,-0.027138092,0.014457168,0.035891134,-0.03827167,0.016544715,-0.013303525,-0.01767089,-0.02162624,0.00629926,-0.003064938,-0.009558761,-0.0123146875,-0.015162173,-0.003241189,0.0036623606,0.030910322,0.0062855263,0.037612442,-0.03605594,-0.0045047035,-0.017881475,-0.012882353,0.01981337,0.025636524,-0.029958108,-0.010044023,0.0001590838,0.006230591,0.015684059,0.018916093,-0.013138719,0.03171604,-0.006038317,-0.036403865,0.01898934,0.011142732,-0.046402108,-0.076030605,0.043032736,0.015510097,0.014191647,-0.030928634,-0.034865674,-0.009133012,-0.06643522,0.022779882,-0.031166688,-0.033034492,0.03131318,0.025856266,0.037832186,-0.013779632,-0.016444,-1.5271757e-05,-0.019557005,-0.026863415,0.11924646,0.013971905,0.0003693834,-0.023329237,0.047500815,0.047647312,0.03741101,-0.020600777,-0.025783017,-0.017716669,-0.008666061,0.034975544,-0.0038752353,-0.008780509,-0.010071492,0.019575316,0.019245705,-0.022230528,-0.036660228,0.006308416,0.026661985,-0.10342506,-0.007695535,0.06288273,-0.034792427,0.057315942,-0.009961621,-0.025142105,0.0022946978,-0.00949467,-0.034059953,0.023530666,-0.0197035,-0.019795058,0.014374766,-0.01715816,-0.045156907,0.001098136,-0.033492286,-0.0051593506,-0.02347573,0.012662612,-0.03980986,0.023896903,0.028053682,0.014823404,0.022010786,0.062186882,-0.009558761,-0.005379092,-0.081817135,-0.033437353,0.013825411,-0.026240813,0.0140634645,-0.018421674,0.003154208,-0.0056079896,0.028896024,-0.0026025649,0.029335508,0.022230528,0.006775367,0.031459678,0.06266299,-0.0131112505,-0.03741101,-0.033437353,-0.022779882,-0.025856266,0.03442619,0.01610523,0.004010285,-0.02499561,-0.0446808,0.019685188,-0.041384675,0.020252854,-0.033675406,-0.0032343222,0.0065510473,-0.019776747,0.015446005,0.01239709,0.008446319,-0.025563277,-0.017240562,0.0131112505,0.001583971,-0.033254232,0.031752665,-0.014182491,0.056253858,0.0012520695,0.05588762,0.07365007,-0.0021630817,0.011032861,-0.039370377,-0.015363603,-0.0115730595,-0.013550734,0.013504954,-0.020985326,0.014951587,0.0041293115,0.043838456,0.0027078579,0.0370814,-0.0132669015,-0.0027536373,-0.062003765,0.034920607,-0.040066224,0.01574815,-0.0005587961,-0.024025084,0.013092939,0.02386028,0.02863966,-0.028419917,0.03232033,0.020710649,0.017011665,0.012937289,0.07321059,-0.022505205,0.019593628,-0.02417158,0.018824533,-0.0072789416,-0.032155525,-0.031532925,-0.02924395,-0.0155467205,-0.047757182,0.010071492,-0.0069905305,-0.008496677,-0.01909921,-0.01898934,0.009760191,0.009815127,0.010254609,0.045156907,0.03341904,-0.04449768,-0.008634015,0.012946445,0.03962674,-0.05995284,0.03453606,-0.030232787,-0.020820519,-0.011142732,-0.027083157,-0.0118935155,-0.02752264,0.011792801,0.013285213,0.0259112,-0.026661985,-0.01655387,0.031166688,-0.037392702,-0.053507086,0.037539195,0.018101217,-0.0026552114,-0.04501041,0.06339546,-0.007040888,-0.013129562,0.03980986,-0.0035753795,0.016938418,-0.030196162,0.00071473257,-0.0005771079,-0.042373512,-0.0008892669,-0.015958736,0.02397015,-0.03380359,0.033345792,-0.034462813,-0.022578454,-0.0042300266,-0.05171253,-0.04182416,-0.014768469,0.0023988462,-0.0132669015,-0.031276558,0.014548727,-0.06614223,0.010236298,-0.0331993,0.008135018,-0.00466951,0.008881224,-0.026259124,0.02365885,-0.13426214,-0.012140725,0.0046969773,0.006519002,-0.0162151,0.015729839,-0.006697542,-0.033126052,-0.022102347,-0.052994356,-0.080425434,0.006312994,0.0142740505,-0.046402108,-0.0155467205,0.0071370252,0.03279644,-0.020490907,-0.018256867,-0.0036577827,-0.03210059,-0.0010849743,0.043801833,0.016324973,-0.009105544,0.0032663678,-0.01990493,0.03735608,-0.041128308,0.0023645116,0.007713847,-0.012003386,0.025526652,0.01601367,0.0057315943,0.0046923994,0.005456917,-0.007809984,-0.021571303,-0.0062901042,-0.01858648,0.01387119,-0.012818262,-0.0007101546,0.004271228,0.031258248,-0.034517746,-0.02915239,-0.012616832,-0.031459678,-0.029005896,0.002506428,-0.051053304,-0.02093039,0.03006798,-0.009732723,-0.06914537,-0.0056949705,-0.022743259,0.024299761,-0.023933526,0.016260881,-0.023823656,-0.06306585,-0.003442619,-0.016343284,-0.009288662,0.029427066,-0.047610685,0.05808504,0.03871115,-0.033657093,-0.0069172834,0.008615703,-0.012452026,0.002421736,0.03422476,-0.055594634,-0.01548263,-0.03838154,-0.027138092,0.03808855,-0.037942056,0.048599523,0.07734905,0.025490029,0.0054202937,-0.03775894,0.030159539,-0.015098081,-0.049954597,-0.016022827,0.015153017,0.024098333,0.0054157157,0.019465446,-0.015711527,0.007869497,0.0056995484,-0.0044016996,-0.009833438,-0.02852979,0.041018438,-0.013569046,-0.012772483,-0.019923242,0.01304716,-0.010483507,0.0063541955,0.004857206,0.022541828,-0.008414273,0.012937289,0.035726327,-0.068889,0.022908065,0.021827668,0.025947824,-0.029372131,0.038674526,0.021296626,-0.0029161547,0.013303525,-0.005566788,0.0069081276,0.014182491,0.023805343,0.000603145,-0.0068119904,-0.035488274,0.015574188,-0.013211966,-0.027760694,0.030983571,0.017945567,-0.05229851,-0.02732121,0.03775894,0.012433714,-0.004816004,-0.006871504,-0.051163178,0.0030786719,-0.03250345,-0.0127907945,-0.04720783,0.004358209,-0.005928446,-0.053360593,-0.04845303,0.021296626,0.0314963,0.023109496,0.017954722,-0.0033716606,0.043838456,-0.025837954,0.007407124,0.02083883,0.03058071,-0.007814562,-0.030800452,-0.011454033,-0.039443623,-0.046658475,-0.027266275,0.020967014,0.017643422,-0.018082906,0.015510097,-0.044717424,0.017295498,-0.001673241,0.048489653,0.03735608,-0.0892151,0.02508717,-0.02743108,0.013459175,-0.053140853,-0.0043055625,0.028090306,0.03330917,-0.010987082,0.044534303,-0.032631632,0.02083883,0.012717547,0.0010689514,0.028200176,-0.0069859526,-0.031185,0.029280573,0.014951587,0.007343033,-0.008336448,0.009375643,-0.034499437,-0.004452057,0.05394657,0.010941302,-0.04519353,-0.053177476,-0.015867177,0.043655336,0.027980434,0.016471466,-0.02955525,0.0043994104,0.07079343,-0.023109496,-0.025691459,-0.023805343,-0.02620419,0.015894644,-0.0127907945,0.02763251,0.006775367,0.010318701,-0.05951336,-0.00435592,-0.024904052,0.0064365985,-0.02550834,-0.04336235,0.0028200175,0.036110874,-0.035030477,0.044204693,-0.00855619,-0.009041453,-0.0008927004,-0.013962749,0.013157031,0.068962246,-0.024189891,-0.019886618,0.054715667,-0.045596387,0.013926126,0.025251975,0.024739245,0.033492286,0.031624485]', 'f', '2025-11-19 12:50:09.22619+00', '2025-11-19 12:50:09.22619+00', NULL, 'published', 'f', 'approved', NULL, NULL, NULL);
+
+-- ----------------------------
+-- Table structure for permissions
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."permissions";
+CREATE TABLE "public"."permissions" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "name" varchar(100) COLLATE "pg_catalog"."default" NOT NULL,
+  "resource" varchar(50) COLLATE "pg_catalog"."default" NOT NULL,
+  "action" varchar(50) COLLATE "pg_catalog"."default" NOT NULL,
+  "description" text COLLATE "pg_catalog"."default",
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+
+-- ----------------------------
+-- Records of permissions
+-- ----------------------------
+INSERT INTO "public"."permissions" VALUES ('40eb775c-f023-4229-b619-3f6c898207e1', 'users.view', 'users', 'view', 'View user list and details', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('7495d082-a357-48ce-9daf-48dc96fcc600', 'users.create', 'users', 'create', 'Create new users', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('85afbbd2-f691-4a13-a3a6-61343fbae153', 'users.edit', 'users', 'edit', 'Edit existing users', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('2497626e-6b62-4a54-8c9d-065506f23d64', 'users.delete', 'users', 'delete', 'Delete users', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('530db1ca-86e5-4ceb-b5d0-f0601e4c9194', 'users.activate', 'users', 'activate', 'Activate/deactivate users', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('85a3259b-0e8f-4aef-b858-6d0639a59e5c', 'roles.view', 'roles', 'view', 'View role list and details', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('debf2ba4-bdee-4369-96cb-c40b73899a84', 'roles.create', 'roles', 'create', 'Create new roles', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('a053a948-df66-4cdd-b40f-1b1e37990869', 'roles.edit', 'roles', 'edit', 'Edit existing roles', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('abe67270-0227-4347-8f6b-e6affdf74cdc', 'roles.delete', 'roles', 'delete', 'Delete roles', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('6990a778-fc12-46f3-a064-7fbf89ca024b', 'permissions.view', 'permissions', 'view', 'View permission list', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('fc32c8d5-eecb-44f1-99b9-2808a2ccd26e', 'permissions.assign', 'permissions', 'assign', 'Assign permissions to roles', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('0d3bf721-cc37-4598-b92f-53895e2dd293', 'experiences.view', 'experiences', 'view', 'View experiences', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('5dbb9981-8f3d-44e0-838a-599da9230f9f', 'experiences.create', 'experiences', 'create', 'Create new experiences', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('2575a215-a3b7-4be7-925a-43f65884e325', 'experiences.edit', 'experiences', 'edit', 'Edit own experiences', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('cb4b3266-960b-48c3-9799-a451f94e2732', 'experiences.edit_any', 'experiences', 'edit_any', 'Edit any experiences', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('6d9f87f1-b319-43e9-ab67-7d0e9100ae8a', 'experiences.delete', 'experiences', 'delete', 'Delete own experiences', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('92c674bd-8a5b-4404-8830-8b7bcea4ccb4', 'experiences.delete_any', 'experiences', 'delete_any', 'Delete any experiences', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('4ecfd845-7ba7-455b-b7f9-b126c2122389', 'experiences.publish', 'experiences', 'publish', 'Publish experiences', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('918a111c-0a63-4ff6-addd-5b12e7390ca7', 'experiences.review', 'experiences', 'review', 'Review and approve experiences', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('ef9c2db2-8c99-4ae3-938e-91c0fa48a72a', 'admin.dashboard', 'admin', 'dashboard', 'Access admin dashboard', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('36a0674a-63d2-46bb-8632-65e21646556b', 'admin.settings', 'admin', 'settings', 'Manage system settings', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+INSERT INTO "public"."permissions" VALUES ('2840705f-02dc-4264-ace2-8f07ee9a4ba3', 'admin.logs', 'admin', 'logs', 'View system logs', '2025-11-18 10:27:01.501523+00', '2025-11-18 10:27:01.501523+00');
+-- 补充缺失的权限
+INSERT INTO "public"."permissions" VALUES ('8a1b2c3d-4e5f-6789-0abc-def123456789', 'settings.read', 'settings', 'read', 'Read system settings', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('9b2c3d4e-5f6a-7890-bcde-f23456789012', 'settings.write', 'settings', 'write', 'Write system settings', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('c3d4e5f6-7a8b-9012-cdef-345678901234', 'api-keys.view', 'api-keys', 'view', 'View API keys list', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('d4e5f6a7-8b9c-0123-def0-456789012345', 'api-keys.create', 'api-keys', 'create', 'Create new API keys', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('e5f6a7b8-9c0d-1234-ef01-567890123456', 'api-keys.delete', 'api-keys', 'delete', 'Delete API keys', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('f6a7b8c9-0d1e-2345-f012-678901234567', 'api-keys.edit', 'api-keys', 'edit', 'Edit API keys', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('a7b8c9d0-1e2f-3456-0123-789012345678', 'my-experiences.view', 'my-experiences', 'view', 'View own experiences', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('b8c9d0e1-2f34-4567-1234-890123456789', 'my-experiences.create', 'my-experiences', 'create', 'Create own experiences', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('c9d0e1f2-3456-5678-2345-901234567890', 'my-experiences.edit', 'my-experiences', 'edit', 'Edit own experiences', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('d0e1f234-4567-6789-3456-012345678901', 'my-experiences.delete', 'my-experiences', 'delete', 'Delete own experiences', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('e1f23456-5678-7890-4567-123456789012', 'admin.logs.view', 'admin', 'logs.view', 'View system logs', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('f2345678-6789-8901-5678-234567890123', 'admin.logs.export', 'admin', 'logs.export', 'Export system logs', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('23456789-7890-9012-6789-345678901234', 'admin.logs.delete', 'admin', 'logs.delete', 'Delete system logs', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('34567890-8901-0123-7890-456789012345', 'embedding.generate', 'embedding', 'generate', 'Generate embeddings', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+INSERT INTO "public"."permissions" VALUES ('45678901-9012-1234-8901-567890123456', 'embedding.admin', 'embedding', 'admin', 'Manage embedding service', '2025-11-19 22:39:00+00', '2025-11-19 22:39:00+00');
+
+-- ----------------------------
+-- Table structure for query_logs
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."query_logs";
+CREATE TABLE "public"."query_logs" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "query_keywords" text COLLATE "pg_catalog"."default" NOT NULL,
+  "result_count" int4 NOT NULL DEFAULT 0,
+  "response_time_ms" int4,
+  "experience_ids" uuid[],
+  "query_source" varchar(50) COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'mcp'::character varying,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+
+-- ----------------------------
+-- Records of query_logs
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for role_permissions
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."role_permissions";
+CREATE TABLE "public"."role_permissions" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "role_id" uuid,
+  "permission_id" uuid,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+
+-- ----------------------------
+-- Records of role_permissions
+-- ----------------------------
+INSERT INTO "public"."role_permissions" VALUES ('31bd24e2-a534-4dc2-8b38-2e1945b045dc', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '40eb775c-f023-4229-b619-3f6c898207e1', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('978b013b-380e-437b-bd1d-bc1670990542', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '7495d082-a357-48ce-9daf-48dc96fcc600', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('96e3cc28-d590-4cda-bba0-97f25c3073d3', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '85afbbd2-f691-4a13-a3a6-61343fbae153', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('240a4c01-ae8a-401f-ae16-f25610de3b40', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '2497626e-6b62-4a54-8c9d-065506f23d64', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('8456de09-aebe-4aec-95cb-e1815fa65e7d', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '530db1ca-86e5-4ceb-b5d0-f0601e4c9194', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('98a3913b-55a0-410c-8689-7c17439260ff', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '85a3259b-0e8f-4aef-b858-6d0639a59e5c', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('fddd0fba-7439-48cb-8b4e-2ed45e830778', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', 'debf2ba4-bdee-4369-96cb-c40b73899a84', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('52377cd0-f86c-44bb-acea-ac9fed67fe08', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', 'a053a948-df66-4cdd-b40f-1b1e37990869', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('1145c632-91c2-4592-a765-ad25c313059d', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', 'abe67270-0227-4347-8f6b-e6affdf74cdc', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('eeab3de6-bf6c-4b42-9134-1ba2e720a418', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '6990a778-fc12-46f3-a064-7fbf89ca024b', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('25d07206-9332-4f02-92fe-38d07a8165a4', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', 'fc32c8d5-eecb-44f1-99b9-2808a2ccd26e', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('7d1d91dd-dfdf-46cd-bb87-277c1edddd12', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '0d3bf721-cc37-4598-b92f-53895e2dd293', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('06dbb522-e39a-4a5f-8b5b-f0d0de51cd76', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '5dbb9981-8f3d-44e0-838a-599da9230f9f', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('3201a9df-329e-4c44-aff4-04e8e36dcbd1', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '2575a215-a3b7-4be7-925a-43f65884e325', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('ba237fe4-485b-49fb-87dd-4f938bcbfa48', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', 'cb4b3266-960b-48c3-9799-a451f94e2732', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('50c77148-5299-4b4b-8dae-ffb4079a5262', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '6d9f87f1-b319-43e9-ab67-7d0e9100ae8a', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('1387e341-eb7d-4251-bde2-1f1a5cc2844a', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '92c674bd-8a5b-4404-8830-8b7bcea4ccb4', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('7c4bdf1f-18da-4de8-aa1d-5cfd9132f016', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '4ecfd845-7ba7-455b-b7f9-b126c2122389', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('5440d767-3c85-4df6-9d27-cd7e7cb1fe19', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '918a111c-0a63-4ff6-addd-5b12e7390ca7', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('2eb99216-68ff-47d4-8cd7-aa459bad6381', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', 'ef9c2db2-8c99-4ae3-938e-91c0fa48a72a', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('637d5974-1df3-4707-85af-714757ddee04', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '36a0674a-63d2-46bb-8632-65e21646556b', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('89e962b6-434b-49b0-bb13-81f1700e6def', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '2840705f-02dc-4264-ace2-8f07ee9a4ba3', '2025-11-18 10:27:01.514023+00');
+INSERT INTO "public"."role_permissions" VALUES ('2a9d72d5-315d-47e1-9ed7-74ca8d026050', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '40eb775c-f023-4229-b619-3f6c898207e1', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('090fbd7d-3360-4c0d-914a-64c2729cd003', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '7495d082-a357-48ce-9daf-48dc96fcc600', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('0396e824-dd0b-40b7-8071-32a10c2be3de', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '85afbbd2-f691-4a13-a3a6-61343fbae153', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('f2ad7e30-951a-4fcd-bfce-2ef4e6ea9a92', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '530db1ca-86e5-4ceb-b5d0-f0601e4c9194', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('f7bd0431-871c-45dd-a90e-8abcfb5edd9f', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '85a3259b-0e8f-4aef-b858-6d0639a59e5c', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('c88140fb-1365-4509-80ae-86e37606d221', '2d17bb70-62a7-409c-b3f3-5a72504c7069', 'debf2ba4-bdee-4369-96cb-c40b73899a84', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('0992c3e6-cdd3-4a20-9cf8-a2e6db519759', '2d17bb70-62a7-409c-b3f3-5a72504c7069', 'a053a948-df66-4cdd-b40f-1b1e37990869', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('fe14d8fa-3103-4db6-a0c6-8eef1053058e', '2d17bb70-62a7-409c-b3f3-5a72504c7069', 'abe67270-0227-4347-8f6b-e6affdf74cdc', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('475f98b4-a1bd-417f-8cd4-9d6ad11a044d', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '6990a778-fc12-46f3-a064-7fbf89ca024b', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('e289f6b5-99a5-404f-b495-80e12325bea1', '2d17bb70-62a7-409c-b3f3-5a72504c7069', 'fc32c8d5-eecb-44f1-99b9-2808a2ccd26e', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('a3055aaa-daac-496f-b40f-b94278eb8955', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '0d3bf721-cc37-4598-b92f-53895e2dd293', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('07944896-f41d-48d0-9e43-5a6d66a158b4', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '5dbb9981-8f3d-44e0-838a-599da9230f9f', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('55b5b68a-1e5d-441b-a81e-aecb658cb7ac', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '2575a215-a3b7-4be7-925a-43f65884e325', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('7fce1984-9735-4d34-a250-30b856dceb35', '2d17bb70-62a7-409c-b3f3-5a72504c7069', 'cb4b3266-960b-48c3-9799-a451f94e2732', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('f70f6d50-9ff7-46dc-a223-0d5dd2a8cbbe', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '6d9f87f1-b319-43e9-ab67-7d0e9100ae8a', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('079e6f05-ae67-4307-a7f7-0d430fc78479', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '92c674bd-8a5b-4404-8830-8b7bcea4ccb4', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('fb702b2b-9a70-4247-858c-d95d49e67743', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '4ecfd845-7ba7-455b-b7f9-b126c2122389', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('e82baeaa-2f4b-4300-9cc2-876ee5aeb473', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '918a111c-0a63-4ff6-addd-5b12e7390ca7', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('30c723ca-0dfe-4638-93cb-3ef44de58906', '2d17bb70-62a7-409c-b3f3-5a72504c7069', 'ef9c2db2-8c99-4ae3-938e-91c0fa48a72a', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('d16b333f-8fcb-40fd-9af0-49961f9945b8', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '36a0674a-63d2-46bb-8632-65e21646556b', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('a6481679-7752-44f6-a9f1-b585d0bad823', '2d17bb70-62a7-409c-b3f3-5a72504c7069', '2840705f-02dc-4264-ace2-8f07ee9a4ba3', '2025-11-18 10:27:01.528019+00');
+INSERT INTO "public"."role_permissions" VALUES ('e8809ea2-1fc4-4ef2-bc71-d381bf8edfa4', '098b2cf6-d771-43fc-b661-c1a564d5239e', '0d3bf721-cc37-4598-b92f-53895e2dd293', '2025-11-18 10:27:01.541761+00');
+INSERT INTO "public"."role_permissions" VALUES ('d45b8abc-85cf-448a-b186-d62920b6465c', '098b2cf6-d771-43fc-b661-c1a564d5239e', '5dbb9981-8f3d-44e0-838a-599da9230f9f', '2025-11-18 10:27:01.541761+00');
+INSERT INTO "public"."role_permissions" VALUES ('ee1338a1-f406-4258-af3b-51a7b639dfe6', '098b2cf6-d771-43fc-b661-c1a564d5239e', '2575a215-a3b7-4be7-925a-43f65884e325', '2025-11-18 10:27:01.541761+00');
+INSERT INTO "public"."role_permissions" VALUES ('cd512bac-4624-4cbd-8c4e-4b505ac63459', '098b2cf6-d771-43fc-b661-c1a564d5239e', '6d9f87f1-b319-43e9-ab67-7d0e9100ae8a', '2025-11-18 10:27:01.541761+00');
+INSERT INTO "public"."role_permissions" VALUES ('5e85e3a8-bc35-467d-9da9-5b304c494fce', '098b2cf6-d771-43fc-b661-c1a564d5239e', '4ecfd845-7ba7-455b-b7f9-b126c2122389', '2025-11-18 10:27:01.541761+00');
+INSERT INTO "public"."role_permissions" VALUES ('e548c674-9e4d-42db-a335-0332013aa180', 'c61e5282-f3ec-4af4-8e46-3510b50bf970', '0d3bf721-cc37-4598-b92f-53895e2dd293', '2025-11-18 10:27:01.554522+00');
+INSERT INTO "public"."role_permissions" VALUES ('5ce31511-8433-48ee-b55e-18ccdf68a3a6', 'c61e5282-f3ec-4af4-8e46-3510b50bf970', '5dbb9981-8f3d-44e0-838a-599da9230f9f', '2025-11-18 10:27:01.554522+00');
+INSERT INTO "public"."role_permissions" VALUES ('fc6e3465-ceb0-47ba-9106-41cbf9a64f0e', 'c61e5282-f3ec-4af4-8e46-3510b50bf970', '2575a215-a3b7-4be7-925a-43f65884e325', '2025-11-18 10:27:01.554522+00');
+INSERT INTO "public"."role_permissions" VALUES ('0b7a6e55-89b8-4334-bb5b-aef18ae30d0c', 'c61e5282-f3ec-4af4-8e46-3510b50bf970', '6d9f87f1-b319-43e9-ab67-7d0e9100ae8a', '2025-11-18 10:27:01.554522+00');
+INSERT INTO "public"."role_permissions" VALUES ('5f70e36a-73c3-4f98-9ebb-5d6c9ed29a7b', '12115994-6e07-4863-970a-006e59bf4a9f', '0d3bf721-cc37-4598-b92f-53895e2dd293', '2025-11-18 10:27:01.568011+00');
+INSERT INTO "public"."role_permissions" VALUES ('68fe5544-8d10-454a-8485-79ac53b8b1f3', '098b2cf6-d771-43fc-b661-c1a564d5239e', '918a111c-0a63-4ff6-addd-5b12e7390ca7', '2025-11-19 05:14:30.838926+00');
+-- Demo role permissions - core read-only (without user/role/permission management) + personal full access + vector data access
+INSERT INTO "public"."role_permissions" VALUES ('d4e5f6a7-8b9c-0123-4567-890123def012', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', '0d3bf721-cc37-4598-b92f-53895e2dd293', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('e5f6a7b8-9c0d-1234-5678-9012340ef123', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'ef9c2db2-8c99-4ae3-938e-91c0fa48a72a', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('f6a7b8c9-0d1e-2345-6789-0123451f2345', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', '8a1b2c3d-4e5f-6789-0abc-def123456789', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('a7b8c9d0-1e2f-3456-7890-123456234567', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'e1f23456-5678-7890-4567-123456789012', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('b8c9d0e1-2f34-4567-8901-234567345678', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'c3d4e5f6-7a8b-9012-cdef-345678901234', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('c9d0e1f2-3456-5678-9012-345678456789', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'd4e5f6a7-8b9c-0123-def0-456789012345', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('d0e1f234-4567-6789-3456-012345567890', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'e5f6a7b8-9c0d-1234-ef01-567890123456', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('e1f23456-5678-7890-4567-123456678901', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'f6a7b8c9-0d1e-2345-f012-678901234567', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('f2345678-6789-8901-5678-234567789012', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'a7b8c9d0-1e2f-3456-0123-789012345678', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('23456789-7890-9012-6789-345678890123', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'b8c9d0e1-2f34-4567-1234-890123456789', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('34567890-8901-0123-7890-456789901234', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'c9d0e1f2-3456-5678-2345-901234567890', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('45678901-9012-1234-8901-567890012345', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'd0e1f234-4567-6789-3456-012345678901', '2025-11-19 22:42:00+00');
+INSERT INTO "public"."role_permissions" VALUES ('56789012-0123-1234-8901-567890123456', '9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', '34567890-8901-0123-7890-456789012345', '2025-11-19 22:46:00+00');
+
+-- ----------------------------
+-- Table structure for roles
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."roles";
+CREATE TABLE "public"."roles" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "name" varchar(50) COLLATE "pg_catalog"."default" NOT NULL,
+  "description" text COLLATE "pg_catalog"."default",
+  "is_system_role" bool DEFAULT false,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+
+-- ----------------------------
+-- Records of roles
+-- ----------------------------
+INSERT INTO "public"."roles" VALUES ('8b2e9be4-b123-4b22-a013-0d56ef7ff352', 'superuser', 'Superuser with all permissions', 'f', '2025-11-18 10:27:01.488504+00', '2025-11-18 10:27:01.488504+00');
+INSERT INTO "public"."roles" VALUES ('2d17bb70-62a7-409c-b3f3-5a72504c7069', 'admin', 'Administrator with most permissions', 'f', '2025-11-18 10:27:01.488504+00', '2025-11-18 10:27:01.488504+00');
+INSERT INTO "public"."roles" VALUES ('098b2cf6-d771-43fc-b661-c1a564d5239e', 'editor', 'Content editor with limited permissions', 'f', '2025-11-18 10:27:01.488504+00', '2025-11-18 10:27:01.488504+00');
+INSERT INTO "public"."roles" VALUES ('12115994-6e07-4863-970a-006e59bf4a9f', 'guest', 'Guest user with minimal permissions', 'f', '2025-11-18 10:27:01.488504+00', '2025-11-18 10:27:01.488504+00');
+INSERT INTO "public"."roles" VALUES ('9d8e7c6a-5f4b-3e2d-1c9b-8a7f6e5d4c3b', 'demo', 'External demo user with read-only core access and full personal permissions', 'f', '2025-11-19 22:42:00+00', '2025-11-19 22:42:00+00');
+
+-- ----------------------------
+-- Table structure for system_settings
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."system_settings";
+CREATE TABLE "public"."system_settings" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "setting_key" varchar(100) COLLATE "pg_catalog"."default" NOT NULL,
+  "setting_value" jsonb NOT NULL,
+  "description" text COLLATE "pg_catalog"."default",
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+
+-- ----------------------------
+-- Records of system_settings
+-- ----------------------------
+INSERT INTO "public"."system_settings" VALUES ('af8d9ccc-ae66-413f-acf9-322ca2b7aa00', 'aiServiceType', '"custom"', NULL, '2025-11-18 13:28:53.322536+00', '2025-11-18 13:30:35.950356+00');
+INSERT INTO "public"."system_settings" VALUES ('c124390c-eed8-4c02-bf1f-13e80e19225c', 'customApiKey', '"sk-kisszjpseeesfkuksvbwltrpudhonqwecttippzpitmwdxzi"', NULL, '2025-11-18 13:28:53.338535+00', '2025-11-18 13:30:35.969717+00');
+INSERT INTO "public"."system_settings" VALUES ('1a9fdcce-652e-490b-a5b9-42634f670725', 'customApiUrl', '"https://api.siliconflow.cn/v1"', NULL, '2025-11-18 13:28:53.360285+00', '2025-11-18 13:30:35.995879+00');
+INSERT INTO "public"."system_settings" VALUES ('223b7d85-5ac6-48cf-bda5-3ee4720dd484', 'customModel', '"BAAI/bge-m3"', NULL, '2025-11-18 13:28:53.386534+00', '2025-11-18 13:30:36.014453+00');
+
+-- ----------------------------
+-- Table structure for user_roles
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."user_roles";
+CREATE TABLE "public"."user_roles" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "user_id" uuid,
+  "role_id" uuid,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+
+-- ----------------------------
+-- Records of user_roles
+-- ----------------------------
+INSERT INTO "public"."user_roles" VALUES ('4ef16bb2-82ea-4df8-a02a-274ca643344a', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', '8b2e9be4-b123-4b22-a013-0d56ef7ff352', '2025-11-18 10:27:01.598515+00');
+
+-- ----------------------------
+-- Table structure for user_sessions
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."user_sessions";
+CREATE TABLE "public"."user_sessions" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "user_id" uuid,
+  "session_token" varchar(255) COLLATE "pg_catalog"."default" NOT NULL,
+  "expires_at" timestamptz(6) NOT NULL,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+
+-- ----------------------------
+-- Records of user_sessions
+-- ----------------------------
+INSERT INTO "public"."user_sessions" VALUES ('91ea6d50-ec4a-4b64-8137-20f7628f9418', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'vgfi9tsc2c89p86zo8n6snw163hy167e', '2025-11-25 14:23:18.301+00', '2025-11-18 14:23:29.773587+00');
+INSERT INTO "public"."user_sessions" VALUES ('eaa5d172-4d6a-4ba7-a33b-9b5c019dbc04', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'zyrra0ou7erwpz5ngkubpgtz7kf28t7m', '2025-11-25 14:26:08.19+00', '2025-11-18 14:26:19.669722+00');
+INSERT INTO "public"."user_sessions" VALUES ('fd5034c9-8545-4025-b22c-d84f856f6788', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'w4b6zi5gbsd0urlkiznboqtqud04fs5c', '2025-11-25 14:26:32.804+00', '2025-11-18 14:26:44.283378+00');
+INSERT INTO "public"."user_sessions" VALUES ('98aacf76-4ebb-42d2-8ad2-6dbe5aeaed8f', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', '1z8l5av2xvopstni6vzgtu6vqbz0bgp0', '2025-11-25 14:27:02.282+00', '2025-11-18 14:27:13.761104+00');
+INSERT INTO "public"."user_sessions" VALUES ('3d0b9a87-e285-41d7-92d2-5e98137b12e3', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'cbl0nlj49tehvz10z4xj35arw6qcsxcq', '2025-11-25 14:28:35.635+00', '2025-11-18 14:28:47.119272+00');
+INSERT INTO "public"."user_sessions" VALUES ('d19bfc85-23b7-4bb1-a1c4-b8d90ef56735', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', '34rclaxlb35b68oy9w00o885sqad93vc', '2025-11-25 14:28:58.229+00', '2025-11-18 14:29:09.713996+00');
+INSERT INTO "public"."user_sessions" VALUES ('fecfe6d1-3098-43da-9e23-78b8c4369872', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'ua5gke1i6ksgo50o9biv619g522zg20l', '2025-11-25 14:30:29.653+00', '2025-11-18 14:30:41.144958+00');
+INSERT INTO "public"."user_sessions" VALUES ('bf07d3f7-bb22-426c-a775-4a6992881303', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'liez3ks2aighkzt3lt7cri4aotdrlafz', '2025-11-25 14:36:34.204+00', '2025-11-18 14:36:45.707736+00');
+INSERT INTO "public"."user_sessions" VALUES ('3a91b57d-90d7-4e34-9fec-51dbb4111210', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'rk1lnd4xxxm723k0b9kwkjxbpy9vr3nw', '2025-11-25 14:37:30.424+00', '2025-11-18 14:37:41.931278+00');
+INSERT INTO "public"."user_sessions" VALUES ('28ae25d2-fa0b-40f0-8bdf-5c18f64f381e', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'nah5tz4fq3l5vtmd1lcbp951sru3k76m', '2025-11-26 02:08:12.506+00', '2025-11-19 02:08:12.5839+00');
+INSERT INTO "public"."user_sessions" VALUES ('50350cce-6425-45b7-bbfe-ccafb9a020d9', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'bo7j8ie50c1vu9g1m9kowb8rshiuslon', '2025-11-26 02:54:04.138+00', '2025-11-19 02:54:04.258386+00');
+INSERT INTO "public"."user_sessions" VALUES ('c13640e6-9702-4f36-8507-2a481b7c7444', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'kgw6lvsxgvoxoyo99fha3hkl2ykq1ajt', '2025-11-26 02:58:18.764+00', '2025-11-19 02:58:18.88245+00');
+INSERT INTO "public"."user_sessions" VALUES ('76a01854-37bf-468b-8a1a-4937ab635d36', '886bb63d-44d6-491b-bfcf-b5d5c14124e2', '9e1hi6ikjj3cgekbubnabx4rorng1bjo', '2025-11-26 13:12:25.679+00', '2025-11-19 13:12:37.595585+00');
+
+-- ----------------------------
+-- Table structure for users
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."users";
+CREATE TABLE "public"."users" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "username" varchar(100) COLLATE "pg_catalog"."default" NOT NULL,
+  "email" varchar(255) COLLATE "pg_catalog"."default" NOT NULL,
+  "password_hash" varchar(255) COLLATE "pg_catalog"."default" NOT NULL,
+  "is_active" bool DEFAULT true,
+  "is_superuser" bool DEFAULT false,
+  "last_login_at" timestamptz(6),
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+
+-- ----------------------------
+-- Records of users
+-- ----------------------------
+INSERT INTO "public"."users" VALUES ('886bb63d-44d6-491b-bfcf-b5d5c14124e2', 'admin', 'admin@example.com', '$2a$10$SHxaHwGyix3SOLWoocthTOotxFe7LUUgY8zRXSqRFPVL7JJCCs6Hy', 'f', 'f', '2025-11-19 13:12:25.701+00', '2025-11-18 10:27:01.583504+00', '2025-11-18 10:27:01.583504+00');
+
+-- ----------------------------
+-- Indexes structure for table admin_actions
+-- ----------------------------
+CREATE INDEX "idx_admin_actions_action_type" ON "public"."admin_actions" USING btree (
+  "action_type" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_admin_actions_admin_id" ON "public"."admin_actions" USING btree (
+  "admin_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_admin_actions_created_at" ON "public"."admin_actions" USING btree (
+  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
 );
 
--- Insert keywords for the sample experiences
-INSERT INTO experience_keywords (experience_id, keyword)
-SELECT id, unnest(ARRAY['nextjs', 'cors', 'api', 'headers', 'middleware'])
-FROM experience_records WHERE title = 'Next.js API Route CORS Issue';
+-- ----------------------------
+-- Primary Key structure for table admin_actions
+-- ----------------------------
+ALTER TABLE "public"."admin_actions" ADD CONSTRAINT "admin_actions_pkey" PRIMARY KEY ("id");
 
-INSERT INTO experience_keywords (experience_id, keyword)
-SELECT id, unnest(ARRAY['typescript', 'type-narrowing', 'type-guards', 'type-predicates'])
-FROM experience_records WHERE title = 'TypeScript Type Narrowing Issue';
+-- ----------------------------
+-- Indexes structure for table api_key_usage_logs
+-- ----------------------------
+CREATE INDEX "idx_api_key_usage_logs_api_key_id" ON "public"."api_key_usage_logs" USING btree (
+  "api_key_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_api_key_usage_logs_created_at" ON "public"."api_key_usage_logs" USING btree (
+  "created_at" "pg_catalog"."timestamptz_ops" ASC NULLS LAST
+);
 
--- Initialize view_count for existing records
-UPDATE experience_records 
-SET view_count = query_count 
-WHERE view_count = 0 OR view_count IS NULL;
+-- ----------------------------
+-- Primary Key structure for table api_key_usage_logs
+-- ----------------------------
+ALTER TABLE "public"."api_key_usage_logs" ADD CONSTRAINT "api_key_usage_logs_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Primary Key structure for table api_key_validation_logs
+-- ----------------------------
+ALTER TABLE "public"."api_key_validation_logs" ADD CONSTRAINT "api_key_validation_logs_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table api_keys
+-- ----------------------------
+CREATE INDEX "idx_api_keys_api_key" ON "public"."api_keys" USING btree (
+  "api_key" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_api_keys_is_active" ON "public"."api_keys" USING btree (
+  "is_active" "pg_catalog"."bool_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_api_keys_user_id" ON "public"."api_keys" USING btree (
+  "user_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+
+-- ----------------------------
+-- Uniques structure for table api_keys
+-- ----------------------------
+ALTER TABLE "public"."api_keys" ADD CONSTRAINT "api_keys_key_hash_key" UNIQUE ("api_key");
+
+-- ----------------------------
+-- Primary Key structure for table api_keys
+-- ----------------------------
+ALTER TABLE "public"."api_keys" ADD CONSTRAINT "api_keys_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table experience_keywords
+-- ----------------------------
+CREATE INDEX "idx_experience_keywords_experience_id" ON "public"."experience_keywords" USING btree (
+  "experience_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_experience_keywords_keyword" ON "public"."experience_keywords" USING btree (
+  "keyword" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+
+-- ----------------------------
+-- Uniques structure for table experience_keywords
+-- ----------------------------
+ALTER TABLE "public"."experience_keywords" ADD CONSTRAINT "unique_experience_keyword" UNIQUE ("experience_id", "keyword");
+
+-- ----------------------------
+-- Primary Key structure for table experience_keywords
+-- ----------------------------
+ALTER TABLE "public"."experience_keywords" ADD CONSTRAINT "experience_keywords_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table experience_records
+-- ----------------------------
+CREATE INDEX "idx_experience_records_created_at" ON "public"."experience_records" USING btree (
+  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
+);
+CREATE INDEX "idx_experience_records_embedding" ON "public"."experience_records" (
+  "embedding" "public"."vector_cosine_ops" ASC NULLS LAST
+) WHERE publish_status::text = 'published'::text AND is_deleted = false AND embedding IS NOT NULL;
+CREATE INDEX "idx_experience_records_fts" ON "public"."experience_records" USING gin (
+  "fts" "pg_catalog"."tsvector_ops"
+);
+CREATE INDEX "idx_experience_records_has_embedding" ON "public"."experience_records" USING btree (
+  "has_embedding" "pg_catalog"."bool_ops" ASC NULLS LAST
+) WHERE has_embedding = true;
+CREATE INDEX "idx_experience_records_is_deleted" ON "public"."experience_records" USING btree (
+  "is_deleted" "pg_catalog"."bool_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_experience_records_publish_status" ON "public"."experience_records" USING btree (
+  "publish_status" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_experience_records_published" ON "public"."experience_records" USING btree (
+  "publish_status" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
+  "is_deleted" "pg_catalog"."bool_ops" ASC NULLS LAST
+) WHERE publish_status::text = 'published'::text AND is_deleted = false;
+CREATE INDEX "idx_experience_records_query_count" ON "public"."experience_records" USING btree (
+  "query_count" "pg_catalog"."int4_ops" DESC NULLS FIRST
+);
+CREATE INDEX "idx_experience_records_relevance_score" ON "public"."experience_records" USING btree (
+  "relevance_score" "pg_catalog"."float8_ops" DESC NULLS FIRST
+);
+CREATE INDEX "idx_experience_records_review_status" ON "public"."experience_records" USING btree (
+  "review_status" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_experience_records_reviewed_at" ON "public"."experience_records" USING btree (
+  "reviewed_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
+);
+CREATE INDEX "idx_experience_records_reviewed_by" ON "public"."experience_records" USING btree (
+  "reviewed_by" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_experience_records_search" ON "public"."experience_records" USING gin (
+  to_tsvector('english'::regconfig, (((((((COALESCE(title, ''::character varying)::text || ' '::text) || COALESCE(problem_description, ''::text)) || ' '::text) || COALESCE(root_cause, ''::text)) || ' '::text) || COALESCE(solution, ''::text)) || ' '::text) || COALESCE(context, ''::text)) "pg_catalog"."tsvector_ops"
+);
+CREATE INDEX "idx_experience_records_user_id" ON "public"."experience_records" USING btree (
+  "user_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+
+-- ----------------------------
+-- Checks structure for table experience_records
+-- ----------------------------
+ALTER TABLE "public"."experience_records" ADD CONSTRAINT "check_publish_status" CHECK (publish_status::text = ANY (ARRAY['published'::character varying, 'draft'::character varying, 'publishing'::character varying, 'rejected'::character varying]::text[]));
+
+-- ----------------------------
+-- Primary Key structure for table experience_records
+-- ----------------------------
+ALTER TABLE "public"."experience_records" ADD CONSTRAINT "experience_records_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Uniques structure for table permissions
+-- ----------------------------
+ALTER TABLE "public"."permissions" ADD CONSTRAINT "permissions_name_key" UNIQUE ("name");
+ALTER TABLE "public"."permissions" ADD CONSTRAINT "unique_permission" UNIQUE ("resource", "action");
+
+-- ----------------------------
+-- Primary Key structure for table permissions
+-- ----------------------------
+ALTER TABLE "public"."permissions" ADD CONSTRAINT "permissions_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table query_logs
+-- ----------------------------
+CREATE INDEX "idx_query_logs_created_at" ON "public"."query_logs" USING btree (
+  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
+);
+CREATE INDEX "idx_query_logs_query_source" ON "public"."query_logs" USING btree (
+  "query_source" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+
+-- ----------------------------
+-- Primary Key structure for table query_logs
+-- ----------------------------
+ALTER TABLE "public"."query_logs" ADD CONSTRAINT "query_logs_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table role_permissions
+-- ----------------------------
+CREATE INDEX "idx_role_permissions_permission_id" ON "public"."role_permissions" USING btree (
+  "permission_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_role_permissions_role_id" ON "public"."role_permissions" USING btree (
+  "role_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+
+-- ----------------------------
+-- Uniques structure for table role_permissions
+-- ----------------------------
+ALTER TABLE "public"."role_permissions" ADD CONSTRAINT "unique_role_permission" UNIQUE ("role_id", "permission_id");
+
+-- ----------------------------
+-- Primary Key structure for table role_permissions
+-- ----------------------------
+ALTER TABLE "public"."role_permissions" ADD CONSTRAINT "role_permissions_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Uniques structure for table roles
+-- ----------------------------
+ALTER TABLE "public"."roles" ADD CONSTRAINT "roles_name_key" UNIQUE ("name");
+
+-- ----------------------------
+-- Primary Key structure for table roles
+-- ----------------------------
+ALTER TABLE "public"."roles" ADD CONSTRAINT "roles_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+
+-- ----------------------------
+
+-- ----------------------------
+-- Indexes structure for table system_settings
+-- ----------------------------
+CREATE INDEX "idx_system_settings_key" ON "public"."system_settings" USING btree (
+  "setting_key" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+
+-- ----------------------------
+-- Uniques structure for table system_settings
+-- ----------------------------
+ALTER TABLE "public"."system_settings" ADD CONSTRAINT "system_settings_setting_key_key" UNIQUE ("setting_key");
+
+-- ----------------------------
+-- Primary Key structure for table system_settings
+-- ----------------------------
+ALTER TABLE "public"."system_settings" ADD CONSTRAINT "system_settings_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table user_roles
+-- ----------------------------
+CREATE INDEX "idx_user_roles_role_id" ON "public"."user_roles" USING btree (
+  "role_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_user_roles_user_id" ON "public"."user_roles" USING btree (
+  "user_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+
+-- ----------------------------
+-- Uniques structure for table user_roles
+-- ----------------------------
+ALTER TABLE "public"."user_roles" ADD CONSTRAINT "unique_user_role" UNIQUE ("user_id", "role_id");
+
+-- ----------------------------
+-- Primary Key structure for table user_roles
+-- ----------------------------
+ALTER TABLE "public"."user_roles" ADD CONSTRAINT "user_roles_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table user_sessions
+-- ----------------------------
+CREATE INDEX "idx_user_sessions_expires_at" ON "public"."user_sessions" USING btree (
+  "expires_at" "pg_catalog"."timestamptz_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_user_sessions_token" ON "public"."user_sessions" USING btree (
+  "session_token" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_user_sessions_user_id" ON "public"."user_sessions" USING btree (
+  "user_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+);
+
+-- ----------------------------
+-- Uniques structure for table user_sessions
+-- ----------------------------
+ALTER TABLE "public"."user_sessions" ADD CONSTRAINT "user_sessions_session_token_key" UNIQUE ("session_token");
+
+-- ----------------------------
+-- Primary Key structure for table user_sessions
+-- ----------------------------
+ALTER TABLE "public"."user_sessions" ADD CONSTRAINT "user_sessions_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table users
+-- ----------------------------
+CREATE INDEX "idx_users_created_at" ON "public"."users" USING btree (
+  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
+);
+CREATE INDEX "idx_users_email" ON "public"."users" USING btree (
+  "email" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_users_is_active" ON "public"."users" USING btree (
+  "is_active" "pg_catalog"."bool_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_users_username" ON "public"."users" USING btree (
+  "username" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
+
+-- ----------------------------
+-- Uniques structure for table users
+-- ----------------------------
+ALTER TABLE "public"."users" ADD CONSTRAINT "users_username_key" UNIQUE ("username");
+ALTER TABLE "public"."users" ADD CONSTRAINT "users_email_key" UNIQUE ("email");
+
+-- ----------------------------
+-- Primary Key structure for table users
+-- ----------------------------
+ALTER TABLE "public"."users" ADD CONSTRAINT "users_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Foreign Keys structure for table admin_actions
+-- ----------------------------
+ALTER TABLE "public"."admin_actions" ADD CONSTRAINT "admin_actions_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "public"."users" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+
+-- ----------------------------
+-- Foreign Keys structure for table api_key_validation_logs
+-- ----------------------------
+ALTER TABLE "public"."api_key_validation_logs" ADD CONSTRAINT "api_key_validation_logs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+
+-- ----------------------------
+-- Foreign Keys structure for table api_keys
+-- ----------------------------
+ALTER TABLE "public"."api_keys" ADD CONSTRAINT "api_keys_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- ----------------------------
+-- Foreign Keys structure for table experience_keywords
+-- ----------------------------
+ALTER TABLE "public"."experience_keywords" ADD CONSTRAINT "experience_keywords_experience_id_fkey" FOREIGN KEY ("experience_id") REFERENCES "public"."experience_records" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- ----------------------------
+-- Foreign Keys structure for table experience_records
+-- ----------------------------
+ALTER TABLE "public"."experience_records" ADD CONSTRAINT "experience_records_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "public"."users" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+ALTER TABLE "public"."experience_records" ADD CONSTRAINT "experience_records_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+
+-- ----------------------------
+-- Foreign Keys structure for table role_permissions
+-- ----------------------------
+ALTER TABLE "public"."role_permissions" ADD CONSTRAINT "role_permissions_permission_id_fkey" FOREIGN KEY ("permission_id") REFERENCES "public"."permissions" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "public"."role_permissions" ADD CONSTRAINT "role_permissions_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "public"."roles" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- ----------------------------
+
+-- ----------------------------
+-- Foreign Keys structure for table user_roles
+-- ----------------------------
+ALTER TABLE "public"."user_roles" ADD CONSTRAINT "user_roles_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "public"."roles" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "public"."user_roles" ADD CONSTRAINT "user_roles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- ----------------------------
+-- Foreign Keys structure for table user_sessions
+-- ----------------------------
+ALTER TABLE "public"."user_sessions" ADD CONSTRAINT "user_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;

@@ -4,9 +4,11 @@ import { getCurrentUser, hasRole } from '@/lib/services/authService';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     // Get session token from Authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -76,7 +78,7 @@ export async function PUT(
     updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
 
     // Add experience ID to values
-    updateValues.push(params.id);
+    updateValues.push(id);
 
     const result = await db.query(
       `UPDATE experience_records 
@@ -107,9 +109,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     // Get session token from Authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -144,7 +148,7 @@ export async function DELETE(
        SET is_deleted = true, deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
        WHERE id = $1
        RETURNING id`,
-      [params.id]
+      [id]
     );
 
     if (result.rows.length === 0) {

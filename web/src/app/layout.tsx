@@ -24,6 +24,26 @@ export default function RootLayout({
       <body className={inter.className}>
         {children}
         <ToastContainer />
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            if (typeof window !== 'undefined') {
+              window.addEventListener('error', function(e) {
+                if (e.message && e.message.includes('content_script')) {
+                  console.warn('🔧 浏览器扩展错误已忽略，建议禁用扩展');
+                  e.preventDefault();
+                  return false;
+                }
+              });
+              window.addEventListener('unhandledrejection', function(e) {
+                if (e.reason && e.reason.message && e.reason.message.includes('content_script')) {
+                  console.warn('🔧 浏览器扩展 Promise 错误已忽略');
+                  e.preventDefault();
+                  return false;
+                }
+              });
+            }
+          `
+        }} />
       </body>
     </html>
   )

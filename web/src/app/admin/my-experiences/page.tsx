@@ -14,11 +14,12 @@ interface Experience {
   root_cause?: string;
   solution: string;
   context?: string;
-  publish_status: 'published' | 'draft' | 'rejected' | 'publishing';
+  publish_status: 'published' | 'draft';
   is_deleted: boolean;
   query_count: number;
   view_count: number;
   relevance_score?: number;
+  has_embedding: boolean;
   created_at: string;
   updated_at: string;
   deleted_at?: string;
@@ -34,7 +35,7 @@ interface PaginationInfo {
   hasPrev: boolean;
 }
 
-type StatusFilter = 'all' | 'published' | 'draft' | 'deleted' | 'rejected' | 'publishing';
+type StatusFilter = 'all' | 'published' | 'draft' | 'deleted';
 
 export default function MyExperiencesPage() {
   const router = useRouter();
@@ -93,14 +94,8 @@ export default function MyExperiencesPage() {
   };
 
   const handleAction = async (experienceId: string, action: 'publish' | 'unpublish' | 'delete' | 'restore') => {
-    // 获取当前经验状态以提供更准确的确认信息
-    const currentExperience = experiences.find(exp => exp.id === experienceId);
-    const isRejected = currentExperience?.publish_status === 'rejected';
-    
     const confirmMessage = {
-      'publish': isRejected 
-        ? '确定要重新提交这个经验吗？修改后将重新进入审核流程。'
-        : '确定要发布这个经验吗？发布后将可以在搜索中被找到。',
+      'publish': '确定要发布这个经验吗？发布后将可以在搜索中被找到。',
       'unpublish': '确定要取消发布这个经验吗？取消发布后将不再在搜索中显示。',
       'delete': '确定要删除这个经验吗？删除后可以恢复。',
       'restore': '确定要恢复这个经验吗？恢复后将变为草稿状态。'
@@ -138,18 +133,51 @@ export default function MyExperiencesPage() {
     }
   };
 
+  const handleEmbeddingAction = async (experienceId: string, action: 'generate' | 'clear') => {
+    const confirmMessage = {
+      'generate': '确定要为这个经验生成向量化数据吗？这可能需要一些时间并产生API费用。',
+      'clear': '确定要清除这个经验的向量化数据吗？清除后将影响基于语义的搜索效果。'
+    };
+
+    if (!confirm(confirmMessage[action])) {
+      return;
+    }
+
+    try {
+      const sessionToken = getSessionToken();
+      if (!sessionToken) {
+        router.push('/admin/login');
+        return;
+      }
+
+      const response = await fetch(`/api/admin/my-experiences/${experienceId}/embedding`, {
+        method: action === 'generate' ? 'POST' : 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '向量化操作失败');
+      }
+
+      const result = await response.json();
+      alert(result.message || (action === 'generate' ? '向量化成功' : '向量化数据已清除'));
+      
+      // 刷新列表
+      fetchExperiences(currentPage, statusFilter);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '向量化操作失败');
+    }
+  };
+
   const getStatusBadge = (experience: Experience) => {
     if (experience.is_deleted) {
       return <span className="admin-badge admin-badge-danger">已删除</span>;
     }
     if (experience.publish_status === 'published') {
       return <span className="admin-badge admin-badge-success">已发布</span>;
-    }
-    if (experience.publish_status === 'rejected') {
-      return <span className="admin-badge admin-badge-danger">已驳回</span>;
-    }
-    if (experience.publish_status === 'publishing') {
-      return <span className="admin-badge admin-badge-info">审核中</span>;
     }
     return <span className="admin-badge admin-badge-warning">草稿</span>;
   };
@@ -158,8 +186,6 @@ export default function MyExperiencesPage() {
     switch (statusFilter) {
       case 'published': return '已发布';
       case 'draft': return '草稿';
-      case 'publishing': return '审核中';
-      case 'rejected': return '已驳回';
       case 'deleted': return '已删除';
       default: return '全部';
     }
@@ -198,7 +224,7 @@ export default function MyExperiencesPage() {
       <div className="admin-card">
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600, color: '#374151' }}>筛选状态：</span>
-          {(['all', 'published', 'draft', 'publishing', 'rejected', 'deleted'] as StatusFilter[]).map((status) => (
+          {(['all', 'published', 'draft', 'deleted'] as StatusFilter[]).map((status) => (
             <button
               key={status}
               onClick={() => handleStatusChange(status)}
@@ -206,9 +232,7 @@ export default function MyExperiencesPage() {
             >
               {status === 'all' ? '全部' : 
                status === 'published' ? '已发布' : 
-               status === 'draft' ? '草稿' : 
-               status === 'publishing' ? '审核中' : 
-               status === 'rejected' ? '已驳回' : '已删除'}
+               status === 'draft' ? '草稿' : '已删除'}
             </button>
           ))}
         </div>
@@ -259,6 +283,7 @@ export default function MyExperiencesPage() {
                   <th>状态</th>
                   <th>关键词</th>
                   <th>浏览/查询</th>
+                  <th>向量化</th>
                   <th>创建时间</th>
                   <th>操作</th>
                 </tr>
@@ -327,6 +352,31 @@ export default function MyExperiencesPage() {
                       </div>
                     </td>
                     <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {experience.has_embedding ? (
+                          <span style={{
+                            padding: '0.125rem 0.375rem',
+                            fontSize: '0.75rem',
+                            background: '#dcfce7',
+                            color: '#166534',
+                            borderRadius: '0.25rem'
+                          }}>
+                            ✓ 已向量化
+                          </span>
+                        ) : (
+                          <span style={{
+                            padding: '0.125rem 0.375rem',
+                            fontSize: '0.75rem',
+                            background: '#fee2e2',
+                            color: '#991b1b',
+                            borderRadius: '0.25rem'
+                          }}>
+                            ✗ 未向量化
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
                       <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
                         <div>{new Date(experience.created_at).toLocaleDateString()}</div>
                         <div>{new Date(experience.created_at).toLocaleTimeString()}</div>
@@ -347,23 +397,62 @@ export default function MyExperiencesPage() {
                         >
                           查看
                         </Link>
+
+                        {/* 向量化操作按钮 */}
+                        {!experience.is_deleted && (
+                          <>
+                            {!experience.has_embedding ? (
+                              <button
+                                onClick={() => handleEmbeddingAction(experience.id, 'generate')}
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  fontSize: '0.75rem',
+                                  background: '#e0e7ff',
+                                  color: '#3730a3',
+                                  border: 'none',
+                                  borderRadius: '0.25rem',
+                                  cursor: 'pointer'
+                                }}
+                                title="生成向量化数据，提升语义搜索效果"
+                              >
+                                向量化
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleEmbeddingAction(experience.id, 'clear')}
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  fontSize: '0.75rem',
+                                  background: '#fee2e2',
+                                  color: '#991b1b',
+                                  border: 'none',
+                                  borderRadius: '0.25rem',
+                                  cursor: 'pointer'
+                                }}
+                                title="清除向量化数据"
+                              >
+                                清除向量
+                              </button>
+                            )}
+                          </>
+                        )}
                         
                         {!experience.is_deleted && (
                           <>
-                            {(experience.publish_status === 'draft' || experience.publish_status === 'rejected') ? (
+                            {experience.publish_status === 'draft' ? (
                               <button
                                 onClick={() => handleAction(experience.id, 'publish')}
                                 style={{
                                   padding: '0.25rem 0.5rem',
                                   fontSize: '0.75rem',
-                                  background: experience.publish_status === 'rejected' ? '#fbbf24' : '#dcfce7',
-                                  color: experience.publish_status === 'rejected' ? '#78350f' : '#166534',
+                                  background: '#dcfce7',
+                                  color: '#166534',
                                   border: 'none',
                                   borderRadius: '0.25rem',
                                   cursor: 'pointer'
                                 }}
                               >
-                                {experience.publish_status === 'rejected' ? '重新提交' : '发布'}
+                                发布
                               </button>
                             ) : experience.publish_status === 'published' ? (
                               <button
@@ -382,7 +471,7 @@ export default function MyExperiencesPage() {
                               </button>
                             ) : null}
                             
-                            {(experience.publish_status === 'draft' || experience.publish_status === 'rejected') && (
+                            {experience.publish_status === 'draft' && (
                               <button
                                 onClick={() => handleAction(experience.id, 'delete')}
                                 style={{

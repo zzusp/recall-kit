@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const result = await db.query(`
       SELECT u.id, u.username, u.email, u.is_active, u.is_superuser, 
@@ -48,9 +48,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
-    const { username, email, is_active, is_superuser, roles } = body;
+    const { username, email, is_active, is_superuser, roleIds, roles } = body;
 
     // Check if user exists
     const existingUserResult = await db.query(
@@ -95,17 +95,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const user = userResult.rows[0];
 
-    // Update roles if provided
-    if (roles && Array.isArray(roles)) {
+    // Update roles if provided (support both roleIds and roles for compatibility)
+    const roleIdsToUse = roleIds || roles;
+    if (roleIdsToUse && Array.isArray(roleIdsToUse)) {
       // Delete existing roles
       await db.query(
         'DELETE FROM user_roles WHERE user_id = $1',
         [id]
       );
 
-      // Insert new roles
-      if (roles.length > 0) {
-        const roleValues = roles.map((roleId: string) => 
+        // Insert new roles
+      if (roleIdsToUse.length > 0) {
+        const roleValues = roleIdsToUse.map((roleId: string) => 
           `('${id}', '${roleId}')`
         ).join(',');
         
@@ -146,7 +147,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Check if user exists
     const existingUserResult = await db.query(

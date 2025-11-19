@@ -12,11 +12,24 @@ import { loadMCPServerConfig, MCPServerConfig } from './config';
 import { SystemConfigService } from '../services/systemConfigService';
 import { EmbeddingService } from '../services/embeddingService';
 import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol';
-import { console } from 'inspector';
+import { logger, LogContext } from '../services/loggerService.js';
+
+// 扩展 SSEServerTransport 类型以包含自定义属性
+interface ExtendedSSEServerTransport extends SSEServerTransport {
+  requestInfo?: {
+    apiKey?: string;
+    headers: any;
+    query: any;
+    ip?: string;
+    userAgent?: string;
+    url: string;
+    method: string;
+  };
+}
 
 // Map to store transports by session ID for different transport types
 const streamableTransports: Map<string, StreamableHTTPServerTransport> = new Map();
-const sseTransports: Map<string, SSEServerTransport> = new Map();
+const sseTransports: Map<string, ExtendedSSEServerTransport> = new Map();
 
 // Function to create a new MCP server instance
 function createMCPServer(
@@ -52,9 +65,29 @@ function createMCPServer(
       offset: z.number().min(0).optional().default(0).describe('Offset for pagination'),
       sort: z.enum(['relevance', 'query_count', 'created_at']).optional().default('relevance').describe('Sort order'),
     },
-  }, async (args) => {
+  }, async (args, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
+    // 获取存储的请求信息
+    const sessionId = (extra as any)._meta?.sessionId;
+    const requestInfo = sessionId ? sseTransports.get(sessionId)?.requestInfo : null;
+    
+    const context: LogContext = {
+      toolName: 'query_experiences',
+      sessionId: sessionId,
+      requestId: (extra as any)._meta?.requestId,
+      // 添加请求参数信息
+      apiKey: requestInfo?.apiKey,
+      userAgent: requestInfo?.userAgent,
+      query: requestInfo?.query,
+      ip: requestInfo?.ip,
+      headers: requestInfo?.headers
+    };
+
+    logger.logToolCallStart('query_experiences', args, context);
+    
     try {
       const result = await queryHandler(args);
+      logger.logToolCallSuccess('query_experiences', result, context);
+      
       return {
         content: [
           {
@@ -64,7 +97,8 @@ function createMCPServer(
         ],
       };
     } catch (error) {
-      console.error('query_experiences tool error:', error);
+      logger.logToolCallError('query_experiences', error as Error, context);
+      
       // Return standardized error response for tool failures
       return {
         content: [
@@ -99,19 +133,35 @@ function createMCPServer(
         .describe('Keywords describing experience (at least 3). If a programming language or tech stack can be identified, it must be included.'),
     },
   }, async (args, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
-    try {
-      console.log('submit_experience tool called with extra:', extra);
-      console.log('[Tool Debug] extra._meta:', (extra as any)._meta);
-      console.log('[Tool Debug] extra._transport:', (extra as any)._transport);
-      console.log('[Tool Debug] extra keys:', Object.keys(extra));
-      
-      // Try to access transport information if available
-      if ((extra as any)._transport) {
-        console.log('[Tool Debug] transport type:', typeof (extra as any)._transport);
-        console.log('[Tool Debug] transport constructor:', (extra as any)._transport.constructor.name);
-      }
+    // 获取存储的请求信息
+    const sessionId = extra?.sessionId;
+    const requestInfo = sessionId ? sseTransports.get(sessionId)?.requestInfo : null;
+    
+    const context: LogContext = {
+      toolName: 'submit_experience',
+      sessionId: sessionId,
+      // 添加请求参数信息
+      apiKey: requestInfo?.apiKey,
+      userAgent: requestInfo?.userAgent,
+      query: requestInfo?.query,
+      ip: requestInfo?.ip,
+      headers: requestInfo?.headers
+    };
 
-      const result = await submitHandler(args);
+    logger.logToolCallStart('submit_experience', args, context);
+    
+    try {
+      // 创建提交上下文，包含API密钥
+      const submitContext = {
+        sessionId: sessionId,
+        ipAddress: requestInfo?.ip,
+        userAgent: requestInfo?.userAgent,
+        apiKey: requestInfo?.apiKey
+      };
+      
+      const result = await submitHandler(args, submitContext);
+      logger.logToolCallSuccess('submit_experience', result, context);
+      
       return {
         content: [
           {
@@ -121,7 +171,8 @@ function createMCPServer(
         ],
       };
     } catch (error) {
-      console.error('submit_experience tool error:', error);
+      logger.logToolCallError('submit_experience', error as Error, context);
+      
       // Return standardized error response for tool failures
       return {
         content: [
@@ -268,9 +319,24 @@ function createMCPServer(
 }
 
 export async function initMCP(app: express.Application) {
-  // Add a global middleware to log all requests
+  // Add a global middleware to log all requests with response time
   app.use((req, res, next) => {
-    console.log(`[GLOBAL] ${req.method} ${req.url} - Query: ${JSON.stringify(req.query)}`);
+    const startTime = Date.now();
+    const context: LogContext = {
+      method: req.method,
+      url: req.url,
+      requestId: req.headers['x-request-id'] as string || randomUUID().substring(0, 8)
+    };
+
+    // 记录请求开始
+    logger.logApiRequest(req.method!, req.url!, req.headers, context);
+
+    // 监听响应完成
+    res.on('finish', () => {
+      const responseTime = Date.now() - startTime;
+      logger.logApiResponse(req.method!, req.url!, res.statusCode, responseTime, context);
+    });
+
     next();
   });
 
@@ -321,13 +387,15 @@ export async function initMCP(app: express.Application) {
           onsessioninitialized: (sid) => {
             // Store transport by session ID when session is initialized
             // This avoids race conditions where requests might come in before the session is stored
-            console.log(`Session initialized with ID: ${sid}`);
+            const context: LogContext = { sessionId: sid, transportType: 'streamable' };
+            logger.logSessionInitialized(sid, 'streamable', context);
             if (transport) {
               streamableTransports.set(sid, transport);
             }
           },
           onsessionclosed: (sid) => {
-            console.log(`Session closed: ${sid}`);
+            const context: LogContext = { sessionId: sid, transportType: 'streamable' };
+            logger.logConnectionClose(context);
             streamableTransports.delete(sid);
           },
         });
@@ -336,7 +404,8 @@ export async function initMCP(app: express.Application) {
         transport.onclose = () => {
           const sid = transport?.sessionId;
           if (sid && streamableTransports.has(sid)) {
-            console.log(`Transport closed for session ${sid}, removing from transports map`);
+            const context: LogContext = { sessionId: sid, transportType: 'streamable' };
+            logger.logConnectionClose(context);
             streamableTransports.delete(sid);
           }
         };
@@ -472,16 +541,37 @@ export async function initMCP(app: express.Application) {
 
   // Legacy SSE endpoint for older clients
   app.get('/sse', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    let context: LogContext;
+    
     try {
-      // Add basic log to verify this endpoint is being called
-      console.log('=== SSE ENDPOINT CALLED ===');
-      
       // Extract api_key from query parameters
       const apiKey = req.query.api_key as string | undefined;
       
-      // Add log to verify api_key extraction
-      console.log(`[SSE Connection] API Key extracted: ${apiKey ? apiKey.substring(0, 8) + '...' : 'undefined'}`);
-      console.log(`[SSE Connection] Full query params:`, req.query);
+      // 存储完整的请求信息，供工具调用时使用
+      const requestInfo = {
+        apiKey: req.query.api_key,
+        headers: req.headers,
+        query: req.query,
+        ip: req.ip || req.socket.remoteAddress,
+        userAgent: req.headers['user-agent'],
+        url: req.url,
+        method: req.method
+      };
+      
+      context = {
+        url: req.url,
+        method: req.method,
+        transportType: 'sse',
+        apiKeyId: apiKey ? apiKey.substring(0, 8) + '...' : undefined
+      };
+      
+      logger.info('SSE connection requested', {
+        ...context,
+        hasApiKey: !!apiKey,
+        userAgent: req.headers['user-agent'],
+        ip: req.ip || req.socket.remoteAddress
+      });
       
       // Create server config with api_key if provided
       const sseServerConfig = loadMCPServerConfig(apiKey);
@@ -490,21 +580,48 @@ export async function initMCP(app: express.Application) {
       const transport = new SSEServerTransport('/messages', res);
       sseTransports.set(transport.sessionId, transport);
 
-      console.log(`[SSE] Transport created with session ID: ${transport.sessionId}`);
+      // 将请求信息附加到 transport 上，供后续工具调用使用
+      (transport as any).requestInfo = requestInfo;
+
+      // 更新上下文包含会话ID
+      context.sessionId = transport.sessionId;
+      
+      logger.logSessionInitialized(transport.sessionId, 'sse', context);
 
       // Set up cleanup when connection closes
       res.on('close', () => {
         sseTransports.delete(transport.sessionId);
-        console.log(`SSE transport closed for session ${transport.sessionId}`);
+        logger.logConnectionClose({ ...context, sessionId: transport.sessionId });
       });
 
       // Create and connect server instance with config containing api_key
       const server = createMCPServer(queryHandler, submitHandler, sseServerConfig);
       await server.connect(transport);
 
-      console.log(`SSE session established: ${transport.sessionId}${apiKey ? ' with api_key' : ''}`);
+      const connectionTime = Date.now() - startTime;
+      logger.logConnectionSuccess({ 
+        ...context, 
+        connectionTime,
+        hasApiKey: !!apiKey 
+      });
+      
     } catch (error) {
-      console.error('Error setting up SSE transport:', error);
+      const connectionTime = Date.now() - startTime;
+      const errorContext: LogContext = {
+        url: req.url,
+        method: req.method,
+        transportType: 'sse'
+      };
+      
+      logger.error('Error setting up SSE transport', {
+        ...errorContext,
+        connectionTime,
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        }
+      });
+      
       if (!res.headersSent) {
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('X-Error-Type', 'server_error');

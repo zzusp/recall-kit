@@ -4,9 +4,12 @@ import { getCurrentUser, hasRole } from '@/lib/services/authService';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Await params as required by Next.js
+    const { id } = await params;
+    
     // Get session token from Authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -35,7 +38,6 @@ export async function PUT(
       );
     }
 
-    const { id } = params;
     const body = await request.json();
     const { reviewStatus, reviewNote } = body;
 
@@ -46,14 +48,12 @@ export async function PUT(
       );
     }
 
-    // Start transaction
-    const client = await db.getClient();
-    
+    // Start transaction using db.query directly
     try {
-      await client.query('BEGIN');
+      await db.query('BEGIN');
 
       // Update experience review status
-      const updateResult = await client.query(`
+      const updateResult = await db.query(`
         UPDATE experience_records 
         SET 
           review_status = $1,
@@ -71,7 +71,7 @@ export async function PUT(
       `, [reviewStatus, user.id, reviewNote || null, id]);
 
       if (updateResult.rows.length === 0) {
-        await client.query('ROLLBACK');
+        await db.query('ROLLBACK');
         return NextResponse.json(
           { error: 'Experience not found or already reviewed' },
           { status: 404 }
@@ -79,7 +79,7 @@ export async function PUT(
       }
 
       // Log admin action
-      await client.query(`
+      await db.query(`
         INSERT INTO admin_actions (admin_id, action_type, target_type, target_id, action_details)
         VALUES ($1, $2, $3, $4, $5)
       `, [
@@ -94,7 +94,7 @@ export async function PUT(
         }
       ]);
 
-      await client.query('COMMIT');
+      await db.query('COMMIT');
 
       return NextResponse.json({
         success: true,
@@ -102,10 +102,8 @@ export async function PUT(
         experience: updateResult.rows[0]
       });
     } catch (error) {
-      await client.query('ROLLBACK');
+      await db.query('ROLLBACK');
       throw error;
-    } finally {
-      client.release();
     }
   } catch (error) {
     console.error('Error reviewing experience:', error);
@@ -118,9 +116,12 @@ export async function PUT(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Await params as required by Next.js
+    const { id } = await params;
+    
     // Get session token from Authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -148,8 +149,6 @@ export async function GET(
         { status: 403 }
       );
     }
-
-    const { id } = params;
 
     // Get experience with full details
     const experienceResult = await db.query(`

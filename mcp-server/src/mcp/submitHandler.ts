@@ -17,6 +17,7 @@ export interface SubmitContext {
   sessionId?: string;
   ipAddress?: string;
   userAgent?: string;
+  apiKey?: string;
 }
 
 export interface SubmitHandlerOptions {
@@ -25,6 +26,7 @@ export interface SubmitHandlerOptions {
 
 import { sql } from '../lib/db/config';
 import { randomUUID } from 'crypto';
+import { validateApiKey, ApiKeyValidationResult } from '../services/apiKeyService';
 
 export async function initSubmitHandler(
   options?: SubmitHandlerOptions,
@@ -45,6 +47,27 @@ export async function initSubmitHandler(
       } = params;
 
       console.log('Processing experience submission');
+
+      // 验证API密钥
+      let userId: string | null = null;
+      if (context?.apiKey) {
+        const validation: ApiKeyValidationResult = await validateApiKey(context.apiKey);
+        if (!validation.isValid) {
+          return {
+            experience_id: '',
+            status: 'failed',
+            error: validation.error || 'Invalid API key'
+          };
+        }
+        userId = validation.apiKeyInfo!.user_id;
+        console.log('API key validated successfully for user:', userId);
+      } else {
+        return {
+          experience_id: '',
+          status: 'failed',
+          error: 'API key is required for experience submission'
+        };
+      }
 
       // 验证必填字段
       if (!title || !problem_description || !solution) {
@@ -73,88 +96,73 @@ export async function initSubmitHandler(
       const experienceId = randomUUID();
 
       try {
-        // Start transaction
-        await sql`BEGIN`;
+        // Use sql.begin for proper transaction handling
+        await sql.begin(async (sql) => {
+          // 插入经验记录
+          const insertQuery = `
+            INSERT INTO experience_records (
+              id, user_id, title, problem_description, root_cause, solution, 
+              context, publish_status, is_deleted, query_count, relevance_score, created_at
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, 'published', false, 0, 0, NOW()
+            )
+            RETURNING id
+          `;
+          
+          await sql.unsafe(insertQuery, [
+            experienceId,
+            userId,
+            title,
+            problem_description,
+            root_cause || null,
+            solution,
+            experienceContext || null
+          ]);
 
-        // 插入经验记录
-        const insertQuery = `
-          INSERT INTO experience_records (
-            id, title, problem_description, root_cause, solution, 
-            context, status, query_count, relevance_score, created_at
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, 'pending', 0, 0, NOW()
-          )
-          RETURNING id
-        `;
-        
-        await sql.unsafe(insertQuery, [
-          experienceId,
-          title,
-          problem_description,
-          root_cause || null,
-          solution,
-          experienceContext || null
-        ]);
-
-        // 插入关键词
-        if (keywords.length > 0) {
-          const keywordInserts = keywords.map(keyword => 
-            sql`INSERT INTO experience_keywords (experience_id, keyword) VALUES (${experienceId}, ${keyword})`
-          );
-          await sql.begin(async (sql) => {
-            for (const insert of keywordInserts) {
-              await insert;
+          // 插入关键词
+          if (keywords.length > 0) {
+            for (const keyword of keywords) {
+              await sql`INSERT INTO experience_keywords (experience_id, keyword) VALUES (${experienceId}, ${keyword})`;
             }
-          });
-        }
+          }
 
-        // 生成嵌入向量（如果服务可用）
-        if (options?.embeddingService) {
-          const isAvailable = await options.embeddingService.isAvailable();
-          if (isAvailable) {
-            try {
-              const embedding = await options.embeddingService.generateExperienceEmbedding({
-                title,
-                problem_description,
-                root_cause,
-                solution,
-                context: experienceContext,
-                keywords
-              });
+          // 生成嵌入向量（如果服务可用）
+          if (options?.embeddingService) {
+            const isAvailable = await options.embeddingService.isAvailable();
+            if (isAvailable) {
+              try {
+                const embedding = await options.embeddingService.generateExperienceEmbedding({
+                  title,
+                  problem_description,
+                  root_cause,
+                  solution,
+                  context: experienceContext,
+                  keywords
+                });
 
-              if (embedding && embedding.length > 0) {
-                // 更新嵌入向量
+                if (embedding && embedding.length > 0) {
+                  // 更新嵌入向量 - 使用正确的向量格式
+                  const embeddingVector = `[${embedding.join(',')}]`;
+                  await sql`UPDATE experience_records 
+                            SET embedding = ${embeddingVector}::vector, has_embedding = true
+                            WHERE id = ${experienceId}`;
+                } else {
+                  // 如果嵌入生成失败，仍然发布记录，但标记为无嵌入
+                  await sql`UPDATE experience_records 
+                            SET has_embedding = false
+                            WHERE id = ${experienceId}`;
+                }
+              } catch (embeddingError) {
+                console.warn('Failed to generate embedding for experience:', embeddingError);
+                // 即使嵌入失败，也发布记录，但标记为无嵌入
                 await sql`UPDATE experience_records 
-                          SET embedding = ${embedding}, status = 'published'
-                          WHERE id = ${experienceId}`;
-              } else {
-                // 如果嵌入生成失败，仍然发布记录
-                await sql`UPDATE experience_records 
-                          SET status = 'published'
+                          SET has_embedding = false
                           WHERE id = ${experienceId}`;
               }
-            } catch (embeddingError) {
-              console.warn('Failed to generate embedding for experience:', embeddingError);
-              // 即使嵌入失败，也发布记录
-              await sql`UPDATE experience_records 
-                        SET status = 'published'
-                        WHERE id = ${experienceId}`;
             }
-          } else {
-            // 如果嵌入服务不可用，直接发布
-            await sql`UPDATE experience_records 
-                      SET status = 'published'
-                      WHERE id = ${experienceId}`;
           }
-        } else {
-          // 如果没有嵌入服务，直接发布
-          await sql`UPDATE experience_records 
-                    SET status = 'published'
-                    WHERE id = ${experienceId}`;
-        }
 
-        // 提交事务
-        await sql`COMMIT`;
+        });
 
         console.log('Experience submitted successfully:', experienceId);
 
@@ -164,8 +172,7 @@ export async function initSubmitHandler(
         };
 
       } catch (dbError) {
-        // 回滚事务
-        await sql`ROLLBACK`;
+        
         throw dbError;
       }
 

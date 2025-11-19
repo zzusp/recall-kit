@@ -3,6 +3,8 @@
  * 处理统一API响应格式的前端适配
  */
 
+import { safeFetch, errorHandler } from './errorHandler';
+
 // 统一API响应类型
 export interface ApiResponse<T = any> {
   success: true;
@@ -42,30 +44,37 @@ export class ApiClient {
   ): Promise<T> {
     const fullUrl = this.baseUrl ? `${this.baseUrl}${url}` : url;
     
-    const response = await fetch(fullUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    });
+    try {
+      const response = await safeFetch(fullUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+        ...options,
+        retries: 2,
+        timeout: 15000,
+      });
 
-    const result: ApiResult<T> = await response.json();
+      const result: ApiResult<T> = await response.json();
 
-    if (!response.ok) {
-      // 处理HTTP错误状态
+      if (!response.ok) {
+        // 处理HTTP错误状态
+        if (result.success === false) {
+          throw new ApiError(result.error.message, result.error.code, result.error.details);
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       if (result.success === false) {
+        // 处理业务错误
         throw new ApiError(result.error.message, result.error.code, result.error.details);
       }
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
 
-    if (result.success === false) {
-      // 处理业务错误
-      throw new ApiError(result.error.message, result.error.code, result.error.details);
+      return result.data;
+    } catch (error) {
+      errorHandler.log(error as Error, 'api');
+      throw error;
     }
-
-    return result.data;
   }
 
   /**

@@ -158,18 +158,26 @@ export default function AdminDashboardPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
         <QuickActionCard
-          title="内容审核"
-          description="审核和管理用户提交的经验记录"
-          icon="fas fa-clipboard-check"
-          link="/admin/review"
-          color="#4361ee"
+          title="经验分享"
+          description="查看和分享开发经验，帮助团队成长"
+          icon="fas fa-share-alt"
+          link="/search"
+          color="#10b981"
+          openInNewTab={true}
         />
         <QuickActionCard
-          title="系统设置"
-          description="配置系统参数和AI服务集成"
-          icon="fas fa-cog"
-          link="/admin/settings"
-          color="#64748b"
+          title="个人中心"
+          description="管理个人资料和提交的经验记录"
+          icon="fas fa-user"
+          link="/admin/my-experiences"
+          color="#3b82f6"
+        />
+        <QuickActionCard
+          title="API密钥管理"
+          description="管理API密钥，控制访问权限和使用统计"
+          icon="fas fa-key"
+          link="/admin/api-keys"
+          color="#f59e0b"
         />
       </div>
     </>
@@ -215,16 +223,23 @@ function QuickActionCard({
   description,
   icon,
   link,
-  color
+  color,
+  openInNewTab = false
 }: {
   title: string;
   description: string;
   icon: string;
   link: string;
   color: string;
+  openInNewTab?: boolean;
 }) {
   return (
-    <Link href={link} style={{ textDecoration: 'none' }}>
+    <Link 
+      href={link} 
+      style={{ textDecoration: 'none' }}
+      target={openInNewTab ? "_blank" : undefined}
+      rel={openInNewTab ? "noopener noreferrer" : undefined}
+    >
       <div className="admin-card" style={{ cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
           <div style={{

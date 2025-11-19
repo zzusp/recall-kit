@@ -28,43 +28,64 @@ export default function Sidebar() {
       href: '/admin/dashboard',
       label: '仪表板',
       icon: 'fas fa-chart-line',
+      permission: { resource: 'admin', action: 'dashboard' }
     },
     {
       href: '/admin/users',
       label: '用户管理',
       icon: 'fas fa-users',
+      permission: { resource: 'users', action: 'view' }
     },
     {
       href: '/admin/roles',
       label: '角色管理',
       icon: 'fas fa-user-tag',
+      permission: { resource: 'roles', action: 'view' }
     },
     {
       href: '/admin/permissions',
       label: '权限管理',
       icon: 'fas fa-key',
+      permission: { resource: 'permissions', action: 'view' }
     },
     {
       href: '/admin/api-keys',
       label: 'API密钥管理',
       icon: 'fas fa-code',
+      permission: { resource: 'api-keys', action: 'view' }
     },
     {
       href: '/admin/review',
       label: '内容审核',
       icon: 'fas fa-clipboard-check',
+      permission: { resource: 'experiences', action: 'review' }
     },
     {
       href: '/admin/my-experiences',
       label: '个人经验',
       icon: 'fas fa-book-open',
+      // 个人经验页面不需要特殊权限，只要登录即可访问
+      permission: null
     },
     {
       href: '/admin/settings',
       label: '系统设置',
       icon: 'fas fa-cog',
+      permission: { resource: 'admin', action: 'settings' }
     },
   ];
+
+  // 过滤用户有权限的菜单项
+  const filteredNavItems = navItems.filter(item => {
+    // 如果没有权限要求，直接显示
+    if (!item.permission) return true;
+    
+    // 超级管理员可以看到所有菜单
+    if (user?.is_superuser) return true;
+    
+    // 检查用户是否有对应权限
+    return checkPermission(item.permission.resource, item.permission.action);
+  });
 
   return (
     <aside className="admin-sidebar">
@@ -76,7 +97,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="admin-sidebar-nav">
-        {navItems.map((item) => {
+        {filteredNavItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
             <Link

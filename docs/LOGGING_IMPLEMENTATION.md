@@ -48,8 +48,6 @@ CREATE TABLE IF NOT EXISTS api_key_validation_logs (
 - `user_id` - 关联用户
 - `session_id` - 会话ID
 
-### 3. submission_logs (扩展)
-添加了以下字段：
 - `api_key_id` - 关联API密钥
 - `user_id` - 关联用户
 - `session_id` - 会话ID

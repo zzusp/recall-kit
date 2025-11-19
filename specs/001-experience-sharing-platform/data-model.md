@@ -119,27 +119,6 @@ users (Supabase Auth)
 - 只有管理员可读取查询日志
 - 系统自动创建日志（通过API）
 
-### 5. submission_logs (提交日志表)
-
-记录MCP提交请求，用于统计和审计。
-
-| Column | Type | Type | Description |
-|--------|------|------|-------------|
-| id | UUID | PRIMARY KEY, DEFAULT gen_random_uuid() | 日志ID |
-| experience_id | UUID | REFERENCES experience_records(id) ON DELETE SET NULL | 经验记录ID |
-| submission_status | VARCHAR(20) | NOT NULL | 提交状态：'success' 或 'failed' |
-| error_message | TEXT | NULL | 错误信息（如果失败） |
-| validation_errors | JSONB | NULL | 验证错误详情 |
-| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 创建时间 |
-
-**Indexes**:
-- `idx_submission_logs_experience_id` ON `experience_id`
-- `idx_submission_logs_created_at` ON `created_at DESC`
-- `idx_submission_logs_status` ON `submission_status`
-
-**RLS Policies**:
-- 只有管理员可读取提交日志
-- 系统自动创建日志（通过API）
 
 ### 6. admin_actions (管理员操作日志表)
 
@@ -192,7 +171,7 @@ users (Supabase Auth)
 - **SELECT**: 所有用户可读取关键字关联关系
 - **INSERT/UPDATE/DELETE**: 系统自动管理（通过API）
 
-### query_logs, submission_logs, admin_actions
+### query_logs, admin_actions
 
 - **SELECT**: 只有管理员可读取
 - **INSERT**: 系统自动创建（通过API）

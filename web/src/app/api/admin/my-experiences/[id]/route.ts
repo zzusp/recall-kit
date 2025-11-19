@@ -197,48 +197,21 @@ export async function PATCH(
           return ApiRouteResponse.badRequest('经验已经是发布状态');
         }
         
-        // 重新提交时的状态变更逻辑
-        if (existingExperience.publish_status === 'rejected' || 
-            existingExperience.review_status === 'rejected') {
-          // 被驳回的经验重新提交，重置审核状态
-          updateQuery = `
-            UPDATE experience_records 
-            SET 
-              publish_status = 'publishing',
-              review_status = 'pending',
-              reviewed_by = NULL,
-              reviewed_at = NULL,
-              review_note = NULL,
-              updated_at = NOW()
-            WHERE id = $1 AND user_id = $2
-            RETURNING id, publish_status, is_deleted, review_status
-          `;
-          successMessage = '经验重新提交成功，进入审核队列';
-        } else if (existingExperience.review_status !== 'approved') {
-          // 未审核通过的其他状态（包括草稿状态）
-          updateQuery = `
-            UPDATE experience_records 
-            SET 
-              publish_status = 'publishing',
-              review_status = 'pending',
-              reviewed_by = NULL,
-              reviewed_at = NULL,
-              review_note = NULL,
-              updated_at = NOW()
-            WHERE id = $1 AND user_id = $2
-            RETURNING id, publish_status, is_deleted, review_status
-          `;
-          successMessage = '经验提交成功，进入审核队列';
-        } else {
-          // 已审核通过的经验直接发布
-          updateQuery = `
-            UPDATE experience_records 
-            SET publish_status = 'published', updated_at = NOW()
-            WHERE id = $1 AND user_id = $2
-            RETURNING id, publish_status, is_deleted
-          `;
-          successMessage = '经验发布成功';
-        }
+        // 直接发布，跳过审核流程
+        updateQuery = `
+          UPDATE experience_records 
+          SET 
+            publish_status = 'published',
+            review_status = 'approved',
+            reviewed_by = $3,
+            reviewed_at = NOW(),
+            review_note = NULL,
+            updated_at = NOW()
+          WHERE id = $1 AND user_id = $2
+          RETURNING id, publish_status, is_deleted, review_status
+        `;
+        updateParams = [id, currentUser.id, currentUser.id];
+        successMessage = '经验发布成功';
         break;
 
       case 'unpublish':
@@ -251,6 +224,7 @@ export async function PATCH(
           WHERE id = $1 AND user_id = $2
           RETURNING id, publish_status, is_deleted
         `;
+        updateParams = [id, currentUser.id];
         successMessage = '经验已取消发布';
         break;
 
@@ -267,6 +241,7 @@ export async function PATCH(
           WHERE id = $1 AND user_id = $2
           RETURNING id, publish_status, is_deleted
         `;
+        updateParams = [id, currentUser.id];
         successMessage = '经验删除成功';
         break;
 
@@ -280,11 +255,11 @@ export async function PATCH(
           WHERE id = $1 AND user_id = $2
           RETURNING id, publish_status, is_deleted, deleted_at
         `;
+        updateParams = [id, currentUser.id];
         successMessage = '经验恢复成功';
         break;
     }
 
-    updateParams = [id, currentUser.id];
     const updateResult = await db.query(updateQuery, updateParams);
 
     return ApiRouteResponse.success(updateResult.rows[0], successMessage);

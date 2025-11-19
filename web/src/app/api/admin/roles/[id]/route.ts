@@ -1,15 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
+import { getCurrentUser } from '@/lib/services/authService';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    
+    // Verify user and permissions - 从Authorization头或cookie中获取token
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+                 request.cookies.get('session_token')?.value;
+    const user = await getCurrentUser(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
     const result = await db.query(`
       SELECT r.*, 
@@ -47,13 +59,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
-    const { name, description, is_system_role, permissions } = body;
+    const { name, description, is_system_role, permissions, permissionIds } = body;
+    
+    // Verify user and permissions - 从Authorization头或cookie中获取token
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+                 request.cookies.get('session_token')?.value;
+    const user = await getCurrentUser(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Only superusers can modify roles
+    if (!user.is_superuser) {
+      return NextResponse.json(
+        { error: 'Only superusers can modify roles' },
+        { status: 403 }
+      );
+    }
 
     // Check if role exists
     const existingRoleResult = await db.query(
-      'SELECT id FROM roles WHERE id = $1',
+      'SELECT id, is_system_role FROM roles WHERE id = $1',
       [id]
     );
 
@@ -61,6 +92,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: 'Role not found' },
         { status: 404 }
+      );
+    }
+
+    const existingRole = existingRoleResult.rows[0];
+
+    // Only superusers can modify system roles, but they cannot change system_role flag
+    if (existingRole.is_system_role && !user.is_superuser) {
+      return NextResponse.json(
+        { error: 'Cannot modify system roles' },
+        { status: 403 }
       );
     }
 
@@ -79,22 +120,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Update role
+    // Update role (don't allow changing is_system_role flag)
     const roleResult = await db.query(
       `UPDATE roles 
        SET name = COALESCE($1, name),
            description = COALESCE($2, description),
-           is_system_role = COALESCE($3, is_system_role),
            updated_at = NOW()
-       WHERE id = $4
+       WHERE id = $3
        RETURNING *`,
-      [name, description, is_system_role, id]
+      [name, description, id]
     );
 
     const role = roleResult.rows[0];
 
-    // Update permissions if provided
-    if (permissions && Array.isArray(permissions)) {
+    // Update permissions if provided - 支持两种参数名：permissions 或 permissionIds
+    const permissionsToUpdate = permissions || permissionIds;
+    if (permissionsToUpdate && Array.isArray(permissionsToUpdate)) {
       // Delete existing permissions
       await db.query(
         'DELETE FROM role_permissions WHERE role_id = $1',
@@ -102,8 +143,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
 
       // Insert new permissions
-      if (permissions.length > 0) {
-        const permissionValues = permissions.map((permissionId: string) => 
+      if (permissionsToUpdate.length > 0) {
+        const permissionValues = permissionsToUpdate.map((permissionId: string) => 
           `('${id}', '${permissionId}')`
         ).join(',');
         
@@ -143,7 +184,26 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    
+    // Verify user and permissions - 从Authorization头或cookie中获取token
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+                 request.cookies.get('session_token')?.value;
+    const user = await getCurrentUser(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Only superusers can delete roles
+    if (!user.is_superuser) {
+      return NextResponse.json(
+        { error: 'Only superusers can delete roles' },
+        { status: 403 }
+      );
+    }
 
     // Check if role exists
     const existingRoleResult = await db.query(
@@ -158,7 +218,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Prevent deletion of system roles
+    // Prevent deletion of system roles (even for superusers to protect system integrity)
     if (existingRoleResult.rows[0].is_system_role) {
       return NextResponse.json(
         { error: 'Cannot delete system roles' },

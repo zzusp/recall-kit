@@ -4,9 +4,11 @@ import { getCurrentUser } from '@/lib/services/authService';
 // GET /api/api-keys/[id] - 获取特定API密钥信息
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!sessionToken) {
       return NextResponse.json(
@@ -23,7 +25,7 @@ export async function GET(
       );
     }
 
-    const apiKey = await getApiKeyById(user.id, params.id);
+    const apiKey = await getApiKeyById(user.id, id);
     if (!apiKey) {
       return NextResponse.json(
         { message: 'API密钥不存在' },
@@ -69,7 +71,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, description, isActive, expiresAt } = body;
+    const { name, isActive } = body;
 
     if (name !== undefined) {
       if (!name || name.trim() === '') {
@@ -86,18 +88,9 @@ export async function PUT(
       }
     }
 
-    if (description !== undefined && description && description.length > 500) {
-      return NextResponse.json(
-        { message: '描述不能超过500个字符' },
-        { status: 400 }
-      );
-    }
-
     const updates: any = {};
     if (name !== undefined) updates.name = name.trim();
-    if (description !== undefined) updates.description = description?.trim() || null;
     if (isActive !== undefined) updates.isActive = isActive;
-    if (expiresAt !== undefined) updates.expiresAt = expiresAt;
 
     const updatedKey = await updateApiKey(user.id, id, updates);
     if (!updatedKey) {

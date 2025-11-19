@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, setSessionToken, getSessionToken } from '@/lib/services/authClientService';
+import { login, setSessionToken, getSessionToken, getCurrentUser, hasPermission } from '@/lib/services/authClientService';
 
 export default function AdminLogin() {
   const [credentials, setCredentials] = useState({
@@ -23,7 +23,66 @@ export default function AdminLogin() {
       console.log('Login successful, sessionToken:', sessionToken ? 'received' : 'missing');
       setSessionToken(sessionToken);
       console.log('Session token set, checking if stored:', getSessionToken() ? 'stored' : 'not stored');
-      router.push('/admin/dashboard');
+      
+      // 获取最新的用户信息（包含权限）
+      const currentUser = await getCurrentUser();
+      
+      // 定义菜单项及其权限要求
+      const navItems = [
+        {
+          href: '/admin/dashboard',
+          permission: { resource: 'admin', action: 'dashboard' }
+        },
+        {
+          href: '/admin/users',
+          permission: { resource: 'users', action: 'view' }
+        },
+        {
+          href: '/admin/roles',
+          permission: { resource: 'roles', action: 'view' }
+        },
+        {
+          href: '/admin/permissions',
+          permission: { resource: 'permissions', action: 'view' }
+        },
+        {
+          href: '/admin/api-keys',
+          permission: { resource: 'api-keys', action: 'view' }
+        },
+        {
+          href: '/admin/review',
+          permission: { resource: 'experiences', action: 'review' }
+        },
+        {
+          href: '/admin/my-experiences',
+          // 个人经验页面不需要特殊权限，只要登录即可访问
+          permission: null
+        },
+        {
+          href: '/admin/settings',
+          permission: { resource: 'admin', action: 'settings' }
+        },
+      ];
+
+      // 找到用户有权限的第一个页面
+      const firstAccessiblePage = navItems.find(item => {
+        // 如果没有权限要求，直接返回true
+        if (!item.permission) return true;
+        
+        // 超级管理员可以看到所有菜单
+        if (currentUser?.is_superuser) return true;
+        
+        // 检查用户是否有对应权限
+        return currentUser && hasPermission(currentUser, item.permission.resource, item.permission.action);
+      });
+
+      // 跳转到第一个有权限的页面
+      if (firstAccessiblePage) {
+        router.push(firstAccessiblePage.href);
+      } else {
+        // 如果没有任何权限，默认跳转到dashboard（可能会有权限检查拦截）
+        router.push('/admin/dashboard');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
     } finally {

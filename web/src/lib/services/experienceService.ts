@@ -87,7 +87,7 @@ export class ExperienceService {
     let sql = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
-        er.solution, er.context, er.status, er.publish_status, er.is_deleted,
+        er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, er.relevance_score, er.created_at, 
         er.updated_at, er.deleted_at,
         COALESCE(
@@ -205,7 +205,7 @@ export class ExperienceService {
     const sql = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
-        er.solution, er.context, er.status, er.publish_status, er.is_deleted,
+        er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, er.relevance_score, er.created_at, 
         er.updated_at, er.deleted_at,
         COALESCE(

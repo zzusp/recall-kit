@@ -319,7 +319,6 @@ recall-kit/
 - `experience_records`: 经验记录（核心表）
 - `experience_keywords`: 经验关键字
 - `query_logs`: 查询日志
-- `submission_logs`: 提交日志
 - `admin_actions`: 管理员操作日志
 
 **Note**: 本版本不包含版本管理功能。

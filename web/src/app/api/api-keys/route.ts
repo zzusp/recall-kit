@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, expiresAt } = body;
+    const { name } = body;
 
     if (!name || name.trim() === '') {
       return NextResponse.json(
@@ -85,17 +85,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (description && description.length > 500) {
-      return NextResponse.json(
-        { message: '描述不能超过500个字符' },
-        { status: 400 }
-      );
-    }
-
     const apiKey = await createApiKey(user.id, {
-      name: name.trim(),
-      description: description?.trim() || undefined,
-      expiresAt
+      name: name.trim()
     });
 
     return NextResponse.json(apiKey, { status: 201 });

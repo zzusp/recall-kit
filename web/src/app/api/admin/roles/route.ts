@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
+import { getCurrentUser } from '@/lib/services/authService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,6 +9,25 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     const offset = (page - 1) * limit;
+    
+    // Verify user and permissions - 从Authorization头或cookie中获取token
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+                 request.cookies.get('session_token')?.value;
+    const user = await getCurrentUser(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Only superusers can view roles
+    if (!user.is_superuser) {
+      return NextResponse.json(
+        { error: 'Only superusers can view roles' },
+        { status: 403 }
+      );
+    }
 
     // Build WHERE clause for search
     let whereClause = '';
@@ -68,7 +88,26 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, permissions = [] } = body;
+    const { name, description, permissions, permissionIds } = body;
+    
+    // Verify user and permissions - 从Authorization头或cookie中获取token
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+                 request.cookies.get('session_token')?.value;
+    const user = await getCurrentUser(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Only superusers can create roles
+    if (!user.is_superuser) {
+      return NextResponse.json(
+        { error: 'Only superusers can create roles' },
+        { status: 403 }
+      );
+    }
 
     if (!name) {
       return NextResponse.json(
@@ -100,9 +139,10 @@ export async function POST(request: NextRequest) {
 
     const role = roleResult.rows[0];
 
-    // Assign permissions if provided
-    if (permissions && Array.isArray(permissions) && permissions.length > 0) {
-      const permissionValues = permissions.map((permissionId: string) => 
+    // Assign permissions if provided - 支持两种参数名：permissions 或 permissionIds
+    const permissionsToAssign = permissions || permissionIds || [];
+    if (permissionsToAssign && Array.isArray(permissionsToAssign) && permissionsToAssign.length > 0) {
+      const permissionValues = permissionsToAssign.map((permissionId: string) => 
         `('${role.id}', '${permissionId}')`
       ).join(',');
       

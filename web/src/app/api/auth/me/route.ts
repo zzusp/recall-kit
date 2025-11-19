@@ -13,7 +13,8 @@ export interface AuthUser {
 
 export async function GET(request: NextRequest) {
   try {
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
+    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '') ||
+                        request.cookies.get('session_token')?.value;
 
     if (!sessionToken) {
       return NextResponse.json(

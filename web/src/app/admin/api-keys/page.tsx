@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSessionToken } from '@/lib/services/authClientService';
+import { toast } from '@/lib/toastService';
 
 interface ApiKey {
   id: string;
@@ -207,7 +208,7 @@ export default function ApiKeysManagement() {
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>密钥信息</th>
+                    <th>密钥</th>
                     <th>状态</th>
                     <th>最后使用</th>
                     <th>创建时间</th>

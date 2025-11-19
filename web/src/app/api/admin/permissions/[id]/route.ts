@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
+import { getCurrentUser } from '@/lib/services/authService';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const result = await db.query(`
       SELECT p.*, 
@@ -20,7 +21,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                  END
                ) FILTER (WHERE r.id IS NOT NULL), 
                '[]'::json
-             ) as roles
+             ) as roles,
+             COALESCE(
+               json_agg(r.id) FILTER (WHERE r.id IS NOT NULL), 
+               '[]'::json
+             ) as role_ids
       FROM permissions p
       LEFT JOIN role_permissions rp ON p.id = rp.permission_id
       LEFT JOIN roles r ON rp.role_id = r.id
@@ -35,7 +40,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json(result.rows[0]);
+    // Add roles_count to the permission
+    const permission = {
+      ...result.rows[0],
+      roles_count: Array.isArray(result.rows[0]?.role_ids) ? result.rows[0].role_ids.length : 0
+    };
+
+    return NextResponse.json(permission);
   } catch (error) {
     console.error('Error fetching permission:', error);
     return NextResponse.json(
@@ -47,9 +58,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { name, resource, action, description } = body;
+
+    // Verify user and permissions - 从Authorization头或cookie中获取token
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+                 request.cookies.get('session_token')?.value;
+    const user = await getCurrentUser(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Only superusers can update permissions
+    if (!user.is_superuser) {
+      return NextResponse.json(
+        { error: 'Only superusers can update permissions' },
+        { status: 403 }
+      );
+    }
 
     // Check if permission exists
     const existingPermissionResult = await db.query(
@@ -121,7 +151,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
                  END
                ) FILTER (WHERE r.id IS NOT NULL), 
                '[]'::json
-             ) as roles
+             ) as roles,
+             COALESCE(
+               json_agg(r.id) FILTER (WHERE r.id IS NOT NULL), 
+               '[]'::json
+             ) as role_ids
       FROM permissions p
       LEFT JOIN role_permissions rp ON p.id = rp.permission_id
       LEFT JOIN roles r ON rp.role_id = r.id
@@ -129,7 +163,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       GROUP BY p.id
     `, [id]);
 
-    return NextResponse.json(updatedPermissionResult.rows[0]);
+    // Add roles_count to the updated permission
+    const updatedPermission = {
+      ...updatedPermissionResult.rows[0],
+      roles_count: Array.isArray(updatedPermissionResult.rows[0]?.role_ids) ? updatedPermissionResult.rows[0].role_ids.length : 0
+    };
+
+    return NextResponse.json(updatedPermission);
   } catch (error) {
     console.error('Error updating permission:', error);
     return NextResponse.json(
@@ -141,7 +181,26 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
+
+    // Verify user and permissions - 从Authorization头或cookie中获取token
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+                 request.cookies.get('session_token')?.value;
+    const user = await getCurrentUser(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Only superusers can delete permissions
+    if (!user.is_superuser) {
+      return NextResponse.json(
+        { error: 'Only superusers can delete permissions' },
+        { status: 403 }
+      );
+    }
 
     // Check if permission exists
     const existingPermissionResult = await db.query(

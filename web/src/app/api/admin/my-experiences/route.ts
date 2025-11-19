@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         er.id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, er.relevance_score, 
-        er.created_at, er.updated_at, er.deleted_at,
+        er.has_embedding, er.created_at, er.updated_at, er.deleted_at,
         COALESCE(
           json_agg(
             CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END

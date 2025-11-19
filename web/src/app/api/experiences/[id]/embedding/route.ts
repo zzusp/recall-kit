@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ExperienceService } from '@/lib/services/experienceService';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     if (!id) {
       return NextResponse.json(

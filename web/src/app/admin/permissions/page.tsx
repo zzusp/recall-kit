@@ -10,6 +10,12 @@ interface PermissionsResponse {
     roles_count: number;
     roles: Role[];
   })[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export default function PermissionsManagement() {
@@ -28,23 +34,37 @@ function PermissionsManagementContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
   const [resources, setResources] = useState<string[]>([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
 
-  const fetchPermissions = async () => {
+  const fetchPermissions = async (page?: number) => {
     try {
       setLoading(true);
+      const currentPage = page || pagination.page;
       const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: pagination.limit.toString(),
         ...(search && { search }),
         ...(resourceFilter && { resource: resourceFilter })
       });
 
       const response = await fetch(`/api/admin/permissions?${params}`);
-      const data: PermissionsResponse = await response.json();
+      const data = await response.json();
 
       setPermissions(data.permissions);
+      setPagination(data.pagination);
       
       // 提取所有资源类型
-      const uniqueResources = Array.from(new Set(data.permissions.map(p => p.resource)));
-      setResources(uniqueResources);
+      if (data.permissions && Array.isArray(data.permissions)) {
+        const uniqueResources = Array.from(new Set(data.permissions.map(p => p.resource)));
+        setResources(uniqueResources);
+      } else {
+        setResources([]);
+      }
     } catch (error) {
       console.error('Error fetching permissions:', error);
     } finally {
@@ -53,7 +73,8 @@ function PermissionsManagementContent() {
   };
 
   useEffect(() => {
-    fetchPermissions();
+    setPagination(prev => ({ ...prev, page: 1 }));
+    fetchPermissions(1);
   }, [search, resourceFilter]);
 
   const handleDeletePermission = async (permissionId: string) => {
@@ -140,7 +161,7 @@ function PermissionsManagementContent() {
             <div className="admin-empty-state-title">加载权限数据中...</div>
             <div className="admin-empty-state-description">请稍候片刻</div>
           </div>
-        ) : permissions.length === 0 ? (
+        ) : !permissions || permissions.length === 0 ? (
           <div className="admin-empty-state">
             <div className="admin-empty-state-icon">
               <i className="fas fa-key"></i>
@@ -236,6 +257,49 @@ function PermissionsManagementContent() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        
+        {/* 分页组件 */}
+        {pagination.totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              显示第 {((pagination.page - 1) * pagination.limit) + 1} 到 {Math.min(pagination.page * pagination.limit, pagination.total)} 条，
+              共 {pagination.total} 条记录
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => fetchPermissions(pagination.page - 1)}
+                disabled={pagination.page <= 1}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <i className="fas fa-chevron-left"></i>
+              </button>
+              
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(pageNum => (
+                  <button
+                    key={pageNum}
+                    onClick={() => fetchPermissions(pageNum)}
+                    className={`px-3 py-1 text-sm border rounded-md ${
+                      pageNum === pagination.page
+                        ? 'bg-blue-500 text-white border-blue-500'
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+              
+              <button
+                onClick={() => fetchPermissions(pagination.page + 1)}
+                disabled={pagination.page >= pagination.totalPages}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <i className="fas fa-chevron-right"></i>
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -115,7 +115,7 @@ Phase 8 (Polish)
 **前置条件**: T003  
 **验收标准**:
 - `supabase/migrations/001_initial_schema.sql` 存在
-- 创建所有表：profiles, experience_records, experience_keywords, query_logs, submission_logs, admin_actions
+- 创建所有表：profiles, experience_records, experience_keywords, query_logs, admin_actions
 - 所有字段类型和约束正确
 - 迁移可以成功执行
 
