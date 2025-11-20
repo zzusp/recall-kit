@@ -5,13 +5,13 @@ interface Permission {
   id: string;
   resource: string;
   action: string;
-  description?: string;
+  description: string | null;
 }
 
 interface Role {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
   permissions?: Permission[];
 }
 
@@ -225,12 +225,13 @@ function RoleModal({ role, onClose, onSave }: RoleModalProps) {
               {/* 搜索框 */}
               <div className="mb-4">
                 <div className="relative">
-                  <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                  <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none z-10"></i>
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="admin-form-input pl-10"
+                    className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    style={{ paddingLeft: '2.5rem' }}
                     placeholder="搜索权限..."
                   />
                 </div>
