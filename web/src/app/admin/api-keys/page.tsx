@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { getSessionToken } from '@/lib/services/authClientService';
-import { toast } from '@/lib/toastService';
+import { toast } from '@/lib/services/internal/toastService';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface ApiKey {
   id: string;
@@ -29,6 +31,7 @@ export default function ApiKeysManagement() {
   const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null);
   const [newApiKey, setNewApiKey] = useState<NewApiKey | null>(null);
   const [loadingCopy, setLoadingCopy] = useState<string | null>(null);
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   const fetchApiKeys = async () => {
     try {
@@ -62,7 +65,15 @@ export default function ApiKeysManagement() {
   }, []);
 
   const handleDeleteApiKey = async (apiKeyId: string) => {
-    if (!confirm('确定要删除这个API密钥吗？此操作不可撤销。')) return;
+    const confirmed = await confirm({
+      title: '删除API密钥',
+      message: '确定要删除这个API密钥吗？此操作不可撤销。',
+      type: 'danger',
+      confirmText: '删除',
+      cancelText: '取消'
+    });
+
+    if (!confirmed) return;
 
     try {
       const sessionToken = getSessionToken();
@@ -146,6 +157,7 @@ export default function ApiKeysManagement() {
 
   return (
     <div className="admin-content">
+      <ConfirmDialogComponent />
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">API密钥管理</h1>
@@ -267,36 +279,42 @@ export default function ApiKeysManagement() {
                         </div>
                       </td>
                       <td>
-                        <div className="flex space-x-2">
+                        <div className="admin-action-buttons">
                           <button
                             onClick={() => handleToggleApiKey(apiKey)}
                             className={`admin-btn admin-btn-outline admin-btn-sm ${
-                              apiKey.isActive ? 'hover:bg-orange-50 hover:border-orange-300' : 'hover:bg-green-50 hover:border-green-300'
+                              apiKey.isActive 
+                                ? 'admin-btn-warning-outline' 
+                                : 'admin-btn-success-outline'
                             }`}
-                            title={apiKey.isActive ? '禁用' : '启用'}
+                            title={apiKey.isActive ? "禁用" : "启用"}
                           >
-                            <i className={`fas fa-${apiKey.isActive ? 'pause' : 'play'}`}></i>
+                            <i className={`fas ${apiKey.isActive ? 'fa-pause' : 'fa-play'}`}></i>
+                            {apiKey.isActive ? '禁用' : '启用'}
                           </button>
                           <button
                             onClick={() => setEditingApiKey(apiKey)}
-                            className="admin-btn admin-btn-outline admin-btn-sm"
+                            className="admin-btn admin-btn-outline admin-btn-primary-outline admin-btn-sm"
                             title="编辑"
                           >
                             <i className="fas fa-edit"></i>
+                            编辑
                           </button>
-                          <a
+                          <Link
                             href={`/admin/api-keys/${apiKey.id}`}
-                            className="admin-btn admin-btn-outline admin-btn-sm"
+                            className="admin-btn admin-btn-outline admin-btn-info admin-btn-sm"
                             title="查看详情"
                           >
-                            <i className="fas fa-chart-bar"></i>
-                          </a>
+                            <i className="fas fa-eye"></i>
+                            详情
+                          </Link>
                           <button
                             onClick={() => handleDeleteApiKey(apiKey.id)}
                             className="admin-btn admin-btn-danger admin-btn-sm"
                             title="删除"
                           >
                             <i className="fas fa-trash"></i>
+                            删除
                           </button>
                         </div>
                       </td>
@@ -396,7 +414,7 @@ function ApiKeyModal({ apiKey, onClose, onSave }: ApiKeyModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100] p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -519,7 +537,7 @@ function NewApiKeyModal({ apiKey, onClose }: NewApiKeyModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100] p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">

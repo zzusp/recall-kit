@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Experience } from '@/types/database';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSessionToken } from '@/lib/services/authClientService';
-import { toast } from '@/lib/toastService';
+import { toast } from '@/lib/services/internal/toastService';
 import Link from 'next/link';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface Experience {
   id: string;
@@ -45,6 +45,7 @@ export default function MyExperiencesPage() {
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   const fetchExperiences = async (page: number = 1, status: StatusFilter = 'all') => {
     setIsLoading(true);
@@ -94,16 +95,39 @@ export default function MyExperiencesPage() {
   };
 
   const handleAction = async (experienceId: string, action: 'publish' | 'unpublish' | 'delete' | 'restore') => {
-    const confirmMessage = {
-      'publish': '确定要发布这个经验吗？发布后将可以在搜索中被找到。',
-      'unpublish': '确定要取消发布这个经验吗？取消发布后将不再在搜索中显示。',
-      'delete': '确定要删除这个经验吗？删除后可以恢复。',
-      'restore': '确定要恢复这个经验吗？恢复后将变为草稿状态。'
+    const confirmConfig = {
+      'publish': {
+        title: '发布经验',
+        message: '确定要发布这个经验吗？发布后将可以在搜索中被找到。',
+        type: 'info' as const,
+        confirmText: '发布',
+        cancelText: '取消'
+      },
+      'unpublish': {
+        title: '取消发布',
+        message: '确定要取消发布这个经验吗？取消发布后将不再在搜索中显示。',
+        type: 'warning' as const,
+        confirmText: '取消发布',
+        cancelText: '返回'
+      },
+      'delete': {
+        title: '删除经验',
+        message: '确定要删除这个经验吗？删除后可以恢复。',
+        type: 'danger' as const,
+        confirmText: '删除',
+        cancelText: '取消'
+      },
+      'restore': {
+        title: '恢复经验',
+        message: '确定要恢复这个经验吗？恢复后将变为草稿状态。',
+        type: 'info' as const,
+        confirmText: '恢复',
+        cancelText: '取消'
+      }
     };
 
-    if (!confirm(confirmMessage[action])) {
-      return;
-    }
+    const confirmed = await confirm(confirmConfig[action]);
+    if (!confirmed) return;
 
     try {
       const sessionToken = getSessionToken();
@@ -129,19 +153,30 @@ export default function MyExperiencesPage() {
       // 刷新列表
       fetchExperiences(currentPage, statusFilter);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '操作失败');
+      toast.error(err instanceof Error ? err.message : '操作失败');
     }
   };
 
   const handleEmbeddingAction = async (experienceId: string, action: 'generate' | 'clear') => {
-    const confirmMessage = {
-      'generate': '确定要为这个经验生成向量化数据吗？这可能需要一些时间并产生API费用。',
-      'clear': '确定要清除这个经验的向量化数据吗？清除后将影响基于语义的搜索效果。'
+    const confirmConfig = {
+      'generate': {
+        title: '生成向量化数据',
+        message: '确定要为这个经验生成向量化数据吗？这可能需要一些时间并产生API费用。',
+        type: 'warning' as const,
+        confirmText: '生成',
+        cancelText: '取消'
+      },
+      'clear': {
+        title: '清除向量化数据',
+        message: '确定要清除这个经验的向量化数据吗？清除后将影响基于语义的搜索效果。',
+        type: 'warning' as const,
+        confirmText: '清除',
+        cancelText: '取消'
+      }
     };
 
-    if (!confirm(confirmMessage[action])) {
-      return;
-    }
+    const confirmed = await confirm(confirmConfig[action]);
+    if (!confirmed) return;
 
     try {
       const sessionToken = getSessionToken();
@@ -163,12 +198,12 @@ export default function MyExperiencesPage() {
       }
 
       const result = await response.json();
-      alert(result.message || (action === 'generate' ? '向量化成功' : '向量化数据已清除'));
+      toast.success(result.message || (action === 'generate' ? '向量化成功' : '向量化数据已清除'));
       
       // 刷新列表
       fetchExperiences(currentPage, statusFilter);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '向量化操作失败');
+      toast.error(err instanceof Error ? err.message : '向量化操作失败');
     }
   };
 
@@ -204,6 +239,7 @@ export default function MyExperiencesPage() {
 
   return (
     <>
+      <ConfirmDialogComponent />
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">个人经验管理</h1>
@@ -275,8 +311,30 @@ export default function MyExperiencesPage() {
             <p style={{ fontSize: '0.875rem' }}>您还没有提交任何经验</p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="admin-table">
+          <div style={{ 
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#cbd5e1 #f1f5f9',
+            maxWidth: '100%'
+          }}>
+            <style jsx>{`
+              div::-webkit-scrollbar {
+                height: 8px;
+              }
+              div::-webkit-scrollbar-track {
+                background: #f1f5f9;
+                border-radius: 4px;
+              }
+              div::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 4px;
+              }
+              div::-webkit-scrollbar-thumb:hover {
+                background: '#94a3b8';
+              }
+            `}</style>
+            <table className="admin-table" style={{ minWidth: '1200px' }}>
               <thead>
                 <tr>
                   <th>标题</th>
@@ -383,18 +441,12 @@ export default function MyExperiencesPage() {
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <div className="admin-action-buttons">
                         <Link
                           href={`/admin/my-experiences/${experience.id}`}
-                          style={{
-                            padding: '0.25rem 0.5rem',
-                            fontSize: '0.75rem',
-                            background: '#dbeafe',
-                            color: '#1e40af',
-                            borderRadius: '0.25rem',
-                            textDecoration: 'none'
-                          }}
+                          className="admin-btn admin-btn-outline admin-btn-info admin-btn-sm"
                         >
+                          <i className="fas fa-eye"></i>
                           查看
                         </Link>
 
@@ -404,33 +456,33 @@ export default function MyExperiencesPage() {
                             {!experience.has_embedding ? (
                               <button
                                 onClick={() => handleEmbeddingAction(experience.id, 'generate')}
-                                style={{
-                                  padding: '0.25rem 0.5rem',
-                                  fontSize: '0.75rem',
-                                  background: '#e0e7ff',
-                                  color: '#3730a3',
-                                  border: 'none',
-                                  borderRadius: '0.25rem',
-                                  cursor: 'pointer'
-                                }}
+                                className="admin-btn admin-btn-outline admin-btn-primary-outline admin-btn-sm"
                                 title="生成向量化数据，提升语义搜索效果"
                               >
+                                <i className="fas fa-robot"></i>
                                 向量化
                               </button>
                             ) : (
                               <button
-                                onClick={() => handleEmbeddingAction(experience.id, 'clear')}
-                                style={{
-                                  padding: '0.25rem 0.5rem',
-                                  fontSize: '0.75rem',
-                                  background: '#fee2e2',
-                                  color: '#991b1b',
-                                  border: 'none',
-                                  borderRadius: '0.25rem',
-                                  cursor: 'pointer'
+                                onClick={() => {
+                                  console.log('清除向量按钮被点击', experience.id);
+                                  handleEmbeddingAction(experience.id, 'clear');
                                 }}
+                                className="admin-btn admin-btn-outline admin-btn-warning-outline admin-btn-sm"
                                 title="清除向量化数据"
+                                type="button"
+                                style={{ 
+                                  pointerEvents: 'auto', 
+                                  cursor: 'pointer',
+                                  zIndex: 1000,
+                                  position: 'relative'
+                                }}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  console.log('鼠标按下事件触发');
+                                }}
                               >
+                                <i className="fas fa-trash"></i>
                                 清除向量
                               </button>
                             )}
@@ -442,31 +494,17 @@ export default function MyExperiencesPage() {
                             {experience.publish_status === 'draft' ? (
                               <button
                                 onClick={() => handleAction(experience.id, 'publish')}
-                                style={{
-                                  padding: '0.25rem 0.5rem',
-                                  fontSize: '0.75rem',
-                                  background: '#dcfce7',
-                                  color: '#166534',
-                                  border: 'none',
-                                  borderRadius: '0.25rem',
-                                  cursor: 'pointer'
-                                }}
+                                className="admin-btn admin-btn-outline admin-btn-success-outline admin-btn-sm"
                               >
+                                <i className="fas fa-upload"></i>
                                 发布
                               </button>
                             ) : experience.publish_status === 'published' ? (
                               <button
                                 onClick={() => handleAction(experience.id, 'unpublish')}
-                                style={{
-                                  padding: '0.25rem 0.5rem',
-                                  fontSize: '0.75rem',
-                                  background: '#fef3c7',
-                                  color: '#92400e',
-                                  border: 'none',
-                                  borderRadius: '0.25rem',
-                                  cursor: 'pointer'
-                                }}
+                                className="admin-btn admin-btn-outline admin-btn-warning-outline admin-btn-sm"
                               >
+                                <i className="fas fa-download"></i>
                                 取消发布
                               </button>
                             ) : null}
@@ -474,16 +512,9 @@ export default function MyExperiencesPage() {
                             {experience.publish_status === 'draft' && (
                               <button
                                 onClick={() => handleAction(experience.id, 'delete')}
-                                style={{
-                                  padding: '0.25rem 0.5rem',
-                                  fontSize: '0.75rem',
-                                  background: '#fee2e2',
-                                  color: '#991b1b',
-                                  border: 'none',
-                                  borderRadius: '0.25rem',
-                                  cursor: 'pointer'
-                                }}
+                                className="admin-btn admin-btn-outline admin-btn-danger-outline admin-btn-sm"
                               >
+                                <i className="fas fa-trash"></i>
                                 删除
                               </button>
                             )}
@@ -493,16 +524,9 @@ export default function MyExperiencesPage() {
                         {experience.is_deleted && (
                           <button
                             onClick={() => handleAction(experience.id, 'restore')}
-                            style={{
-                              padding: '0.25rem 0.5rem',
-                              fontSize: '0.75rem',
-                              background: '#dcfce7',
-                              color: '#166534',
-                              border: 'none',
-                              borderRadius: '0.25rem',
-                              cursor: 'pointer'
-                            }}
+                            className="admin-btn admin-btn-outline admin-btn-success-outline admin-btn-sm"
                           >
+                            <i className="fas fa-undo"></i>
                             恢复
                           </button>
                         )}

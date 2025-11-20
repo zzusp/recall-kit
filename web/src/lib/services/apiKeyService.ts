@@ -1,4 +1,4 @@
-import { ApiKey, ApiKeyUsageLog } from '@/types/database';
+import { ApiKey, ApiKeyUsageLog } from '@/types/database/auth';
 import { db } from '../db/client';
 import crypto from 'crypto';
 

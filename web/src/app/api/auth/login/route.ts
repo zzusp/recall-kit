@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db/client';
-import { User, Role, Permission } from '@/types/database';
+import { User, Role, Permission } from '@/types/database/auth';
 import bcrypt from 'bcrypt';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 

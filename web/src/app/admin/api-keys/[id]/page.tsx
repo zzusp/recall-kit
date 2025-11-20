@@ -4,6 +4,8 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSessionToken } from '@/lib/services/authClientService';
 import { ApiKeyUsageLog } from '@/types/database';
+import { toast } from '@/lib/services/internal/toastService';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface ApiKey {
   id: string;
@@ -24,7 +26,6 @@ interface UsageStats {
   averageResponseTime: number;
   lastUsedAt: string | null;
 }
-
 export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [apiKey, setApiKey] = useState<ApiKey | null>(null);
@@ -35,8 +36,9 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showEditModal, setShowEditModal] = useState(false);
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
-  // Use React.use() to unwrap the params Promise
+  // Use React.use() to unwrap params Promise
   const { id: apiKeyId } = use(params);
 
   const fetchApiKey = async () => {
@@ -117,7 +119,15 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
   }, [currentPage]);
 
   const handleDeleteApiKey = async () => {
-    if (!confirm('确定要删除这个API密钥吗？此操作不可撤销。')) return;
+    const confirmed = await confirm({
+      title: '删除API密钥',
+      message: '确定要删除这个API密钥吗？此操作不可撤销。',
+      type: 'danger',
+      confirmText: '删除',
+      cancelText: '取消'
+    });
+
+    if (!confirmed) return;
 
     try {
       const sessionToken = getSessionToken();
@@ -199,6 +209,7 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="admin-content">
+      <ConfirmDialogComponent />
       <div className="admin-page-header">
         <div className="flex items-center gap-3">
           <button
@@ -343,53 +354,53 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
                 <tbody>
                   {usageLogs.map((log) => (
                     <tr key={log.id}>
-                      <td>
-                        <div className="text-sm">
-                          <div>{formatDate(log.createdAt)}</div>
-                          <div className="text-gray-400 text-xs">
-                            {new Date(log.createdAt).toLocaleTimeString()}
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
-                          {log.endpoint}
-                        </code>
-                      </td>
-                      <td>
-                        <span className={`admin-badge admin-badge-sm ${
-                          log.method === 'GET' ? 'admin-badge-success' :
-                          log.method === 'POST' ? 'admin-badge-primary' :
-                          log.method === 'PUT' ? 'admin-badge-warning' :
-                          'admin-badge-danger'
-                        }`}>
-                          {log.method}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`admin-badge admin-badge-sm ${
-                          log.statusCode < 300 ? 'admin-badge-success' :
-                          log.statusCode < 400 ? 'admin-badge-warning' :
-                          'admin-badge-danger'
-                        }`}>
-                          {log.statusCode}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`text-sm font-medium ${
-                          log.responseTimeMs < 500 ? 'text-green-600' :
-                          log.responseTimeMs < 1000 ? 'text-yellow-600' :
-                          'text-red-600'
-                        }`}>
-                          {log.responseTimeMs}ms
-                        </span>
-                      </td>
-                      <td className="text-sm text-gray-600">{log.ipAddress || '-'}</td>
-                      <td>
-                        <div className="text-sm text-gray-600 max-w-xs truncate" title={log.userAgent}>
-                          {log.userAgent || '-'}
-                        </div>
-                      </td>
+      <td>
+        <div className="text-sm">
+          <div>{formatDate(log.created_at)}</div>
+          <div className="text-gray-400 text-xs">
+            {new Date(log.created_at).toLocaleTimeString()}
+          </div>
+        </div>
+      </td>
+      <td>
+        <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
+          {log.endpoint}
+        </code>
+      </td>
+      <td>
+        <span className={`admin-badge admin-badge-sm ${
+          log.method === 'GET' ? 'admin-badge-success' :
+          log.method === 'POST' ? 'admin-badge-primary' :
+          log.method === 'PUT' ? 'admin-badge-warning' :
+          'admin-badge-danger'
+        }`}>
+          {log.method}
+        </span>
+      </td>
+      <td>
+        <span className={`admin-badge admin-badge-sm ${
+          log.status_code && log.status_code < 300 ? 'admin-badge-success' :
+          log.status_code && log.status_code < 400 ? 'admin-badge-warning' :
+          'admin-badge-danger'
+        }`}>
+          {log.status_code || '-'}
+        </span>
+      </td>
+      <td>
+        <span className={`text-sm font-medium ${
+          log.response_time_ms && log.response_time_ms < 500 ? 'text-green-600' :
+          log.response_time_ms && log.response_time_ms < 1000 ? 'text-yellow-600' :
+          'text-red-600'
+        }`}>
+          {log.response_time_ms ? `${log.response_time_ms}ms` : '-'}
+        </span>
+      </td>
+      <td className="text-sm text-gray-600">{log.ip_address ?? '-'}</td>
+      <td>
+<div className="text-sm text-gray-600 max-w-xs truncate" title={log.user_agent ?? undefined}>
+  {log.user_agent ?? '-'}
+</div>
+      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -486,7 +497,7 @@ function EditApiKeyModal({ apiKey, onClose, onSave }: EditApiKeyModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100] p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">

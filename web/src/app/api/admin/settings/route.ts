@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
-import { getCurrentUser, hasPermission } from '@/lib/services/authService';
+import { getCurrentUser, hasPermission } from '@/lib/services/internal/authService';
 
 export async function GET(request: NextRequest) {
   try {

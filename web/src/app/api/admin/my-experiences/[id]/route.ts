@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getCurrentUser } from '@/lib/services/authService';
+import { getCurrentUser } from '@/lib/services/internal/authService';
 import { ApiRouteResponse, ErrorResponses } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
 

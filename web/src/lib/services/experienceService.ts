@@ -1,4 +1,4 @@
-import { Database } from '@/types/database';
+import { Database } from '@/types/database/index';
 import { EmbeddingService } from './embeddingService';
 import { db } from '../db/client';
 
@@ -216,7 +216,7 @@ export class ExperienceService {
         ) as keywords
       FROM experience_records er
       LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
-      WHERE er.id = $1 AND er.review_status = 'approved' AND er.is_deleted = false
+      WHERE er.id = $1 AND er.publish_status = 'published' AND er.is_deleted = false
       GROUP BY er.id
     `;
 
@@ -290,26 +290,72 @@ export class ExperienceService {
       // Call the RPC function for vector search
       // Lower threshold for bge-m3 model (0.3 instead of 0.5 to get more results)
       const matchThreshold = 0.3;
-      console.log('[ExperienceService] Calling match_experiences_by_embedding RPC:', {
+      console.log('[ExperienceService] Performing vector search:', {
         match_threshold: matchThreshold,
-        match_count: limit + offset,
+        limit: limit + offset,
         queryEmbeddingDimensions: queryEmbedding.length
       });
       
       let vectorResults: any[] = [];
       
       try {
+      const vectorQuery = `
+        SELECT 
+          er.id,
+          er.title,
+          er.problem_description,
+          er.root_cause,
+          er.solution,
+          er.context,
+          er.publish_status,
+          er.query_count,
+          er.view_count,
+          er.relevance_score,
+          1 - (er.embedding <=> $1) as similarity,
+          er.created_at,
+          er.updated_at
+        FROM experience_records er
+        WHERE er.publish_status = 'published'
+          AND er.embedding IS NOT NULL
+          AND 1 - (er.embedding <=> $1) > $2
+        ORDER BY er.embedding <=> $1
+        LIMIT $3
+      `;
+      
       const vectorResult = await db.query(
-        'SELECT * FROM match_experiences_by_embedding($1, $2, $3)',
-        [`[${queryEmbedding.join(',')}]`, matchThreshold, limit + offset] // Convert to JSON array string
+        vectorQuery,
+        [`[${queryEmbedding.join(',')}]`, matchThreshold, limit + offset]
       );
         vectorResults = vectorResult.rows;
       } catch (error) {
         console.log('[ExperienceService] No results from vector search. Trying with lower threshold (0.1)...');
         try {
+          const lowThresholdQuery = `
+            SELECT 
+              er.id,
+              er.title,
+              er.problem_description,
+              er.root_cause,
+              er.solution,
+              er.context,
+              er.publish_status,
+              er.query_count,
+              er.view_count,
+              er.relevance_score,
+              1 - (er.embedding <=> $1) as similarity,
+              er.created_at,
+              er.updated_at
+            FROM experience_records er
+            WHERE er.publish_status = 'published'
+              AND er.embedding IS NOT NULL
+              AND 1 - (er.embedding <=> $1) > $2
+            ORDER BY er.embedding <=> $1
+            LIMIT $3
+          `;
+          
           const lowThresholdResult = await db.query(
-            'SELECT * FROM match_experiences_by_embedding($1, $2, $3)',
-            [`[${queryEmbedding.join(',')}]`, 0.1, limit + offset] // Convert to JSON array string
+            lowThresholdQuery,
+            [`[${queryEmbedding.join(',')}]`, 0.1, limit + offset]
           );
           vectorResults = lowThresholdResult.rows;
           console.log('[ExperienceService] Found results with lower threshold (0.1):', {

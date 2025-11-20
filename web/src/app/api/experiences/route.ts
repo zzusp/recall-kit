@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { ExperienceService } from '@/lib/services/experienceService';
 import { ApiRouteResponse, ErrorResponses } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
-import { getCurrentUser } from '@/lib/services/authService';
+import { getCurrentUser } from '@/lib/services/internal/authService';
 
 export async function GET(request: NextRequest) {
   try {

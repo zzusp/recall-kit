@@ -25,8 +25,15 @@ export default function Sidebar() {
 
   const navItems = [
     {
+      href: '/admin/user-dashboard',
+      label: '个人仪表盘',
+      icon: 'fas fa-tachometer-alt',
+      // 个人仪表盘只需要登录即可访问，不需要特殊权限
+      permission: null
+    },
+    {
       href: '/admin/dashboard',
-      label: '仪表板',
+      label: '管理仪表板',
       icon: 'fas fa-chart-line',
       permission: { resource: 'admin', action: 'dashboard' }
     },
@@ -68,9 +75,16 @@ export default function Sidebar() {
       permission: null
     },
     {
+      href: '/admin/profile-settings',
+      label: '个人信息',
+      icon: 'fas fa-user-cog',
+      // 个人信息页面不需要特殊权限，只要登录即可访问
+      permission: null
+    },
+    {
       href: '/admin/settings',
       label: '系统设置',
-      icon: 'fas fa-cog',
+      icon: 'fas fa-cogs',
       permission: { resource: 'admin', action: 'settings' }
     },
   ];

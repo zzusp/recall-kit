@@ -1,5 +1,5 @@
-import { User, Role, Permission } from '@/types/database';
-import { db } from '../db/client';
+import { User, Role, Permission } from '@/types/database/auth';
+import { db } from '../../db/client';
 
 export interface AuthUser {
   id: string;
@@ -180,7 +180,7 @@ export async function getCurrentUser(sessionToken: string | undefined): Promise<
 }
 
 /**
- * 检查用户是否已登录
+ * Check if user is authenticated
  */
 export async function isAuthenticated(): Promise<boolean> {
   if (typeof window === 'undefined') {
@@ -205,7 +205,7 @@ export async function isAuthenticated(): Promise<boolean> {
 }
 
 /**
- * 获取当前用户会话
+ * Get current user session
  */
 export async function getCurrentSession() {
   if (typeof window === 'undefined') {
@@ -234,7 +234,7 @@ export async function getCurrentSession() {
 }
 
 /**
- * 获取当前用户资料（包含角色信息）
+ * Get current user profile (including role information)
  */
 export async function getCurrentUserProfile(): Promise<UserProfile | null> {
   const session = await getCurrentSession();
@@ -264,7 +264,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
 }
 
 /**
- * 检查用户是否为管理员
+ * Check if user is admin
  */
 export async function isAdmin(): Promise<boolean> {
   const profile = await getCurrentUserProfile();
@@ -272,7 +272,7 @@ export async function isAdmin(): Promise<boolean> {
 }
 
 /**
- * 监听认证状态变化
+ * Listen to authentication state changes
  */
 export function onAuthStateChange(callback: (session: any) => void) {
   // For PostgreSQL, we don't have real-time subscriptions like Supabase
@@ -299,7 +299,7 @@ export function onAuthStateChange(callback: (session: any) => void) {
 }
 
 /**
- * 更新最后登录时间
+ * Update last login time
  */
 export async function updateLastLoginTime(userId: string) {
   try {

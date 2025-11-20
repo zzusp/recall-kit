@@ -1,14 +1,22 @@
 'use client';
 
 import React from 'react';
-import { useToastStore } from '@/lib/toastService';
+import { useToastStore } from '@/lib/services/internal/toastService';
 import Toast from './Toast';
 
 const ToastContainer = () => {
   const { toasts, removeToast } = useToastStore();
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+    <div style={{
+      position: 'fixed',
+      top: '1rem',
+      right: '1rem',
+      zIndex: 9999,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.5rem'
+    }}>
       {toasts.map((toast) => (
         <Toast
           key={toast.id}

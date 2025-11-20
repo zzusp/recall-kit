@@ -1,14 +1,14 @@
 'use client';
-
 import { useState, useEffect } from 'react';
-import { Permission } from '@/types/database';
+import { getSessionToken } from '@/lib/services/authClientService';
+import { toast } from '@/lib/services/internal/toastService';
 import PermissionGuard from '@/components/auth/PermissionGuard';
-import { toast } from '@/lib/toastService';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface PermissionsResponse {
   permissions: (Permission & {
-    roles_count: number;
-    roles: Role[];
+    roles_count?: number;
+    roles?: Role[];
   })[];
   pagination: {
     page: number;
@@ -25,15 +25,17 @@ export default function PermissionsManagement() {
     </PermissionGuard>
   );
 }
-
 function PermissionsManagementContent() {
   const [permissions, setPermissions] = useState<PermissionsResponse['permissions']>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [resourceFilter, setResourceFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const [resources, setResources] = useState<string[]>([]);
+  const [resourceFilter, setResourceFilter] = useState('');
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -60,8 +62,8 @@ function PermissionsManagementContent() {
       
       // 提取所有资源类型
       if (data.permissions && Array.isArray(data.permissions)) {
-        const uniqueResources = Array.from(new Set(data.permissions.map(p => p.resource)));
-        setResources(uniqueResources);
+        const uniqueResources = Array.from(new Set(data.permissions.map((p: Permission) => p.resource)));
+        setResources(uniqueResources as string[]);
       } else {
         setResources([]);
       }
@@ -78,13 +80,15 @@ function PermissionsManagementContent() {
   }, [search, resourceFilter]);
 
   const handleDeletePermission = async (permissionId: string) => {
-    const permission = permissions.find(p => p.id === permissionId);
-    if (permission?.roles_count > 0) {
-      toast.warning('该权限已分配给角色，不能删除');
-      return;
-    }
-
-    if (!confirm('确定要删除这个权限吗？')) return;
+    const confirmed = await confirm({
+      title: '删除权限',
+      message: '确定要删除这个权限吗？删除后无法恢复。',
+      type: 'danger',
+      confirmText: '删除',
+      cancelText: '取消'
+    });
+    
+    if (!confirmed) return;
 
     try {
       const response = await fetch(`/api/admin/permissions/${permissionId}`, {
@@ -104,11 +108,12 @@ function PermissionsManagementContent() {
   };
 
   const getRolesString = (permission: PermissionsResponse['permissions'][0]) => {
-    return permission.roles.map(r => r.name).join(', ') || '未分配';
+    return permission.roles?.map(r => r.name).join(', ') || '未分配';
   };
 
   return (
-    <div className="admin-content">
+    <div className="admin-page-content">
+      <ConfirmDialogComponent />
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">权限管理</h1>
@@ -234,20 +239,20 @@ function PermissionsManagementContent() {
                       </div>
                     </td>
                     <td>
-                      <div className="flex space-x-2">
+                      <div className="admin-action-buttons">
                         <button
                           onClick={() => setEditingPermission(permission)}
-                          className="admin-btn admin-btn-outline admin-btn-sm"
+                          className="admin-btn admin-btn-outline admin-btn-primary-outline admin-btn-sm"
                         >
                           <i className="fas fa-edit"></i>
                           编辑
                         </button>
-                        <button
-                          onClick={() => handleDeletePermission(permission.id)}
-                          disabled={permission.roles_count > 0}
-                          className="admin-btn admin-btn-danger admin-btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={permission.roles_count > 0 ? "该权限已分配给角色，不能删除" : "删除权限"}
-                        >
+<button
+  onClick={() => handleDeletePermission(permission.id)}
+  disabled={permission.roles_count !== undefined && permission.roles_count > 0}
+  className="admin-btn admin-btn-danger admin-btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+  title={permission.roles_count !== undefined && permission.roles_count > 0 ? "该权限已分配给角色，不能删除" : "删除权限"}
+>
                           <i className="fas fa-trash"></i>
                           删除
                         </button>
@@ -379,7 +384,7 @@ function PermissionModal({ permission, onClose, onSave }: PermissionModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100] p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">

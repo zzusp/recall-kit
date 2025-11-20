@@ -8,6 +8,8 @@ export interface AuthUser {
   roles: any[];
   permissions: any[];
   is_superuser: boolean;
+  created_at?: string;
+  last_login_at?: string;
 }
 
 export interface LoginCredentials {

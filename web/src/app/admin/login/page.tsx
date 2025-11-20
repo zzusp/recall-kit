@@ -30,6 +30,11 @@ export default function AdminLogin() {
       // 定义菜单项及其权限要求
       const navItems = [
         {
+          href: '/admin/user-dashboard',
+          // 个人仪表盘只需要登录即可访问，不需要特殊权限
+          permission: null
+        },
+        {
           href: '/admin/dashboard',
           permission: { resource: 'admin', action: 'dashboard' }
         },

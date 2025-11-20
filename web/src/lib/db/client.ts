@@ -1,5 +1,5 @@
 import sql from './config';
-import { Database } from '@/types/database';
+import { Database } from '@/types/database/index';
 
 // Helper function to convert camelCase to snake_case
 function toSnakeCase(str: string): string {

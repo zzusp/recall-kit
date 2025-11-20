@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { User, Role } from '@/types/database';
 import PermissionGuard from '@/components/auth/PermissionGuard';
-import { toast } from '@/lib/toastService';
+import { toast } from '@/lib/services/internal/toastService';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface UsersResponse {
   users: (User & {
@@ -33,6 +34,7 @@ function UsersManagementContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   const fetchUsers = async () => {
     try {
@@ -60,8 +62,16 @@ function UsersManagementContent() {
   }, [currentPage, search]);
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('确定要删除这个用户吗？')) return;
-
+    const confirmed = await confirm({
+      title: '删除用户',
+      message: '确定要删除这个用户吗？删除后无法恢复。',
+      type: 'danger',
+      confirmText: '删除',
+      cancelText: '取消'
+    });
+    
+    if (!confirmed) return;
+    
     try {
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'DELETE'
@@ -208,10 +218,10 @@ function UsersManagementContent() {
                         </div>
                       </td>
                       <td>
-                        <div className="flex space-x-2">
+                        <div className="admin-action-buttons">
                           <button
                             onClick={() => setEditingUser(user)}
-                            className="admin-btn admin-btn-outline admin-btn-sm"
+                            className="admin-btn admin-btn-outline admin-btn-primary-outline admin-btn-sm"
                           >
                             <i className="fas fa-edit"></i>
                             编辑
@@ -363,7 +373,7 @@ function UserModal({ user, onClose, onSave }: UserModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100] p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
-import { User, Role, Permission } from '@/types/database';
+import { User, Role, Permission } from '@/types/database/auth';
 
 export interface AuthUser {
   id: string;
@@ -9,6 +9,8 @@ export interface AuthUser {
   roles: Role[];
   permissions: Permission[];
   is_superuser: boolean;
+  created_at?: string;
+  last_login_at?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -52,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     // Get user details
     const userResult = await db.query(
-      'SELECT * FROM users WHERE id = $1 AND is_active = true',
+      'SELECT id, username, email, is_superuser, last_login_at, created_at FROM users WHERE id = $1 AND is_active = true',
       [session.user_id]
     );
 
@@ -95,7 +97,9 @@ export async function GET(request: NextRequest) {
       email: user.email,
       roles,
       permissions,
-      is_superuser: user.is_superuser
+      is_superuser: user.is_superuser,
+      created_at: user.created_at,
+      last_login_at: user.last_login_at
     };
 
     return NextResponse.json(authUser);

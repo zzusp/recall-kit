@@ -1,8 +1,13 @@
 // 简单的错误处理工具，专门处理浏览器扩展错误
-export function handleBrowserExtensionErrors() {
+
+interface SafeFetchOptions extends RequestInit {
+  timeout?: number;
+}
+
+export function handleBrowserExtensionErrors(): void {
   // 监听未处理的错误
   if (typeof window !== 'undefined') {
-    window.addEventListener('error', (event) => {
+    window.addEventListener('error', (event: ErrorEvent) => {
       const message = event.message || '';
       const source = event.filename || '';
       
@@ -24,7 +29,7 @@ export function handleBrowserExtensionErrors() {
     });
 
     // 监听 Promise 错误
-    window.addEventListener('unhandledrejection', (event) => {
+    window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
       const message = event.reason?.message || '';
       
       if (message.includes('content_script') || message.includes('fetchError')) {
@@ -37,7 +42,7 @@ export function handleBrowserExtensionErrors() {
 }
 
 // 导出增强的 fetch 函数
-export async function safeFetch(url, options = {}) {
+export async function safeFetch(url: string, options: SafeFetchOptions = {}): Promise<Response> {
   try {
     const response = await fetch(url, {
       ...options,
@@ -45,7 +50,7 @@ export async function safeFetch(url, options = {}) {
     });
     return response;
   } catch (error) {
-    if (error.message.includes('content_script')) {
+    if (error instanceof Error && error.message.includes('content_script')) {
       console.warn('🔧 忽略浏览器扩展相关的网络错误');
       return new Response('{}', { status: 200, statusText: 'OK' });
     }

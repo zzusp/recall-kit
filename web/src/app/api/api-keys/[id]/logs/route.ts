@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiKeyUsageLogs, getApiKeyUsageStats, validateApiKey } from '@/lib/services/apiKeyService';
-import { getCurrentUser } from '@/lib/services/authService';
+import { getCurrentUser } from '@/lib/services/internal/authService';
 
 // GET /api/api-keys/[id]/logs - 获取API密钥使用日志
 export async function GET(

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { ExperienceService } from '@/lib/services/experienceService';
-import { getCurrentUser, hasRole } from '@/lib/services/authService';
+import { getCurrentUser, hasRole } from '@/lib/services/internal/authService';
 
 export async function POST(request: NextRequest) {
   try {

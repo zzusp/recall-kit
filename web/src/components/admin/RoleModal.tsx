@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { toast } from '@/lib/toastService';
+import { toast } from '@/lib/services/internal/toastService';
 
 interface Permission {
   id: string;
@@ -43,11 +43,21 @@ function RoleModal({ role, onClose, onSave }: RoleModalProps) {
 
   useEffect(() => {
     // 初始化所有组为展开状态
-    const initialExpanded = Object.keys(groupedPermissions).reduce((acc, resource) => {
-      acc[resource] = true;
-      return acc;
-    }, {} as Record<string, boolean>);
-    setExpandedGroups(initialExpanded);
+    if (permissions.length > 0) {
+      const groupedPermissions = permissions.reduce((acc, permission) => {
+        if (!acc[permission.resource]) {
+          acc[permission.resource] = [];
+        }
+        acc[permission.resource].push(permission);
+        return acc;
+      }, {} as Record<string, Permission[]>);
+
+      const initialExpanded = Object.keys(groupedPermissions).reduce((acc, resource) => {
+        acc[resource] = true;
+        return acc;
+      }, {} as Record<string, boolean>);
+      setExpandedGroups(initialExpanded);
+    }
   }, [permissions]);
 
   const fetchPermissions = async () => {
@@ -149,13 +159,13 @@ function RoleModal({ role, onClose, onSave }: RoleModalProps) {
       // 全选
       setFormData(prev => ({
         ...prev,
-        permissionIds: [...new Set([...prev.permissionIds, ...permissionIds])]
+        permissionIds: Array.from(new Set([...prev.permissionIds, ...permissionIds]))
       }));
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100] p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b">
           <div className="flex items-center justify-between mb-4">

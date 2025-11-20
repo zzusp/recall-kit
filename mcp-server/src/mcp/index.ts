@@ -30,6 +30,7 @@ interface ExtendedSSEServerTransport extends SSEServerTransport {
 // Map to store transports by session ID for different transport types
 const streamableTransports: Map<string, StreamableHTTPServerTransport> = new Map();
 const sseTransports: Map<string, ExtendedSSEServerTransport> = new Map();
+const apiKeys: Map<string, string> = new Map();
 
 // Function to create a new MCP server instance
 function createMCPServer(
@@ -67,13 +68,12 @@ function createMCPServer(
     },
   }, async (args, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
     // 获取存储的请求信息
-    const sessionId = (extra as any)._meta?.sessionId;
+    const sessionId = extra?.sessionId;
     const requestInfo = sessionId ? sseTransports.get(sessionId)?.requestInfo : null;
     
     const context: LogContext = {
       toolName: 'query_experiences',
       sessionId: sessionId,
-      requestId: (extra as any)._meta?.requestId,
       // 添加请求参数信息
       apiKey: requestInfo?.apiKey,
       userAgent: requestInfo?.userAgent,
@@ -135,7 +135,30 @@ function createMCPServer(
   }, async (args, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
     // 获取存储的请求信息
     const sessionId = extra?.sessionId;
-    const requestInfo = sessionId ? sseTransports.get(sessionId)?.requestInfo : null;
+    let requestInfo = null;
+    
+    if (sessionId) {
+      // 尝试获取SSE传输的请求信息
+      const sseTransport = sseTransports.get(sessionId);
+      if (sseTransport?.requestInfo) {
+        requestInfo = sseTransport.requestInfo;
+      } else {
+        // 如果没有SSE传输信息，尝试获取streamable传输
+        const apiKey = apiKeys.get(sessionId);
+        if (apiKey) {
+          // 为streamable传输创建默认请求信息
+          requestInfo = {
+            apiKey: apiKey, // HTTP POST请求通常不包含API key，需要单独处理
+            headers: {}, // 无法获取具体的headers信息
+            query: {},   // 无法获取具体的query参数
+            ip: undefined, // 无法获取具体的IP地址
+            userAgent: undefined, // 无法获取具体的User-Agent
+            url: '/mcp',
+            method: 'POST'
+          };
+        }
+      }
+    }
     
     const context: LogContext = {
       toolName: 'submit_experience',
@@ -375,6 +398,7 @@ export async function initMCP(app: express.Application) {
         // Reuse existing transport for this session
         transport = streamableTransports.get(sessionId);
       } else if (!sessionId && isInitializeRequest(requestPayload)) {
+        const apiKey = req.query?.api_key as string | undefined;
         // New initialization request - create new transport and server
         // Use InMemoryEventStore for resumability support (allows clients to reconnect and resume)
         const eventStore = new InMemoryEventStore();
@@ -391,12 +415,16 @@ export async function initMCP(app: express.Application) {
             logger.logSessionInitialized(sid, 'streamable', context);
             if (transport) {
               streamableTransports.set(sid, transport);
+              if (apiKey) {
+                apiKeys.set(sid, apiKey);
+              }
             }
           },
           onsessionclosed: (sid) => {
             const context: LogContext = { sessionId: sid, transportType: 'streamable' };
             logger.logConnectionClose(context);
             streamableTransports.delete(sid);
+            apiKeys.delete(sid);
           },
         });
 
@@ -407,6 +435,7 @@ export async function initMCP(app: express.Application) {
             const context: LogContext = { sessionId: sid, transportType: 'streamable' };
             logger.logConnectionClose(context);
             streamableTransports.delete(sid);
+            apiKeys.delete(sid);
           }
         };
 

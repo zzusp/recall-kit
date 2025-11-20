@@ -3,7 +3,7 @@
  * 处理统一API响应格式的前端适配
  */
 
-import { safeFetch, errorHandler } from './errorHandler';
+import { safeFetch, errorHandler } from '../../utils/errorHandler';
 
 // 统一API响应类型
 export interface ApiResponse<T = any> {

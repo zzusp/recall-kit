@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { getSessionToken } from '@/lib/services/authClientService';
+import { toast } from '@/lib/services/internal/toastService';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface Experience {
   id: string;
@@ -29,6 +31,7 @@ export default function ExperienceDetailPage() {
   const [experience, setExperience] = useState<Experience | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   useEffect(() => {
     const fetchExperience = async () => {
@@ -72,16 +75,39 @@ export default function ExperienceDetailPage() {
   const handleAction = async (action: 'publish' | 'unpublish' | 'delete' | 'restore') => {
     if (!experience) return;
 
-    const confirmMessage = {
-      'publish': '确定要发布这个经验吗？发布后将可以在搜索中被找到。',
-      'unpublish': '确定要取消发布这个经验吗？取消发布后将不再在搜索中显示。',
-      'delete': '确定要删除这个经验吗？删除后可以恢复。',
-      'restore': '确定要恢复这个经验吗？恢复后将变为草稿状态。'
+    const confirmConfig = {
+      'publish': {
+        title: '发布经验',
+        message: '确定要发布这个经验吗？发布后将可以在搜索中被找到。',
+        type: 'info' as const,
+        confirmText: '发布',
+        cancelText: '取消'
+      },
+      'unpublish': {
+        title: '取消发布',
+        message: '确定要取消发布这个经验吗？取消发布后将不再在搜索中显示。',
+        type: 'warning' as const,
+        confirmText: '取消发布',
+        cancelText: '返回'
+      },
+      'delete': {
+        title: '删除经验',
+        message: '确定要删除这个经验吗？删除后可以恢复。',
+        type: 'danger' as const,
+        confirmText: '删除',
+        cancelText: '取消'
+      },
+      'restore': {
+        title: '恢复经验',
+        message: '确定要恢复这个经验吗？恢复后将变为草稿状态。',
+        type: 'info' as const,
+        confirmText: '恢复',
+        cancelText: '取消'
+      }
     };
 
-    if (!confirm(confirmMessage[action])) {
-      return;
-    }
+    const confirmed = await confirm(confirmConfig[action]);
+    if (!confirmed) return;
 
     try {
       const sessionToken = getSessionToken();
@@ -105,13 +131,13 @@ export default function ExperienceDetailPage() {
       }
 
       const result = await response.json();
-      alert(result.message);
+      toast.success(result.message);
       
       // 更新本地状态
       setExperience(prev => prev ? { ...prev, ...result.data } : null);
       
     } catch (err) {
-      alert(err instanceof Error ? err.message : '操作失败');
+      toast.error(err instanceof Error ? err.message : '操作失败');
     }
   };
 
@@ -165,8 +191,9 @@ export default function ExperienceDetailPage() {
 
   return (
     <>
-      <div className="admin-page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <ConfirmDialogComponent />
+      <div className="admin-page-header" style={{ alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
               <h1 className="admin-page-title" style={{ margin: 0 }}>经验详情</h1>
@@ -174,16 +201,22 @@ export default function ExperienceDetailPage() {
             </div>
             <p className="admin-page-subtitle">查看您提交的技术经验详情</p>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={() => router.back()}
               style={{
-                padding: '0.5rem 1rem',
-                background: '#f3f4f6',
-                color: '#374151',
-                border: '1px solid #d1d5db',
-                borderRadius: '0.375rem',
-                cursor: 'pointer'
+                padding: '0.625rem 1.25rem',
+                background: '#f8fafc',
+                color: '#475569',
+                border: '1px solid #e2e8f0',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
               }}
             >
               <i className="fas fa-arrow-left"></i> 返回
@@ -191,33 +224,25 @@ export default function ExperienceDetailPage() {
             
             {!experience.is_deleted && (
               <>
-                {experience.publish_status === 'draft' ? (
+                {experience.publish_status === 'draft' && (
                   <button
                     onClick={() => handleAction('publish')}
                     style={{
-                      padding: '0.5rem 1rem',
+                      padding: '0.625rem 1.25rem',
                       background: '#10b981',
                       color: 'white',
                       border: 'none',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer'
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
                     }}
                   >
                     <i className="fas fa-share"></i> 发布
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleAction('unpublish')}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: '#f59e0b',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <i className="fas fa-eye-slash"></i> 取消发布
                   </button>
                 )}
                 
@@ -225,12 +250,18 @@ export default function ExperienceDetailPage() {
                   <button
                     onClick={() => handleAction('delete')}
                     style={{
-                      padding: '0.5rem 1rem',
+                      padding: '0.625rem 1.25rem',
                       background: '#ef4444',
                       color: 'white',
                       border: 'none',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer'
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
                     }}
                   >
                     <i className="fas fa-trash"></i> 删除
@@ -243,12 +274,18 @@ export default function ExperienceDetailPage() {
               <button
                 onClick={() => handleAction('restore')}
                 style={{
-                  padding: '0.5rem 1rem',
+                  padding: '0.625rem 1.25rem',
                   background: '#10b981',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '0.375rem',
-                  cursor: 'pointer'
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
                 }}
               >
                 <i className="fas fa-undo"></i> 恢复

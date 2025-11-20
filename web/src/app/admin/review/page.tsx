@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSessionToken } from '@/lib/services/authClientService';
+import { toast } from '@/lib/services/internal/toastService';
 
 interface Experience {
   id: string;
@@ -157,7 +158,7 @@ export default function ReviewPage() {
       }
 
       const data = await response.json();
-      alert(`成功${reviewStatus === 'approved' ? '通过' : '拒绝'} ${selectedExperiences.length} 条经验`);
+      toast.success(`成功${reviewStatus === 'approved' ? '通过' : '拒绝'} ${selectedExperiences.length} 条经验`);
       
       setSelectedExperiences([]);
       setBatchReviewNote('');

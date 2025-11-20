@@ -1,16 +1,19 @@
 'use client';
-
 import { useState, useEffect } from 'react';
-import { Role, Permission } from '@/types/database';
+import { getSessionToken } from '@/lib/services/authClientService';
+import { toast } from '@/lib/services/internal/toastService';
 import PermissionGuard from '@/components/auth/PermissionGuard';
-import { toast } from '@/lib/toastService';
-import RoleModal from './RoleModalImproved';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import RoleModal from '@/components/admin/RoleModal';
+import { Role as DatabaseRole, Permission } from '@/types/database';
+
+interface Role extends DatabaseRole {
+  user_count: number;
+  permissions: Permission[];
+}
 
 interface RolesResponse {
-  roles: (Role & {
-    user_count: number;
-    permissions: Permission[];
-  })[];
+  roles: Role[];
   pagination: {
     page: number;
     limit: number;
@@ -31,6 +34,7 @@ function RolesManagementContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   useEffect(() => {
     fetchRoles();
@@ -60,10 +64,16 @@ function RolesManagementContent() {
   };
 
   const handleDeleteRole = async (roleId: string) => {
-    if (!confirm('确定要删除这个角色吗？删除后无法恢复。')) {
-      return;
-    }
-
+    const confirmed = await confirm({
+      title: '删除角色',
+      message: '确定要删除这个角色吗？删除后无法恢复。',
+      type: 'danger',
+      confirmText: '删除',
+      cancelText: '取消'
+    });
+    
+    if (!confirmed) return;
+    
     try {
       const response = await fetch(`/api/admin/roles/${roleId}`, {
         method: 'DELETE'
@@ -98,6 +108,7 @@ function RolesManagementContent() {
 
   return (
     <div className="admin-page-content">
+      <ConfirmDialogComponent />
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">角色管理</h1>
@@ -182,21 +193,23 @@ function RolesManagementContent() {
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center justify-center space-x-2">
+                      <div className="admin-action-buttons justify-center">
                         <button
                           onClick={() => handleEditRole(role)}
-                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          className="admin-btn admin-btn-outline admin-btn-primary-outline admin-btn-sm"
                           title="编辑"
                         >
                           <i className="fas fa-edit"></i>
+                          编辑
                         </button>
                         <button
                           onClick={() => handleDeleteRole(role.id)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
+                          className="admin-btn admin-btn-danger admin-btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           title="删除"
                           disabled={role.user_count > 0}
                         >
                           <i className="fas fa-trash"></i>
+                          删除
                         </button>
                       </div>
                     </td>
@@ -243,7 +256,7 @@ function RolesManagementContent() {
       {/* 创建/编辑角色模态框 */}
       {(showCreateModal || editingRole) && (
         <RoleModal
-          role={editingRole}
+          role={editingRole as Role}
           onClose={handleModalClose}
           onSave={handleModalSave}
         />

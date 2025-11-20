@@ -1,58 +1,12 @@
-// Base type definitions
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-  password_hash: string;
-  is_active: boolean;
-  is_superuser: boolean;
-  last_login_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// 数据库类型定义的主入口文件
 
-export interface ApiKey {
-  id: string;
-  user_id: string;
-  name: string;
-  api_key: string;
-  is_active: boolean;
-  last_used_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// 导入认证相关类型
+export * from './auth';
 
-export interface ApiKeyUsageLog {
-  id: string;
-  api_key_id: string;
-  endpoint: string;
-  method: string;
-  ip_address: string | null;
-  user_agent: string | null;
-  status_code: number | null;
-  response_time_ms: number | null;
-  created_at: string;
-}
+// 导入经验相关类型
+export * from './experience';
 
-export interface Role {
-  id: string;
-  name: string;
-  description: string | null;
-  is_system_role: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Permission {
-  id: string;
-  name: string;
-  resource: string;
-  action: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
+// 导出完整的数据库接口定义（保持向后兼容）
 export interface Database {
   public: {
     Tables: {
@@ -299,7 +253,7 @@ export interface Database {
           has_embedding: boolean;
           created_at: string;
           updated_at: string;
-          deleted_at: string | null; // Keep for backward compatibility
+          deleted_at: string | null;
         };
         Insert: {
           id?: string;

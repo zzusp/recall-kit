@@ -47,51 +47,82 @@ const Toast = ({ id, message, type = 'info', duration = 3000, onClose }: ToastPr
     }
   };
 
-  const getBgColor = () => {
+  const getBgStyle = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 border-green-200';
+        return { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', border: '1px solid' };
       case 'error':
-        return 'bg-red-50 border-red-200';
+        return { backgroundColor: '#fef2f2', borderColor: '#fecaca', border: '1px solid' };
       case 'warning':
-        return 'bg-yellow-50 border-yellow-200';
+        return { backgroundColor: '#fffbeb', borderColor: '#fed7aa', border: '1px solid' };
       default:
-        return 'bg-blue-50 border-blue-200';
+        return { backgroundColor: '#eff6ff', borderColor: '#dbeafe', border: '1px solid' };
     }
   };
 
-  const getTextColor = () => {
+  const getTextStyle = () => {
     switch (type) {
       case 'success':
-        return 'text-green-800';
+        return { color: '#166534' };
       case 'error':
-        return 'text-red-800';
+        return { color: '#991b1b' };
       case 'warning':
-        return 'text-yellow-800';
+        return { color: '#92400e' };
       default:
-        return 'text-blue-800';
+        return { color: '#1e40af' };
     }
   };
 
   return (
     <div
-      className={`
-        fixed top-4 right-4 z-50 flex items-center gap-3 p-4 rounded-lg border shadow-lg
-        min-w-[300px] max-w-md transition-all duration-300 ease-in-out
-        ${getBgColor()}
-        ${isVisible && !isLeaving ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
-        ${isLeaving ? 'translate-x-full opacity-0' : ''}
-      `}
+      style={{
+        position: 'fixed',
+        top: '1rem',
+        right: '1rem',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        padding: '1rem',
+        borderRadius: '0.5rem',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        minWidth: '300px',
+        maxWidth: '448px',
+        transition: 'all 0.3s ease-in-out',
+        ...getBgStyle(),
+        transform: isVisible && !isLeaving ? 'translateX(0)' : 'translateX(100%)',
+        opacity: isVisible && !isLeaving ? 1 : 0
+      }}
     >
       {getIcon()}
-      <p className={`flex-1 text-sm font-medium ${getTextColor()}`}>
+      <p style={{ 
+        flex: 1, 
+        fontSize: '0.875rem', 
+        fontWeight: '500',
+        margin: 0,
+        ...getTextStyle()
+      }}>
         {message}
       </p>
       <button
         onClick={handleClose}
-        className={`p-1 rounded-full hover:bg-black/10 transition-colors ${getTextColor()}`}
+        style={{
+          padding: '0.25rem',
+          borderRadius: '50%',
+          border: 'none',
+          background: 'transparent',
+          cursor: 'pointer',
+          transition: 'background-color 0.2s',
+          ...getTextStyle()
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }}
       >
-        <X className="w-4 h-4" />
+        <X size={16} />
       </button>
     </div>
   );
