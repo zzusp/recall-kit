@@ -1,7 +1,7 @@
 
 # docker build -t recall-kit:1.0.0 .
-# docker save -o recall-kit-mcp.tar recall-kit-mcp:1.0.0
-# docker load -i recall-kit-mcp.tar
+# docker save -o recall-kit.tar recall-kit:1.0.0
+# docker load -i recall-kit.tar
 FROM node:18-alpine AS base
 
 # =================== iamges =======================
