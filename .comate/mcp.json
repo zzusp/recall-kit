@@ -23,8 +23,8 @@
             "disabled": false
         },
         "recall-kit": {
-            "url": "http://127.0.0.1:3001/sse?api_key=rk_1042e643822e4def845fe571a8bfed8c",
-            "disabled": true
+            "url": "http://www.codeva-cn.com:3101/sse?api_key=rk_1042e643822e4def845fe571a8bfed8c",
+            "disabled": false
         }
     }
 }

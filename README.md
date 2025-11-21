@@ -5,6 +5,29 @@
 Recall Kit 是一个基于 MCP (Model Context Protocol) 协议的经验分享平台，旨在解决 AI 开发过程中重复对话和 token 浪费的问题。通过记录、分享和复用开发经验，让 AI Agent 能够自动查询和复用历史经验，提高开发效率。
 
 ### 📹 项目演示
+WEB端访问地址（演示账号：comate/comate666）：http://www.codeva-cn.com:3100/
+
+MCP配置（临时服务不太稳定）：
+```jsonc
+# 新版​Streamable HTTP
+{
+    "mcpServers": {
+        "recall-kit": {
+            "url": "http://www.codeva-cn.com:3101/mcp?api_key=rk_xxxx"
+        }
+    }
+}
+# 旧版HTTP+SSE transport配置
+{
+    "mcpServers": {
+        "recall-kit": {
+            "url": "http://www.codeva-cn.com:3101/sse?api_key=rk_xxxx"
+        }
+    }
+}
+
+# api_key可选，缺少时可查询不可提交经验
+```
 
 [观看项目演示视频](docs/recall-kit.mp4)
 
