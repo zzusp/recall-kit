@@ -4,6 +4,7 @@ import { getSessionToken } from '@/lib/services/authClientService';
 import { toast } from '@/lib/services/internal/toastService';
 import PermissionGuard from '@/components/auth/PermissionGuard';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Permission, Role } from '@/types/database/auth';
 
 interface PermissionsResponse {
   permissions: (Permission & {
@@ -57,18 +58,51 @@ function PermissionsManagementContent() {
       const response = await fetch(`/api/admin/permissions?${params}`);
       const data = await response.json();
 
-      setPermissions(data.permissions);
-      setPagination(data.pagination);
-      
-      // 提取所有资源类型
-      if (data.permissions && Array.isArray(data.permissions)) {
-        const uniqueResources = Array.from(new Set(data.permissions.map((p: Permission) => p.resource)));
-        setResources(uniqueResources as string[]);
+      // 确保数据结构正确
+      if (data && data.permissions) {
+        setPermissions(data.permissions);
+        
+        // 安全地设置pagination，提供默认值
+        if (data.pagination) {
+          setPagination({
+            page: data.pagination.page || 1,
+            limit: data.pagination.limit || 10,
+            total: data.pagination.total || 0,
+            totalPages: data.pagination.totalPages || 0
+          });
+        } else {
+          // 如果没有pagination数据，保持当前状态
+          console.warn('No pagination data received from API');
+        }
+        
+        // 提取所有资源类型
+        if (Array.isArray(data.permissions)) {
+          const uniqueResources = Array.from(new Set(data.permissions.map((p: Permission) => p.resource)));
+          setResources(uniqueResources as string[]);
+        } else {
+          setResources([]);
+        }
       } else {
+        // 如果API返回的数据结构不正确，设置为空状态
+        console.error('Invalid data structure received from API:', data);
+        setPermissions([]);
+        setPagination(prev => ({
+          ...prev,
+          totalPages: 0,
+          total: 0
+        }));
         setResources([]);
       }
     } catch (error) {
       console.error('Error fetching permissions:', error);
+      // 出错时设置为空状态
+      setPermissions([]);
+      setPagination(prev => ({
+        ...prev,
+        totalPages: 0,
+        total: 0
+      }));
+      setResources([]);
     } finally {
       setLoading(false);
     }
@@ -108,7 +142,7 @@ function PermissionsManagementContent() {
   };
 
   const getRolesString = (permission: PermissionsResponse['permissions'][0]) => {
-    return permission.roles?.map(r => r.name).join(', ') || '未分配';
+    return permission.roles?.map((r: Role) => r.name).join(', ') || '未分配';
   };
 
   return (

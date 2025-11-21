@@ -5,6 +5,8 @@ import { User, Role } from '@/types/database';
 import PermissionGuard from '@/components/auth/PermissionGuard';
 import { toast } from '@/lib/services/internal/toastService';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+// 移除数据库相关的客户端导入
+// import { getCurrentUser } from '@/lib/services/internal/authService';
 
 interface UsersResponse {
   users: (User & {
@@ -26,6 +28,155 @@ export default function UsersManagement() {
   );
 }
 
+// 密码重置模态框组件
+interface PasswordModalProps {
+  user: User | null;
+  onClose: () => void;
+  onSave: () => void;
+}
+
+function PasswordModal({ user, onClose, onSave }: PasswordModalProps) {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (newPassword !== confirmPassword) {
+      toast.error('两次输入的密码不一致');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error('密码长度至少为6位');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`/api/admin/users/${user?.id}/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('session_token')}`
+        },
+        body: JSON.stringify({ newPassword })
+      });
+
+      if (response.ok) {
+        toast.success('密码重置成功');
+        onSave();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || '密码重置失败');
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      toast.error('密码重置失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100] p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-orange-500 to-red-600 flex items-center justify-center">
+                <i className="fas fa-key text-white"></i>
+              </div>
+              重置密码
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <i className="fas fa-times text-xl"></i>
+            </button>
+          </div>
+
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
+              <div>
+                <div className="text-sm font-medium text-blue-900">重置 {user?.username} 的密码</div>
+                <div className="text-sm text-blue-700 mt-1">重置后，用户需要使用新密码登录系统</div>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="admin-form-group">
+              <label className="admin-form-label flex items-center gap-2">
+                <i className="fas fa-lock text-gray-400"></i>
+                新密码
+              </label>
+              <input
+                type="password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="admin-form-input"
+                placeholder="请输入新密码"
+                minLength={6}
+              />
+            </div>
+
+            <div className="admin-form-group">
+              <label className="admin-form-label flex items-center gap-2">
+                <i className="fas fa-lock text-gray-400"></i>
+                确认密码
+              </label>
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="admin-form-input"
+                placeholder="请再次输入新密码"
+                minLength={6}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={onClose}
+                className="admin-btn admin-btn-outline"
+              >
+                <i className="fas fa-times mr-2"></i>
+                取消
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="admin-btn admin-btn-primary"
+              >
+                {loading ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    重置中...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-key mr-2"></i>
+                    重置密码
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function UsersManagementContent() {
   const [users, setUsers] = useState<UsersResponse['users']>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +185,34 @@ function UsersManagementContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState<User | null>(null);
+  const [isSuperUser, setIsSuperUser] = useState(false);
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
+
+  useEffect(() => {
+    checkSuperUser();
+  }, []);
+
+  const checkSuperUser = async () => {
+    try {
+      const sessionToken = localStorage.getItem('session_token');
+      if (sessionToken) {
+        // 通过API检查当前用户权限，而不是直接调用数据库服务
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setIsSuperUser(data.is_superuser || false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking super user:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -226,6 +404,15 @@ function UsersManagementContent() {
                             <i className="fas fa-edit"></i>
                             编辑
                           </button>
+                          {isSuperUser && (
+                            <button
+                              onClick={() => setShowPasswordModal(user)}
+                              className="admin-btn admin-btn-outline admin-btn-warning-outline admin-btn-sm"
+                            >
+                              <i className="fas fa-key"></i>
+                              重置密码
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeleteUser(user.id)}
                             className="admin-btn admin-btn-danger admin-btn-sm"
@@ -282,6 +469,18 @@ function UsersManagementContent() {
             setShowCreateModal(false);
             setEditingUser(null);
             fetchUsers();
+          }}
+        />
+      )}
+
+      {/* 密码重置模态框 */}
+      {showPasswordModal && (
+        <PasswordModal
+          user={showPasswordModal}
+          onClose={() => setShowPasswordModal(null)}
+          onSave={() => {
+            setShowPasswordModal(null);
+            toast.success('密码重置成功');
           }}
         />
       )}

@@ -93,8 +93,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Hash password properly (use bcrypt)
-    const passwordHash = password; // This should be hashed!
+    // Hash password using bcrypt
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Create user
     const userResult = await db.query(

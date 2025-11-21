@@ -537,6 +537,7 @@ CREATE TABLE "public"."users" (
   "is_active" bool DEFAULT true,
   "is_superuser" bool DEFAULT false,
   "last_login_at" timestamptz(6),
+  "last_password_change" timestamptz(6),
   "created_at" timestamptz(6) NOT NULL DEFAULT now(),
   "updated_at" timestamptz(6) NOT NULL DEFAULT now()
 )
