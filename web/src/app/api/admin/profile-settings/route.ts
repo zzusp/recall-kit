@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/services/internal/authService';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
 
-export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {

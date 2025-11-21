@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExperienceService } from '@/lib/services/experienceService';
 
-export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+export const runtime = 'nodejs';
 
 interface RouteParams {
   params: Promise<{

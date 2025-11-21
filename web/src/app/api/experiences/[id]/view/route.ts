@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { ExperienceService } from '@/lib/services/experienceService';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 
-export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+export const runtime = 'nodejs';
 
 interface Params {
   id: string;

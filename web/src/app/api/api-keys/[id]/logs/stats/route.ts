@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { getApiKeyUsageStats } from '@/lib/services/apiKeyService';
 
-export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+export const runtime = 'nodejs';
 
 export async function GET(
   request: NextRequest,
