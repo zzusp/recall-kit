@@ -151,7 +151,7 @@ export default function AdminLogin() {
                 <i className="fas fa-shield-alt" style={{ fontSize: '2rem', color: 'white' }}></i>
               </div>
               <h1 style={{ fontSize: '1.875rem', fontWeight: '700', color: 'rgb(30, 41, 59)', marginBottom: '0.5rem' }}>
-                管理员登录
+                管理后台登录
               </h1>
               <p style={{ fontSize: '0.875rem', color: 'rgb(100, 116, 139)' }}>
                 请输入您的凭据以访问管理后台

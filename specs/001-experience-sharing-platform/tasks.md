@@ -20,7 +20,7 @@
 - **Phase 4**: User Story 2 - MCP提交 (P1) - 5 tasks
 - **Phase 5**: User Story 3 - Web搜索 (P2) - 4 tasks
 - **Phase 6**: User Story 4 - 管理员审核 (P2) - 4 tasks
-- **Phase 7**: User Story 5 - 管理员登录 (P3) - 2 tasks
+- **Phase 7**: User Story 5 - 管理后台登录 (P3) - 2 tasks
 - **Phase 8**: Polish (优化和跨功能) - 1 task
 
 ## Dependencies
@@ -36,7 +36,7 @@ Phase 4 (US2: MCP提交) ──┼──→ Phase 5 (US3: Web搜索)
   ↓                      │         ↓
 Phase 6 (US4: 管理员审核) ┘         │
   ↓                                 │
-Phase 7 (US5: 管理员登录) ──────────┘
+Phase 7 (US5: 管理后台登录) ──────────┘
   ↓
 Phase 8 (Polish)
 ```
@@ -505,10 +505,10 @@ Phase 8 (Polish)
 
 ---
 
-## Phase 7: User Story 5 - 管理员登录和后台管理 (P3)
+## Phase 7: User Story 5 - 管理后台登录和后台管理 (P3)
 
 ### T026 [P3] [US5] 实现管理员认证
-**描述**: 实现基于JWT的管理员登录功能（Next.js API Route）  
+**描述**: 实现基于JWT的管理后台登录功能（Next.js API Route）  
 **估时**: 4h  
 **前置条件**: T008  
 **验收标准**:
@@ -529,7 +529,7 @@ Phase 8 (Polish)
 
 ---
 
-### T027 [P3] [US5] 实现管理员登录页面和控制面板
+### T027 [P3] [US5] 实现管理后台登录页面和控制面板
 **描述**: 实现登录页面和管理员控制面板  
 **估时**: 4h  
 **前置条件**: T026  
@@ -614,7 +614,7 @@ Phase 8 (Polish)
 - 可以编辑、删除、恢复经验记录
 - 支持批量操作
 
-### User Story 5 (管理员登录):
+### User Story 5 (管理后台登录):
 - 管理员可以登录
 - 登录后可以访问后台管理功能
 - 未登录用户无法访问管理页面

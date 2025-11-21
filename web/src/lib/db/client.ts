@@ -58,7 +58,7 @@ export class DatabaseClient {
       const result = await sql.unsafe(text, params);
       const duration = Date.now() - start;
       console.log('Executed query', { text, duration, rows: result.length });
-      return { rows: result, rowCount: result.length };
+      return { rows: result as unknown as T[], rowCount: result.length };
     } catch (error) {
       console.error('Database query error', { text, error });
       throw error;

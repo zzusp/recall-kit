@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ExperienceList } from '@/components/experience/ExperienceList';
 import { ExperienceRecord } from '@/lib/services/experienceService';
-import { api, ApiError } from '@/lib/utils/apiClient';
+import { api, ApiError } from '@/lib/services/api/apiClient';
 
 export default function SearchPage() {
   return (
@@ -100,7 +100,7 @@ function SearchPageContent() {
     setError('');
     
     try {
-      const experiences = await searchExperiences('', 10);
+      const experiences = await searchExperiences('', [], 10);
       setSearchResults(experiences);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败，请稍后重试');

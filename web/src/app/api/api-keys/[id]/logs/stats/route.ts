@@ -2,7 +2,7 @@
 import { db } from '@/lib/db/client';
 import { getApiKeyUsageStats } from '@/lib/services/apiKeyService';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export async function GET(
   request: NextRequest,

@@ -129,7 +129,6 @@ export default function ListPage() {
                   </p>
                   <div className="flex justify-between text-sm text-gray-500">
                     <span><i className="fas fa-tag mr-1"></i> {experience.keywords?.[0] || 'General'}</span>
-                    <span><i className="fas fa-user mr-1"></i> {experience.author || '匿名'}</span>
                     <span><i className="fas fa-eye mr-1"></i> {experience.view_count || 0}次浏览</span>
                   </div>
                 </div>

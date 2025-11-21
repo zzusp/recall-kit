@@ -211,7 +211,7 @@ export async function deleteApiKey(userId: string, apiKeyId: string): Promise<bo
     [apiKeyId, userId]
   );
 
-  return result.rowCount > 0;
+  return (result.rowCount || 0) > 0;
 }
 
 

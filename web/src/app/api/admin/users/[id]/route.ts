@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 interface RouteParams {
   params: Promise<{

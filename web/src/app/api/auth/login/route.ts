@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db/client';
 import { User, Role, Permission } from '@/types/database/auth';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export interface AuthUser {
   id: string;

@@ -174,7 +174,7 @@ npm run test:coverage # 生成测试覆盖率报告
 ### AuthService
 
 认证服务，提供：
-- 管理员登录
+- 管理后台登录
 - 会话管理
 - 权限验证
 
@@ -207,7 +207,7 @@ npm run test:coverage # 生成测试覆盖率报告
 
 ### 管理页面（需要登录）
 
-- `/admin/login` - 管理员登录
+- `/admin/login` - 管理后台登录
 - `/admin/dashboard` - 控制面板
 - `/admin/review` - 审核页面
 - `/admin/settings` - 系统设置

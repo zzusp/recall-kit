@@ -38,7 +38,7 @@ export class ApiClient {
   /**
    * 通用请求方法
    */
-  private async request<T>(
+  protected async request<T>(
     url: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -154,7 +154,7 @@ declare module './apiClient' {
 }
 
 ApiClient.prototype.withAuth = function(token: string) {
-  const client = new ApiClient(this.baseUrl);
+  const client = new ApiClient((this as any).baseUrl);
   const originalRequest = client.request.bind(client);
   
   client.request = async function<T>(url: string, options: RequestInit = {}) {

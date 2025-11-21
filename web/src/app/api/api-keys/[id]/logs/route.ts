@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getApiKeyUsageLogs, getApiKeyUsageStats, validateApiKey } from '@/lib/services/apiKeyService';
 import { getCurrentUser } from '@/lib/services/internal/authService';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 // GET /api/api-keys/[id]/logs - 获取API密钥使用日志
 export async function GET(
@@ -38,7 +38,7 @@ export async function GET(
 
       const logs = await getApiKeyUsageLogs(keyValidation.userId, id, limit, offset);
       
-      let response = { logs };
+      let response: { logs: any[]; stats?: any } = { logs };
       if (includeStats) {
         const stats = await getApiKeyUsageStats(keyValidation.userId, id);
         response = { logs, stats };
@@ -78,7 +78,7 @@ export async function GET(
 
     const logs = await getApiKeyUsageLogs(user.id, id, limit, offset);
     
-    let response = { logs };
+    let response: { logs: any[]; stats?: any } = { logs };
     if (includeStats) {
       const stats = await getApiKeyUsageStats(user.id, id);
       response = { logs, stats };

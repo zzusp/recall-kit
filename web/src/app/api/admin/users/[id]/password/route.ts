@@ -1,9 +1,9 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { getCurrentUser } from '@/lib/services/internal/authService';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 interface RouteParams {
   params: Promise<{

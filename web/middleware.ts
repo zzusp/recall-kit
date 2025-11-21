@@ -1,4 +1,4 @@
-import { middleware as authMiddleware } from './src/lib/middleware/authMiddleware';
+import { middleware, config } from './src/lib/middleware/authMiddleware';
 
-export default authMiddleware;
-export const config = authMiddleware.config;
+export default middleware;
+export { config };

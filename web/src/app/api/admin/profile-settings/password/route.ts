@@ -2,9 +2,9 @@ import { NextRequest } from 'next/server';
 import { getCurrentUser } from '@/lib/services/internal/authService';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {

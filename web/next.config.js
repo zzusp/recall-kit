@@ -1,5 +1,9 @@
+const isProd = process.env.NODE_ENV === 'production';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  compress: isProd,
+  output: 'standalone',
   experimental: {
     serverActions: {
       enabled: true,
@@ -8,24 +12,15 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // Configure Edge Runtime for production only
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-      };
-    }
-    return config;
-  },
+  // eslint: {
+  //   ignoreDuringBuilds: true,
+  // },
+  // typescript: {
+  //   ignoreBuildErrors: true,
+  // },
 };
 
-module.exports = nextConfig;
+// 高阶函数包装器（为将来插件扩展准备）
+const withConfig = (config) => config;
+
+module.exports = withConfig(nextConfig);

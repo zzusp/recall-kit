@@ -44,10 +44,9 @@ export function handleBrowserExtensionErrors(): void {
 // 导出增强的 fetch 函数
 export async function safeFetch(url: string, options: SafeFetchOptions = {}): Promise<Response> {
   try {
-    const response = await fetch(url, {
-      ...options,
-      timeout: options.timeout || 10000,
-    });
+    // Remove timeout from options as it's not supported by fetch RequestInit
+    const { timeout, ...fetchOptions } = options;
+    const response = await fetch(url, fetchOptions);
     return response;
   } catch (error) {
     if (error instanceof Error && error.message.includes('content_script')) {

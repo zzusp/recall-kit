@@ -119,7 +119,7 @@ interface Keyword {
 
 ### 5. POST /auth/login
 
-管理员登录。
+管理后台登录。
 
 **Request Body**:
 ```typescript

@@ -1,8 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { getCurrentUser, hasRole } from '@/lib/services/internal/authService';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
@@ -153,58 +153,42 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Start transaction
-    const client = await db.getClient();
+    // Start transaction using sql directly
+    const sql = (await import('@/lib/db/config')).default;
     
     try {
-      await client.query('BEGIN');
-      // Update experiences
-      const updateResult = await client.query(`
-        UPDATE experience_records 
-        SET 
-          review_status = $1,
-          reviewed_by = $2,
-          reviewed_at = NOW(),
-          review_note = $3,
-          publish_status = CASE 
-            WHEN $1 = 'approved' THEN 'published'
-            WHEN $1 = 'rejected' THEN 'rejected'
-            ELSE publish_status
-          END,
-          updated_at = NOW()
-        WHERE id = ANY($4)
-        RETURNING id, title, review_status
-      `, [reviewStatus, user.id, reviewNote || null, experienceIds]);
-
-      // Log admin action
-      await client.query(`
-        INSERT INTO admin_actions (admin_id, action_type, target_type, target_ids, action_details)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [
-        user.id,
-        `batch_${reviewStatus}`,
-        'experience',
-        experienceIds,
-        {
-          review_status: reviewStatus,
-          review_note: reviewNote,
-          count: experienceIds.length
-        }
-      ]);
-
-      await client.query('COMMIT');
-
+      await sql.begin(async (sql) => {
+        // Update experiences
+        await sql`
+          UPDATE experience_records 
+          SET 
+            review_status = ${reviewStatus},
+            reviewed_by = ${user.id},
+            reviewed_at = CURRENT_TIMESTAMP,
+            publish_status = CASE 
+              WHEN ${reviewStatus} = 'approved' THEN 'published'
+              WHEN ${reviewStatus} = 'rejected' THEN 'draft'
+              ELSE publish_status
+            END
+          WHERE id = ANY(${experienceIds})
+        `;
+        
+        // Log admin action
+        await sql`
+          INSERT INTO admin_actions (admin_id, action_type, target_type, target_ids, action_details)
+          VALUES (${user.id}, ${reviewStatus}, 'experience', ${experienceIds}, ${JSON.stringify({
+            reviewStatus,
+            reviewedAt: new Date().toISOString()
+          })})
+        `;
+      });
+      
       return NextResponse.json({
         success: true,
-        message: `Successfully ${reviewStatus} ${experienceIds.length} experiences`,
-        updated_experiences: updateResult.rows
+        message: `Successfully ${reviewStatus} ${experienceIds.length} experiences`
       });
     } catch (error) {
-      await client.query('ROLLBACK');
       throw error;
-    } finally {
-      client.release();
     }
   } catch (error) {
     console.error('Error in batch review:', error);

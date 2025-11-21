@@ -2,7 +2,7 @@
 import { ExperienceService } from '@/lib/services/experienceService';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 interface Params {
   id: string;

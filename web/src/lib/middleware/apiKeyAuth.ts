@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db/client';
-import crypto from 'crypto';
 
 export interface ApiKeyAuth {
   userId: string;
@@ -86,7 +85,7 @@ export async function logApiKeyUsage(
       apiKeyId,
       url.pathname + url.search,
       request.method,
-      request.ip || request.headers.get('x-forwarded-for') || null,
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
       request.headers.get('user-agent') || null,
       statusCode,
       responseTimeMs
