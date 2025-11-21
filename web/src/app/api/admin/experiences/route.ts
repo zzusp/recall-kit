@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { getCurrentUser, hasRole } from '@/lib/services/internal/authService';
+
+export const runtime = 'edge';
 
 // Use Edge Runtime only in production
 

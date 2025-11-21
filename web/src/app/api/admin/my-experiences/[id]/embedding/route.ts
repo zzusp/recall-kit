@@ -4,6 +4,7 @@ import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
 import { EmbeddingService } from '@/lib/services/embeddingService';
 
+export const runtime = 'edge';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

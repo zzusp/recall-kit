@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getApiKeyById, updateApiKey, deleteApiKey, validateApiKey } from '@/lib/services/apiKeyService';
 import { getCurrentUser } from '@/lib/services/internal/authService';
 
+export const runtime = 'edge';
+
 // GET /api/api-keys/[id] - 获取特定API密钥信息
 export async function GET(
   request: NextRequest,

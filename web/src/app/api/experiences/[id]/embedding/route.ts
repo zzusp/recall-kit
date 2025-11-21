@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { ExperienceService } from '@/lib/services/experienceService';
 
+export const runtime = 'edge';
 
 interface RouteParams {
   params: Promise<{

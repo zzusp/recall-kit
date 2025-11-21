@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFullApiKey } from '@/lib/services/apiKeyService';
 import { getCurrentUser } from '@/lib/services/internal/authService';
 
+export const runtime = 'edge';
 
 // GET /api/api-keys/[id]/copy - 获取完整的API密钥用于复制
 export async function GET(
