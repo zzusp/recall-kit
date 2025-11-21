@@ -42,7 +42,7 @@ export class EmbeddingService {
     try {
       // Try to get config from database
       // Note: This internal call bypasses authentication for embedding service
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/admin/settings`, {
+      const response = await fetch('/api/admin/settings', {
         headers: {
           'Content-Type': 'application/json',
           'X-Internal-Call': 'true', // Special header to bypass auth for internal calls
