@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { getCurrentUser, hasRole } from '@/lib/services/internal/authService';
 
+// Use Edge Runtime only in production
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     // Get session token from Authorization header

@@ -4,6 +4,8 @@ import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
 import { EmbeddingService } from '@/lib/services/embeddingService';
 
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: experienceId } = await params;

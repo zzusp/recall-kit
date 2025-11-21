@@ -4,6 +4,8 @@ import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
 import bcrypt from 'bcryptjs';
 
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     // 获取当前用户信息

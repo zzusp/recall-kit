@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 interface RouteParams {
   params: Promise<{
     id: string;

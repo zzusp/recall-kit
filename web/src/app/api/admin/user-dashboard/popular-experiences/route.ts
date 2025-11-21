@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
 
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     // 获取热门经验（仅限已发布的公开经验）

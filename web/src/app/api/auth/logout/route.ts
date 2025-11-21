@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');

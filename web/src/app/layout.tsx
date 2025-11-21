@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import ToastContainer from '@/components/ui/ToastContainer'
 
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {

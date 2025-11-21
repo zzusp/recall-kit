@@ -4,6 +4,8 @@ import { User, Role, Permission } from '@/types/database/auth';
 import bcrypt from 'bcrypt';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 export interface AuthUser {
   id: string;
   username: string;

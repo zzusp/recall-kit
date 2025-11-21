@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { getCurrentUser, hasRole } from '@/lib/services/internal/authService';
 
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

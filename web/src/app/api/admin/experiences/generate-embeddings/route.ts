@@ -3,6 +3,8 @@ import { db } from '@/lib/db/client';
 import { ExperienceService } from '@/lib/services/experienceService';
 import { getCurrentUser, hasRole } from '@/lib/services/internal/authService';
 
+export const runtime = process.env.NODE_ENV === 'production' ? 'edge' : 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     // Get session token from Authorization header
