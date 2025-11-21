@@ -4,7 +4,6 @@ import { User, Role, Permission } from '@/types/database/auth';
 import bcrypt from 'bcrypt';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 
-export const runtime = 'nodejs';
 
 export interface AuthUser {
   id: string;

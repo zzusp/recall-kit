@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createApiKey, getUserApiKeys, validateApiKey } from '@/lib/services/apiKeyService';
 import { getCurrentUser } from '@/lib/services/internal/authService';
 
-export const runtime = 'nodejs';
 
 // GET /api/api-keys - 获取用户的所有API密钥
 export async function GET(request: NextRequest) {

@@ -4,7 +4,6 @@ import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
 import bcrypt from 'bcrypt';
 
-export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {

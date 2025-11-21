@@ -3,7 +3,6 @@ import { db } from '@/lib/db/client';
 import { getCurrentUser, hasRole } from '@/lib/services/internal/authService';
 
 // Use Edge Runtime only in production
-export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {

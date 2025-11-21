@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/db/client';
 
-export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {

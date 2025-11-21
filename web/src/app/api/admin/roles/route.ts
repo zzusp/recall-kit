@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { getCurrentUser } from '@/lib/services/internal/authService';
 
-export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {

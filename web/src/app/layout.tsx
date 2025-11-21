@@ -3,7 +3,6 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import ToastContainer from '@/components/ui/ToastContainer'
 
-export const runtime = 'nodejs';
 
 const inter = Inter({ subsets: ['latin'] })
 
