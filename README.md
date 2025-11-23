@@ -29,7 +29,7 @@ MCP配置（临时服务不太稳定）：
 # api_key可选，缺少时可查询不可提交经验
 ```
 
-[观看项目演示视频](docs/recall-kit.mp4)
+[观看项目演示视频](https://www.bilibili.com/video/BV1F3UnBjEfK?vd_source=6925f72b567b69e9d2d49ef7d6f1c711)
 
 ### 首页
 ![alt text](docs/dashboard.png)
