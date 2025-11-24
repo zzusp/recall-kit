@@ -120,11 +120,44 @@ export default function ApiKeysManagement() {
     }
   };
 
+// 创建一个通用的复制函数，支持多种复制方法
+const copyToClipboard = async (text: string): Promise<boolean> => {
+  try {
+    // 优先使用现代 Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    
+    // 后备方案：使用 document.execCommand
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    
+    return successful;
+  } catch (error) {
+    console.error('复制失败:', error);
+    return false;
+  }
+};
+
   const handleCopyFullApiKey = async (apiKey: ApiKey) => {
     try {
       setLoadingCopy(apiKey.id);
-      await navigator.clipboard.writeText(apiKey.apiKey);
-      toast.success('API密钥已复制到剪贴板');
+      const success = await copyToClipboard(apiKey.apiKey);
+      if (success) {
+        toast.success('API密钥已复制到剪贴板');
+      } else {
+        toast.error('复制API密钥失败，请手动复制');
+      }
     } catch (error) {
       console.error('Error copying API key:', error);
       toast.error('复制API密钥失败');
@@ -526,13 +559,38 @@ interface NewApiKeyModalProps {
 function NewApiKeyModal({ apiKey, onClose }: NewApiKeyModalProps) {
   const [copied, setCopied] = useState(false);
 
-  const copyToClipboard = async () => {
+  // 在组件内部定义复制函数，确保作用域正确
+  const handleCopyApiKey = async () => {
     try {
-      await navigator.clipboard.writeText(apiKey.apiKey);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      // 优先使用现代 Clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(apiKey.apiKey);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        // 后备方案：使用 document.execCommand
+        const textArea = document.createElement('textarea');
+        textArea.value = apiKey.apiKey;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (successful) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } else {
+          toast.error('复制失败，请手动复制');
+        }
+      }
     } catch (error) {
       console.error('Failed to copy:', error);
+      toast.error('复制失败，请手动复制');
     }
   };
 
@@ -579,7 +637,7 @@ function NewApiKeyModal({ apiKey, onClose }: NewApiKeyModalProps) {
                 className="admin-form-input font-mono text-sm flex-1"
               />
               <button
-                onClick={copyToClipboard}
+                onClick={handleCopyApiKey}
                 className={`admin-btn ${copied ? 'admin-btn-success' : 'admin-btn-outline'}`}
               >
                 <i className={`fas ${copied ? 'fa-check' : 'fa-copy'}`}></i>
