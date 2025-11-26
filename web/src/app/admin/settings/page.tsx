@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken } from '@/lib/services/authClientService';
+import { getSessionToken } from '@/lib/client/services/auth';
 
 type AIServiceType = 'openai' | 'anthropic' | 'custom';
 

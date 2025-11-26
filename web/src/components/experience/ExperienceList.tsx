@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ExperienceRecord } from '@/lib/services/experienceService';
+import { ExperienceRecord } from '@/lib/server/services/experience';
 
 interface ExperienceListProps {
   experiences: ExperienceRecord[];

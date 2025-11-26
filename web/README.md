@@ -42,43 +42,85 @@ Recall Kit Web 是 Recall Kit 项目的 Web 前端应用，基于 Next.js 15 构
 
 ```
 web/
+├── __tests__/                 # 测试文件（项目根目录，符合Next.js规范）
+│   └── utils/
+│       └── test-toast.ts
 ├── src/
 │   ├── app/                    # Next.js App Router
 │   │   ├── (search)/          # 搜索相关页面（路由组）
 │   │   │   ├── page.tsx       # 首页
 │   │   │   ├── search/        # 搜索页
 │   │   │   ├── list/          # 列表页
-│   │   │   └── experience/    # 详情页
+│   │   │   └── layout.tsx     # 搜索模块布局
 │   │   ├── admin/             # 管理后台
 │   │   │   ├── login/         # 登录页
 │   │   │   ├── dashboard/     # 控制面板
 │   │   │   ├── review/        # 审核页面
-│   │   │   └── settings/      # 系统设置
+│   │   │   ├── settings/      # 系统设置
+│   │   │   └── layout.tsx    # 管理后台布局
 │   │   ├── api/               # API 路由
 │   │   │   ├── experiences/   # 经验相关 API
-│   │   │   └── admin/         # 管理相关 API
+│   │   │   ├── admin/         # 管理相关 API
+│   │   │   ├── auth/          # 认证相关 API
+│   │   │   └── api-keys/      # API密钥相关 API
+│   │   ├── experience/        # 经验详情页
+│   │   │   └── [id]/
+│   │   │       └── page.tsx
 │   │   ├── layout.tsx         # 根布局
 │   │   └── globals.css        # 全局样式
 │   ├── components/            # React 组件
 │   │   ├── admin/             # 管理后台组件
+│   │   ├── auth/              # 认证相关组件
 │   │   ├── experience/        # 经验相关组件
+│   │   ├── ui/                # 通用UI组件
 │   │   └── Header.tsx         # 页头组件
+│   ├── config/                # 配置文件
+│   │   ├── api.ts
+│   │   ├── auth.ts
+│   │   ├── database.ts
+│   │   └── environment.ts
 │   ├── lib/                   # 工具函数和服务
-│   │   ├── services/          # 业务服务
-│   │   │   ├── experienceService.ts
-│   │   │   ├── embeddingService.ts
-│   │   │   └── authService.ts
-│   │   └── db/                # 数据库相关
-│   │       ├── client.ts      # 数据库客户端
-│   │       └── config.ts      # 数据库配置
+│   │   ├── server/            # 服务端专用代码（只在服务端运行）
+│   │   │   ├── services/      # 服务端业务服务
+│   │   │   │   ├── auth.ts    # 认证服务
+│   │   │   │   ├── experience.ts  # 经验服务
+│   │   │   │   ├── embedding.ts   # 嵌入服务
+│   │   │   │   └── apiKey.ts      # API密钥服务
+│   │   │   └── db/            # 数据库相关
+│   │   │       ├── client.ts  # 数据库客户端
+│   │   │       └── config.ts  # 数据库配置
+│   │   ├── client/            # 客户端专用代码（只在客户端运行）
+│   │   │   └── services/      # 客户端业务服务
+│   │   │       ├── auth.ts    # 客户端认证服务
+│   │   │       ├── api.ts     # API客户端
+│   │   │       └── toast.ts   # Toast通知服务
+│   │   ├── middleware/        # 中间件相关
+│   │   │   ├── apiKeyAuth.ts
+│   │   │   └── authMiddleware.ts
+│   │   └── utils/             # 共享工具函数（服务端和客户端都可使用）
+│   │       ├── apiResponse.ts
+│   │       ├── errorHandler.ts
+│   │       └── simpleErrorHandler.ts
 │   └── types/                 # TypeScript 类型定义
-│       └── database.ts         # 数据库类型
+│       ├── api/
+│       │   └── common.ts
+│       └── database/
+│           ├── auth.ts
+│           ├── experience.ts
+│           └── index.ts
 ├── middleware.ts              # Next.js 中间件（认证）
 ├── next.config.js             # Next.js 配置
 ├── tailwind.config.js         # Tailwind CSS 配置
 ├── tsconfig.json              # TypeScript 配置
 └── package.json               # 依赖配置
 ```
+
+### 目录结构说明
+
+- **符合Next.js 15官方规范**：遵循App Router架构和文件命名约定
+- **服务端/客户端分离**：`lib/server/` 和 `lib/client/` 明确区分服务端和客户端代码
+- **测试文件位置**：测试文件放在项目根目录的 `__tests__/`，符合Next.js推荐
+- **路由组织**：使用路由组 `(search)` 组织相关路由，不影响URL路径
 
 ## 快速开始
 
@@ -120,7 +162,6 @@ OPENAI_MODEL=text-embedding-3-small
 # Application
 NODE_ENV=production
 NEXTAUTH_SECRET=your_nextauth_secret
-NEXTAUTH_URL=http://localhost:3000
 ```
 
 ### 开发

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken, getCurrentUser } from '@/lib/services/authClientService';
+import { getSessionToken, getCurrentUser } from '@/lib/client/services/auth';
 
 export default function ProfileSettingsPage() {
   const router = useRouter();

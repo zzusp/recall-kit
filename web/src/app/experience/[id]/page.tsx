@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ExperienceService } from '@/lib/services/experienceService';
+import { ExperienceService } from '@/lib/server/services/experience';
 
 interface ExperienceDetailPageProps {
   params: Promise<{

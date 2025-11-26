@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getSessionToken, hasPermission, AuthUser } from '@/lib/services/authClientService';
+import { getCurrentUser, getSessionToken, hasPermission, AuthUser } from '@/lib/client/services/auth';
 
 interface PermissionGuardProps {
   children: ReactNode;

@@ -3,7 +3,7 @@
  * 处理统一API响应格式的前端适配
  */
 
-import { safeFetch, errorHandler } from '../../utils/errorHandler';
+import { safeFetch, errorHandler } from '@/lib/utils/errorHandler';
 
 // 统一API响应类型
 export interface ApiResponse<T = any> {
@@ -123,6 +123,26 @@ export class ApiClient {
       body: data ? JSON.stringify(data) : undefined,
     });
   }
+
+  /**
+   * 创建带认证的API客户端实例
+   */
+  withAuth(token: string): ApiClient {
+    const client = new ApiClient(this.baseUrl);
+    const originalRequest = client.request.bind(client);
+    
+    client.request = async function<T>(url: string, options: RequestInit = {}) {
+      return originalRequest<T>(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+    };
+    
+    return client;
+  }
 }
 
 /**
@@ -145,30 +165,6 @@ export class ApiError extends Error {
 export function createAuthenticatedApiClient(token: string) {
   return new ApiClient().withAuth(token);
 }
-
-// 扩展ApiClient类以支持认证
-declare module './apiClient' {
-  interface ApiClient {
-    withAuth(token: string): ApiClient;
-  }
-}
-
-ApiClient.prototype.withAuth = function(token: string) {
-  const client = new ApiClient((this as any).baseUrl);
-  const originalRequest = client.request.bind(client);
-  
-  client.request = async function<T>(url: string, options: RequestInit = {}) {
-    return originalRequest<T>(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-  };
-  
-  return client;
-};
 
 // 默认实例
 export const apiClient = new ApiClient();

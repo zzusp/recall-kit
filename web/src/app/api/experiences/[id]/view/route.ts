@@ -1,5 +1,5 @@
 ﻿import { NextRequest } from 'next/server';
-import { ExperienceService } from '@/lib/services/experienceService';
+import { ExperienceService } from '@/lib/server/services/experience';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 
 export const runtime = 'nodejs';

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken } from '@/lib/services/authClientService';
-import { toast } from '@/lib/services/internal/toastService';
+import { getSessionToken } from '@/lib/client/services/auth';
+import { toast } from '@/lib/client/services/toast';
 import Link from 'next/link';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 

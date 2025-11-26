@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db/client';
-import { getCurrentUser, hasRole } from '@/lib/services/internal/authService';
+import { db } from '@/lib/server/db/client';
+import { getCurrentUser, hasRole } from '@/lib/server/services/auth';
 
 export const runtime = 'nodejs';
 
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       );
     }
     // Start transaction using sql directly
-    const sql = (await import('@/lib/db/config')).default;
+    const sql = (await import('@/lib/server/db/config')).default;
     
     try {
       await sql.begin(async (sql) => {

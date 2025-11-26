@@ -1,6 +1,6 @@
-﻿import { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
-import { db } from '@/lib/db/client';
+import { db } from '@/lib/server/db/client';
 
 export const runtime = 'nodejs';
 

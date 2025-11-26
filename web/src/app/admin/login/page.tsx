@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, setSessionToken, getSessionToken, getCurrentUser, hasPermission } from '@/lib/services/authClientService';
+import { login, setSessionToken, getSessionToken, getCurrentUser, hasPermission } from '@/lib/client/services/auth';
 
 export default function AdminLogin() {
   const [credentials, setCredentials] = useState({

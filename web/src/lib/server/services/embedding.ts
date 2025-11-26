@@ -3,6 +3,8 @@
  * Generates embeddings using AI API (OpenAI, Anthropic, or custom) for vector similarity search
  */
 
+import { settingsService } from './settings';
+
 interface AIConfig {
   aiServiceType?: 'openai' | 'anthropic' | 'custom';
   openaiKey?: string;
@@ -40,17 +42,10 @@ export class EmbeddingService {
     console.log('[EmbeddingService] Loading AI config from database...');
 
     try {
-      // Try to get config from database
-      // Note: This internal call bypasses authentication for embedding service
-      const response = await fetch('/api/admin/settings', {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Internal-Call': 'true', // Special header to bypass auth for internal calls
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      // 直接调用服务端设置服务，避免HTTP调用
+      const data = await settingsService.getAIConfig();
+      
+      if (data && data.aiServiceType) {
         console.log('[EmbeddingService] Loaded config from database:', { 
           serviceType: data.aiServiceType,
           hasOpenaiKey: !!data.openaiKey,
@@ -58,14 +53,9 @@ export class EmbeddingService {
           hasCustomKey: !!data.customApiKey
         });
 
-        // Use database config if available
-        if (data && data.aiServiceType) {
-          this.configCache = data;
-          this.configCacheTime = now;
-          return data;
-        }
-      } else {
-        console.warn('[EmbeddingService] Failed to load config from database:', response.status);
+        this.configCache = data;
+        this.configCacheTime = now;
+        return data;
       }
     } catch (error) {
       console.warn('[EmbeddingService] Error loading config from database:', error);

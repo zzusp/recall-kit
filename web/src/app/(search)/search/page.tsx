@@ -4,8 +4,8 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ExperienceList } from '@/components/experience/ExperienceList';
-import { ExperienceRecord } from '@/lib/services/experienceService';
-import { api, ApiError } from '@/lib/services/api/apiClient';
+import { ExperienceRecord } from '@/lib/server/services/experience';
+import { api, ApiError } from '@/lib/client/services/api';
 
 export default function SearchPage() {
   return (

@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { ExperienceService } from '@/lib/services/experienceService';
+import { ExperienceService } from '@/lib/server/services/experience';
 
 export const runtime = 'nodejs';
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { toast } from '@/lib/services/internal/toastService';
+import { toast } from '@/lib/client/services/toast';
 
 interface Permission {
   id: string;

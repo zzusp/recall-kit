@@ -1,7 +1,7 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db/client';
-import { ExperienceService } from '@/lib/services/experienceService';
-import { getCurrentUser, hasRole } from '@/lib/services/internal/authService';
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/server/db/client';
+import { ExperienceService } from '@/lib/server/services/experience';
+import { getCurrentUser, hasRole } from '@/lib/server/services/auth';
 
 export const runtime = 'nodejs';
 

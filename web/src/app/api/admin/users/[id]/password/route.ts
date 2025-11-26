@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db/client';
-import { getCurrentUser } from '@/lib/services/internal/authService';
+import { db } from '@/lib/server/db/client';
+import { getCurrentUser } from '@/lib/server/services/auth';
 import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';

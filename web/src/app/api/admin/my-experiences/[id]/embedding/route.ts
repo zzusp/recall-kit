@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
-import { getCurrentUser } from '@/lib/services/internal/authService';
+import { getCurrentUser } from '@/lib/server/services/auth';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
-import { db } from '@/lib/db/client';
-import { EmbeddingService } from '@/lib/services/embeddingService';
+import { db } from '@/lib/server/db/client';
+import { EmbeddingService } from '@/lib/server/services/embedding';
 
 export const runtime = 'nodejs';
 

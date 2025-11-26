@@ -2,9 +2,9 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken } from '@/lib/services/authClientService';
+import { getSessionToken } from '@/lib/client/services/auth';
 import { ApiKeyUsageLog } from '@/types/database';
-import { toast } from '@/lib/services/internal/toastService';
+import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface ApiKey {

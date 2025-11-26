@@ -1,5 +1,5 @@
 import { Database } from '@/types/database/index';
-import { EmbeddingService } from './embeddingService';
+import { EmbeddingService } from './embedding';
 import { db } from '../db/client';
 
 export type ExperienceRecord = Database['public']['Tables']['experience_records']['Row'] & {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db/client';
+import { db } from '@/lib/server/db/client';
 import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';

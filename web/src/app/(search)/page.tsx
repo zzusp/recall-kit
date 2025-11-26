@@ -1,4 +1,4 @@
-import { ExperienceService } from '@/lib/services/experienceService';
+import { ExperienceService } from '@/lib/server/services/experience';
 import Link from 'next/link';
 
 export const revalidate = 0; // 禁用缓存，确保每次都获取最新数据

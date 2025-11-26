@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { getSessionToken } from '@/lib/services/authClientService';
-import { toast } from '@/lib/services/internal/toastService';
+import { getSessionToken } from '@/lib/client/services/auth';
+import { toast } from '@/lib/client/services/toast';
 import PermissionGuard from '@/components/auth/PermissionGuard';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import RoleModal from '@/components/admin/RoleModal';

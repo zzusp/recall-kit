@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken, getCurrentUser } from '@/lib/services/authClientService';
+import { getSessionToken, getCurrentUser } from '@/lib/client/services/auth';
 import Link from 'next/link';
 
 export default function UserDashboardPage() {

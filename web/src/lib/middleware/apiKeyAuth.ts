@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { db } from '@/lib/db/client';
+import { db } from '@/lib/server/db/client';
 
 export interface ApiKeyAuth {
   userId: string;

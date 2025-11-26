@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFullApiKey } from '@/lib/services/apiKeyService';
-import { getCurrentUser } from '@/lib/services/internal/authService';
+import { getFullApiKey } from '@/lib/server/services/apiKey';
+import { getCurrentUser } from '@/lib/server/services/auth';
 
 export const runtime = 'nodejs';
 

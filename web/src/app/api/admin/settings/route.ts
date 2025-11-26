@@ -1,52 +1,40 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db/client';
-import { getCurrentUser, hasPermission } from '@/lib/services/internal/authService';
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser, hasPermission } from '@/lib/server/services/auth';
+import { settingsService } from '@/lib/server/services/settings';
 
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    // Allow internal calls for embedding service
-    const isInternalCall = request.headers.get('x-internal-call') === 'true';
-    
-    if (!isInternalCall) {
-      // Get session token from Authorization header
-      const authHeader = request.headers.get('authorization');
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return NextResponse.json(
-          { error: 'Authorization token required' },
-          { status: 401 }
-        );
-      }
-
-      const token = authHeader.substring(7);
-      
-      // Verify user and permissions
-      const user = await getCurrentUser(token);
-      if (!user) {
-        return NextResponse.json(
-          { error: 'Invalid or expired token' },
-          { status: 401 }
-        );
-      }
-
-      if (!hasPermission(user, 'settings', 'read')) {
-        return NextResponse.json(
-          { error: 'Insufficient permissions' },
-          { status: 403 }
-        );
-      }
+    // Get session token from Authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Authorization token required' },
+        { status: 401 }
+      );
     }
 
-    // Get settings
-    const result = await db.query(
-      'SELECT setting_key, setting_value, updated_at FROM system_settings ORDER BY setting_key'
-    );
+    const token = authHeader.substring(7);
+    
+    // Verify user and permissions
+    const user = await getCurrentUser(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Invalid or expired token' },
+        { status: 401 }
+      );
+    }
 
-    const settings = result.rows.reduce((acc, row) => {
-      acc[row.setting_key] = row.setting_value;
-      return acc;
-    }, {} as Record<string, any>);
+    if (!hasPermission(user, 'settings', 'read')) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      );
+    }
+
+    // 使用服务端设置服务获取设置
+    const settings = await settingsService.getAllSettings();
 
     return NextResponse.json(settings);
   } catch (error) {
@@ -89,9 +77,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     
-    // 支持单个设置项和批量设置项
+    // 支持两种模式：单个设置和批量设置
     if (body.setting_key !== undefined && body.setting_value !== undefined) {
-      // 单个设置项模式（向后兼容）
+      // 单个设置模式：更新数据
       const { setting_key, setting_value } = body;
 
       if (!setting_key) {
@@ -101,23 +89,19 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Update or insert single setting
-      const result = await db.query(
-        `INSERT INTO system_settings (setting_key, setting_value, updated_at)
-         VALUES ($1, $2, NOW())
-         ON CONFLICT (setting_key) 
-         DO UPDATE SET setting_value = $2, updated_at = NOW()
-         RETURNING *`,
-        [setting_key, setting_value]
-      );
+      // 使用服务端设置服务更新单个设置
+      await settingsService.setSetting(setting_key, setting_value);
+
+      // 获取更新后的值
+      const updatedValue = await settingsService.getSetting(setting_key);
 
       return NextResponse.json({
-        setting_key: result.rows[0].setting_key,
-        setting_value: result.rows[0].setting_value,
-        updated_at: result.rows[0].updated_at
+        setting_key,
+        setting_value: updatedValue,
+        updated_at: new Date().toISOString()
       });
     } else {
-      // 批量设置项模式
+      // 批量设置模式
       const settings = body;
       
       if (typeof settings !== 'object' || settings === null) {
@@ -127,31 +111,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const results = [];
-      
-      for (const [key, value] of Object.entries(settings)) {
-        try {
-          const result = await db.query(
-            `INSERT INTO system_settings (setting_key, setting_value, updated_at)
-             VALUES ($1, $2, NOW())
-             ON CONFLICT (setting_key) 
-             DO UPDATE SET setting_value = $2, updated_at = NOW()
-             RETURNING *`,
-            [key, value]
-          );
-          results.push({
-            setting_key: result.rows[0].setting_key,
-            setting_value: result.rows[0].setting_value,
-            updated_at: result.rows[0].updated_at
-          });
-        } catch (error) {
-          console.error(`Failed to save setting ${key}:`, error);
-          return NextResponse.json(
-            { error: `Failed to save setting: ${key}` },
-            { status: 500 }
-          );
-        }
-      }
+      // 使用服务端设置服务批量更新
+      await settingsService.setSettings(settings);
+
+      // 获取更新后的设置用于返回
+      const updatedSettings = await settingsService.getAllSettings();
+      const results = Object.entries(updatedSettings).map(([key, value]) => ({
+        setting_key: key,
+        setting_value: value,
+        updated_at: new Date().toISOString()
+      }));
 
       return NextResponse.json({
         success: true,

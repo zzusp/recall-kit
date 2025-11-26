@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ExperienceRecord } from '@/lib/services/experienceService';
+import { ExperienceRecord } from '@/lib/server/services/experience';
 import Link from 'next/link';
 
 export default function ListPage() {

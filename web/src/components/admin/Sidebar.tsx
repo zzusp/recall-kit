@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { usePermissions } from '@/components/auth/PermissionGuard';
-import { logout, removeSessionToken } from '@/lib/services/authClientService';
+import { logout, removeSessionToken } from '@/lib/client/services/auth';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -147,4 +147,3 @@ export default function Sidebar() {
     </aside>
   );
 }
-

@@ -1,7 +1,7 @@
-﻿import { NextRequest } from 'next/server';
-import { getCurrentUser } from '@/lib/services/internal/authService';
+import { NextRequest } from 'next/server';
+import { getCurrentUser } from '@/lib/server/services/auth';
 import { ApiRouteResponse, ErrorResponses } from '@/lib/utils/apiResponse';
-import { db } from '@/lib/db/client';
+import { db } from '@/lib/server/db/client';
 
 export const runtime = 'nodejs';
 

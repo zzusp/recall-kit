@@ -1,5 +1,5 @@
 import { User, Role, Permission } from '@/types/database/auth';
-import { db } from '../../db/client';
+import { db } from '../db/client';
 
 export interface AuthUser {
   id: string;

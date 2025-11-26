@@ -1,5 +1,5 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db/client';
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/server/db/client';
 import { User, Role, Permission } from '@/types/database/auth';
 
 export const runtime = 'nodejs';

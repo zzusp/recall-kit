@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { User, Role } from '@/types/database';
 import PermissionGuard from '@/components/auth/PermissionGuard';
-import { toast } from '@/lib/services/internal/toastService';
+import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 // 移除数据库相关的客户端导入
 // import { getCurrentUser } from '@/lib/services/internal/authService';

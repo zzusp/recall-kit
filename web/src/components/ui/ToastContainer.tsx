@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useToastStore } from '@/lib/services/internal/toastService';
+import { useToastStore } from '@/lib/client/services/toast';
 import Toast from './Toast';
 
 const ToastContainer = () => {
