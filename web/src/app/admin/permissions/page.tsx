@@ -384,7 +384,7 @@ function PermissionModal({ permission, onClose, onSave }: PermissionModalProps) 
   ];
 
   const commonActions = [
-    'view', 'create', 'edit', 'delete', 'publish', 'review', 'activate', 'assign', 'dashboard', 'settings', 'logs'
+    'view', 'create', 'edit', 'delete', 'publish', 'activate', 'assign', 'dashboard', 'settings', 'logs'
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {

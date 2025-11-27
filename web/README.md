@@ -15,7 +15,6 @@ Recall Kit Web 是 Recall Kit 项目的 Web 前端应用，基于 Next.js 15 构
 ### 管理模块
 - **登录** (`/admin/login`) - 管理员身份验证
 - **控制面板** (`/admin/dashboard`) - 数据统计和概览
-- **审核页面** (`/admin/review`) - 审核、编辑、删除经验记录
 - **系统设置** (`/admin/settings`) - AI 配置和系统参数
 
 ### 核心功能
@@ -55,7 +54,6 @@ web/
 │   │   ├── admin/             # 管理后台
 │   │   │   ├── login/         # 登录页
 │   │   │   ├── dashboard/     # 控制面板
-│   │   │   ├── review/        # 审核页面
 │   │   │   ├── settings/      # 系统设置
 │   │   │   └── layout.tsx    # 管理后台布局
 │   │   ├── api/               # API 路由
@@ -250,7 +248,6 @@ npm run test:coverage # 生成测试覆盖率报告
 
 - `/admin/login` - 管理后台登录
 - `/admin/dashboard` - 控制面板
-- `/admin/review` - 审核页面
 - `/admin/settings` - 系统设置
 
 ## 样式系统

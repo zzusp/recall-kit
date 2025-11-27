@@ -62,17 +62,13 @@ export async function POST(request: NextRequest) {
       return ApiRouteResponse.badRequest('Title, problem description, and solution are required');
     }
     
-    // Extract review status from body or default to 'pending'
-    const { review_status } = body;
-    const finalReviewStatus = review_status || 'pending';
-    
     // Insert new experience with draft publish status
     const result = await db.query(
       `INSERT INTO experience_records 
-       (user_id, title, problem_description, solution, root_cause, context, publish_status, is_deleted, review_status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'draft', false, $7, NOW(), NOW())
+       (user_id, title, problem_description, solution, root_cause, context, publish_status, is_deleted, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'draft', false, NOW(), NOW())
        RETURNING id, user_id, title, problem_description, root_cause, 
-                solution, context, publish_status, is_deleted, review_status,
+                solution, context, publish_status, is_deleted,
                 query_count, view_count, relevance_score, created_at, updated_at, deleted_at`,
       [
         user.id,
@@ -80,8 +76,7 @@ export async function POST(request: NextRequest) {
         problem_description,
         solution,
         root_cause,
-        context,
-        finalReviewStatus
+        context
       ]
     );
 

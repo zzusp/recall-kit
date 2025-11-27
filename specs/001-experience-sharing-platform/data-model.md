@@ -14,8 +14,7 @@
 users (Supabase Auth)
   └── profiles (扩展用户信息)
        └── experience_records (经验记录)
-            ├── experience_keywords (经验关键字关联表)
-            └── query_logs (查询日志)
+            └── experience_keywords (经验关键字关联表)
 ```
 
 ## Tables
@@ -119,30 +118,6 @@ users (Supabase Auth)
 - 只有管理员可读取查询日志
 - 系统自动创建日志（通过API）
 
-
-### 6. admin_actions (管理员操作日志表)
-
-记录管理员的所有操作，用于审计。
-
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | UUID | PRIMARY KEY, DEFAULT gen_random_uuid() | 日志ID |
-| admin_id | UUID | REFERENCES profiles(id) | 管理员ID |
-| action_type | VARCHAR(50) | NOT NULL | 操作类型：'edit', 'delete', 'restore', 'batch_delete', 'batch_restore', 'add_admin' |
-| target_type | VARCHAR(50) | NOT NULL | 目标类型：'experience', 'user', 'tag' |
-| target_id | UUID | NULL | 目标ID |
-| target_ids | UUID[] | NULL | 批量操作的目标ID列表 |
-| action_details | JSONB | NULL | 操作详情 |
-| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 创建时间 |
-
-**Indexes**:
-- `idx_admin_actions_admin_id` ON `admin_id`
-- `idx_admin_actions_created_at` ON `created_at DESC`
-- `idx_admin_actions_action_type` ON `action_type`
-
-**RLS Policies**:
-- 只有管理员可读取操作日志
-- 系统自动创建日志（通过API）
 
 ## Database Functions
 

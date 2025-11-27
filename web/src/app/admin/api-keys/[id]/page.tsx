@@ -3,7 +3,6 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSessionToken } from '@/lib/client/services/auth';
-import { ApiKeyUsageLog } from '@/types/database';
 import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -19,22 +18,10 @@ interface ApiKey {
   updatedAt: string;
 }
 
-interface UsageStats {
-  totalRequests: number;
-  successRequests: number;
-  errorRequests: number;
-  averageResponseTime: number;
-  lastUsedAt: string | null;
-}
 export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [apiKey, setApiKey] = useState<ApiKey | null>(null);
-  const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
-  const [usageLogs, setUsageLogs] = useState<ApiKeyUsageLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [showEditModal, setShowEditModal] = useState(false);
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
@@ -68,55 +55,9 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const fetchUsageStats = async () => {
-    try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) return;
-
-      const response = await fetch(`/api/api-keys/${apiKeyId}/logs/stats`, {
-        headers: { 'Authorization': `Bearer ${sessionToken}` }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUsageStats(data);
-      }
-    } catch (error) {
-      console.error('Error fetching usage stats:', error);
-    }
-  };
-
-  const fetchUsageLogs = async (page: number = 1) => {
-    try {
-      setLogsLoading(true);
-      const sessionToken = getSessionToken();
-      if (!sessionToken) return;
-
-      const response = await fetch(`/api/api-keys/${apiKeyId}/logs?page=${page}&limit=20`, {
-        headers: { 'Authorization': `Bearer ${sessionToken}` }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUsageLogs(data.logs || []);
-        setTotalPages(data.pages || 1);
-        setCurrentPage(data.page || 1);
-      }
-    } catch (error) {
-      console.error('Error fetching usage logs:', error);
-    } finally {
-      setLogsLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchApiKey();
-    fetchUsageStats();
   }, [apiKeyId]);
-
-  useEffect(() => {
-    fetchUsageLogs(currentPage);
-  }, [currentPage]);
 
   const handleDeleteApiKey = async () => {
     const confirmed = await confirm({
@@ -149,10 +90,6 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '从未';
-    return new Date(dateString).toLocaleDateString('zh-CN');
-  };
 
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return '从未';
@@ -169,10 +106,6 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
     return <span className="admin-badge admin-badge-success">活跃</span>;
   };
 
-  const getSuccessRate = () => {
-    if (!usageStats || usageStats.totalRequests === 0) return 0;
-    return ((usageStats.successRequests / usageStats.totalRequests) * 100).toFixed(1);
-  };
 
   if (loading) {
     return (
@@ -220,7 +153,7 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
           </button>
           <div>
             <h1 className="admin-page-title">{apiKey.name}</h1>
-            <p className="admin-page-subtitle">API密钥详情和使用统计</p>
+            <p className="admin-page-subtitle">API密钥详情</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -242,198 +175,30 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* 基本信息 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2">
-          <div className="admin-card h-full">
-            <h2 className="admin-card-title">基本信息</h2>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">密钥前缀</span>
-                <code className="bg-gray-100 px-3 py-1 rounded font-mono text-sm">{apiKey.keyPrefix}...</code>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">状态</span>
-                {getStatusBadge()}
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">创建时间</span>
-                <span className="text-gray-900">{formatDateTime(apiKey.createdAt)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">更新时间</span>
-                <span className="text-gray-900">{formatDateTime(apiKey.updatedAt)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">最后使用</span>
-                <span className="text-gray-900">{formatDateTime(apiKey.lastUsedAt)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 使用统计 */}
-        <div>
-          <div className="admin-card h-full">
-            <h2 className="admin-card-title">使用统计</h2>
-            {usageStats ? (
-              <div className="space-y-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{usageStats.totalRequests}</div>
-                  <div className="text-sm text-blue-600">总请求次数</div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <div className="text-lg font-semibold text-green-600">{usageStats.successRequests}</div>
-                    <div className="text-xs text-green-600">成功请求</div>
-                  </div>
-                  <div className="text-center p-3 bg-red-50 rounded-lg">
-                    <div className="text-lg font-semibold text-red-600">{usageStats.errorRequests}</div>
-                    <div className="text-xs text-red-600">失败请求</div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">成功率</span>
-                    <span className="font-medium">{getSuccessRate()}%</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">平均响应时间</span>
-                    <span className="font-medium">{usageStats.averageResponseTime.toFixed(0)}ms</span>
-                  </div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${getSuccessRate()}%` }}
-                  ></div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <i className="fas fa-chart-bar text-3xl mb-2"></i>
-                <div>暂无使用数据</div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 使用日志 */}
       <div className="admin-card">
-        <h2 className="admin-card-title">使用日志</h2>
-        {logsLoading ? (
-          <div className="admin-empty-state">
-            <div className="admin-loading-spinner">
-              <i className="fas fa-spinner fa-spin"></i>
-            </div>
-            <div className="admin-empty-state-title">加载使用日志中...</div>
+        <h2 className="admin-card-title">基本信息</h2>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">密钥前缀</span>
+            <code className="bg-gray-100 px-3 py-1 rounded font-mono text-sm">{apiKey.keyPrefix}...</code>
           </div>
-        ) : usageLogs.length === 0 ? (
-          <div className="admin-empty-state">
-            <div className="admin-empty-state-icon">
-              <i className="fas fa-history"></i>
-            </div>
-            <div className="admin-empty-state-title">暂无使用日志</div>
-            <div className="admin-empty-state-description">此API密钥还没有被使用过</div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">状态</span>
+            {getStatusBadge()}
           </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>时间</th>
-                    <th>端点</th>
-                    <th>方法</th>
-                    <th>状态码</th>
-                    <th>响应时间</th>
-                    <th>IP地址</th>
-                    <th>用户代理</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usageLogs.map((log) => (
-                    <tr key={log.id}>
-      <td>
-        <div className="text-sm">
-          <div>{formatDate(log.created_at)}</div>
-          <div className="text-gray-400 text-xs">
-            {new Date(log.created_at).toLocaleTimeString()}
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">创建时间</span>
+            <span className="text-gray-900">{formatDateTime(apiKey.createdAt)}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">更新时间</span>
+            <span className="text-gray-900">{formatDateTime(apiKey.updatedAt)}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">最后使用</span>
+            <span className="text-gray-900">{formatDateTime(apiKey.lastUsedAt)}</span>
           </div>
         </div>
-      </td>
-      <td>
-        <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
-          {log.endpoint}
-        </code>
-      </td>
-      <td>
-        <span className={`admin-badge admin-badge-sm ${
-          log.method === 'GET' ? 'admin-badge-success' :
-          log.method === 'POST' ? 'admin-badge-primary' :
-          log.method === 'PUT' ? 'admin-badge-warning' :
-          'admin-badge-danger'
-        }`}>
-          {log.method}
-        </span>
-      </td>
-      <td>
-        <span className={`admin-badge admin-badge-sm ${
-          log.status_code && log.status_code < 300 ? 'admin-badge-success' :
-          log.status_code && log.status_code < 400 ? 'admin-badge-warning' :
-          'admin-badge-danger'
-        }`}>
-          {log.status_code || '-'}
-        </span>
-      </td>
-      <td>
-        <span className={`text-sm font-medium ${
-          log.response_time_ms && log.response_time_ms < 500 ? 'text-green-600' :
-          log.response_time_ms && log.response_time_ms < 1000 ? 'text-yellow-600' :
-          'text-red-600'
-        }`}>
-          {log.response_time_ms ? `${log.response_time_ms}ms` : '-'}
-        </span>
-      </td>
-      <td className="text-sm text-gray-600">{log.ip_address ?? '-'}</td>
-      <td>
-<div className="text-sm text-gray-600 max-w-xs truncate" title={log.user_agent ?? undefined}>
-  {log.user_agent ?? '-'}
-</div>
-      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {totalPages > 1 && (
-              <div className="mt-6 flex justify-center items-center space-x-4">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="admin-btn admin-btn-outline admin-btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <i className="fas fa-chevron-left"></i>
-                  上一页
-                </button>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">
-                    第 {currentPage} 页，共 {totalPages} 页
-                  </span>
-                </div>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="admin-btn admin-btn-outline admin-btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  下一页
-                  <i className="fas fa-chevron-right"></i>
-                </button>
-              </div>
-            )}
-          </>
-        )}
       </div>
 
       {/* 编辑模态框 */}

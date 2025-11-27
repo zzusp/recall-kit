@@ -65,12 +65,6 @@ export async function GET(request: NextRequest) {
       } else if (status === 'deleted') {
         whereClause = 'WHERE is_deleted = $1';
         params.push(true);
-      } else if (status === 'pending') {
-        whereClause = 'WHERE review_status = $1';
-        params.push('pending');
-      } else if (status === 'rejected') {
-        whereClause = 'WHERE review_status = $1';
-        params.push('rejected');
       } else {
         whereClause = 'WHERE status = $1';
         params.push(status);
@@ -92,22 +86,19 @@ export async function GET(request: NextRequest) {
     );
     const total = parseInt(countResult.rows[0].total);
 
-    // Get experiences with keywords, excluding embedding field but including has_embedding
+    // Get experiences with keywords - using subquery to avoid complex GROUP BY
     const experiencesResult = await db.query(`
       SELECT er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
              er.solution, er.context, er.publish_status, er.is_deleted,
              er.query_count, er.view_count, er.relevance_score, er.has_embedding,
              er.created_at, er.updated_at, er.deleted_at,
-             COALESCE(
-               json_agg(
-                 CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
-               ) FILTER (WHERE ek.keyword IS NOT NULL), 
-               '[]'::json
+             (
+               SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
+               FROM experience_keywords ek
+               WHERE ek.experience_id = er.id
              ) as keywords
       FROM experience_records er
-      LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
       ${whereClause}
-      GROUP BY er.id
       ORDER BY er.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `, [...params, limit, offset]);
@@ -175,15 +166,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert new experience with review_status
+    // Insert new experience
     const result = await db.query(
       `INSERT INTO experience_records 
-       (title, problem_description, solution, root_cause, context, publish_status, is_deleted, review_status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, false, $7, NOW(), NOW())
+       (title, problem_description, solution, root_cause, context, publish_status, is_deleted, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, false, NOW(), NOW())
        RETURNING id, user_id, title, problem_description, root_cause, 
-                solution, context, publish_status, is_deleted, review_status,
+                solution, context, publish_status, is_deleted,
                 query_count, view_count, relevance_score, created_at, updated_at, deleted_at`,
-      [title, problem_description, solution, root_cause, context, publish_status, 'pending']
+      [title, problem_description, solution, root_cause, context, publish_status]
     );
 
     const experience = result.rows[0];

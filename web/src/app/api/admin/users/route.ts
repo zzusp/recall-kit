@@ -30,23 +30,23 @@ export async function GET(request: NextRequest) {
     );
     const total = parseInt(countResult.rows[0].total);
 
-    // Get users with roles
+    // Get users with roles - using subquery to avoid complex GROUP BY
     const usersResult = await db.query(`
       SELECT u.id, u.username, u.email, u.is_active, u.is_superuser, 
              u.created_at, u.updated_at, u.last_login_at,
-             COALESCE(
-               json_agg(
-                 CASE WHEN r.id IS NOT NULL THEN 
+             (
+               SELECT COALESCE(
+                 json_agg(
                    jsonb_build_object('id', r.id, 'name', r.name, 'description', r.description, 'is_system_role', r.is_system_role)
-                 END
-               ) FILTER (WHERE r.id IS NOT NULL), 
-               '[]'::json
+                 ),
+                 '[]'::json
+               )
+               FROM user_roles ur
+               JOIN roles r ON ur.role_id = r.id
+               WHERE ur.user_id = u.id
              ) as roles
       FROM users u
-      LEFT JOIN user_roles ur ON u.id = ur.user_id
-      LEFT JOIN roles r ON ur.role_id = r.id
       ${whereClause}
-      GROUP BY u.id
       ORDER BY u.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `, [...params, limit, offset]);
@@ -119,23 +119,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch created user with roles
+    // Fetch created user with roles - using subquery to avoid complex GROUP BY
     const createdUserResult = await db.query(`
       SELECT u.id, u.username, u.email, u.is_active, u.is_superuser, 
              u.created_at, u.updated_at, u.last_login_at,
-             COALESCE(
-               json_agg(
-                 CASE WHEN r.id IS NOT NULL THEN 
+             (
+               SELECT COALESCE(
+                 json_agg(
                    jsonb_build_object('id', r.id, 'name', r.name, 'description', r.description, 'is_system_role', r.is_system_role)
-                 END
-               ) FILTER (WHERE r.id IS NOT NULL), 
-               '[]'::json
+                 ),
+                 '[]'::json
+               )
+               FROM user_roles ur
+               JOIN roles r ON ur.role_id = r.id
+               WHERE ur.user_id = u.id
              ) as roles
       FROM users u
-      LEFT JOIN user_roles ur ON u.id = ur.user_id
-      LEFT JOIN roles r ON ur.role_id = r.id
       WHERE u.id = $1
-      GROUP BY u.id
     `, [user.id]);
 
     return NextResponse.json(createdUserResult.rows[0], { status: 201 });

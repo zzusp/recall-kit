@@ -1,4 +1,4 @@
-import { ApiKey, ApiKeyUsageLog } from '@/types/database/auth';
+import { ApiKey } from '@/types/database/auth';
 import { db } from '../db/client';
 import crypto from 'crypto';
 
@@ -212,90 +212,6 @@ export async function deleteApiKey(userId: string, apiKeyId: string): Promise<bo
   );
 
   return (result.rowCount || 0) > 0;
-}
-
-
-/**
- * 记录API密钥使用日志
- */
-export async function logApiKeyUsage(
-  apiKeyId: string,
-  endpoint: string,
-  method: string,
-  statusCode: number,
-  responseTimeMs: number,
-  ipAddress?: string,
-  userAgent?: string
-): Promise<void> {
-  await db.query(`
-    INSERT INTO api_key_usage_logs (api_key_id, endpoint, method, ip_address, user_agent, status_code, response_time_ms)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-  `, [
-    apiKeyId,
-    endpoint,
-    method,
-    ipAddress || null,
-    userAgent || null,
-    statusCode,
-    responseTimeMs
-  ]);
-}
-
-/**
- * 获取API密钥使用日志
- */
-export async function getApiKeyUsageLogs(
-  userId: string,
-  apiKeyId: string,
-  limit: number = 50,
-  offset: number = 0
-): Promise<ApiKeyUsageLog[]> {
-  const result = await db.query(`
-    SELECT id, api_key_id, endpoint, method, ip_address, user_agent, status_code, response_time_ms, created_at
-    FROM api_key_usage_logs
-    WHERE api_key_id = $1 AND EXISTS (
-      SELECT 1 FROM api_keys 
-      WHERE api_keys.id = $1 AND api_keys.user_id = $2
-    )
-    ORDER BY created_at DESC
-    LIMIT $3 OFFSET $4
-  `, [apiKeyId, userId, limit, offset]);
-
-  return result.rows;
-}
-
-/**
- * 获取API密钥使用统计
- */
-export async function getApiKeyUsageStats(userId: string, apiKeyId: string): Promise<{
-  totalRequests: number;
-  successRequests: number;
-  errorRequests: number;
-  averageResponseTime: number;
-  lastUsedAt: string | null;
-}> {
-  const result = await db.query(`
-    SELECT 
-      COUNT(*) as total_requests,
-      COUNT(CASE WHEN status_code < 400 THEN 1 END) as success_requests,
-      COUNT(CASE WHEN status_code >= 400 THEN 1 END) as error_requests,
-      AVG(response_time_ms) as average_response_time,
-      MAX(created_at) as last_used_at
-    FROM api_key_usage_logs
-    WHERE api_key_id = $1 AND EXISTS (
-      SELECT 1 FROM api_keys 
-      WHERE api_keys.id = $1 AND api_keys.user_id = $2
-    )
-  `, [apiKeyId, userId]);
-
-  const row = result.rows[0];
-  return {
-    totalRequests: parseInt(row.total_requests),
-    successRequests: parseInt(row.success_requests),
-    errorRequests: parseInt(row.error_requests),
-    averageResponseTime: parseFloat(row.average_response_time) || 0,
-    lastUsedAt: row.last_used_at
-  };
 }
 
 /**

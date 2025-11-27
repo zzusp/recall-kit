@@ -35,7 +35,6 @@
 所有管理页面已更新为移除 Supabase 依赖：
 - `/admin/dashboard/page.tsx`
 - `/admin/settings/page.tsx`
-- `/admin/review/page.tsx`
 - `/admin/users/page.tsx`
 
 ## 环境配置

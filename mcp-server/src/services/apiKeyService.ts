@@ -82,9 +82,6 @@ export async function validateApiKey(apiKey: string): Promise<ApiKeyValidationRe
       WHERE id = ${apiKeyInfo.id}
     `;
 
-    // 记录API密钥验证日志
-    await logApiKeyValidation(apiKeyInfo.id, apiKeyInfo.user_id, apiKey.substring(0, 8), 'success');
-
     return {
       isValid: true,
       apiKeyInfo
@@ -92,52 +89,11 @@ export async function validateApiKey(apiKey: string): Promise<ApiKeyValidationRe
 
   } catch (error) {
     console.error('Error validating API key:', error);
-    
-    // 记录验证失败日志
-    await logApiKeyValidation(
-      null, 
-      null, 
-      apiKey ? apiKey.substring(0, 8) : 'unknown', 
-      'failed'
-    ).catch(logError => {
-      console.error('Failed to log API key validation error:', logError);
-    });
 
     return {
       isValid: false,
       error: 'Error validating API key'
     };
-  }
-}
-
-/**
- * 记录API密钥验证日志
- */
-async function logApiKeyValidation(
-  apiKeyId: string | null,
-  userId: string | null,
-  apiKeyPrefix: string,
-  validationResult: 'success' | 'failed'
-): Promise<void> {
-  try {
-    await sql`
-      INSERT INTO api_key_validation_logs (
-        api_key_id, 
-        user_id, 
-        api_key_prefix, 
-        validation_result, 
-        created_at
-      ) VALUES (
-        ${apiKeyId}, 
-        ${userId}, 
-        ${apiKeyPrefix}, 
-        ${validationResult}, 
-        NOW()
-      )
-    `;
-  } catch (error) {
-    console.error('Failed to log API key validation:', error);
-    throw error;
   }
 }
 

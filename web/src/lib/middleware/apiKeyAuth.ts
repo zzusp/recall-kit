@@ -68,29 +68,3 @@ export async function validateApiKeyMiddleware(request: NextRequest): Promise<Ap
     return null;
   }
 }
-
-export async function logApiKeyUsage(
-  apiKeyId: string,
-  request: NextRequest,
-  statusCode: number,
-  responseTimeMs: number
-): Promise<void> {
-  try {
-    const url = new URL(request.url);
-    
-    await db.query(`
-      INSERT INTO api_key_usage_logs (api_key_id, endpoint, method, ip_address, user_agent, status_code, response_time_ms)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [
-      apiKeyId,
-      url.pathname + url.search,
-      request.method,
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
-      request.headers.get('user-agent') || null,
-      statusCode,
-      responseTimeMs
-    ]);
-  } catch (error) {
-    console.error('Failed to log API key usage:', error);
-  }
-}

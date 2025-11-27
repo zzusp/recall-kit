@@ -18,23 +18,20 @@ export async function GET(request: NextRequest) {
       return ApiRouteResponse.unauthorized('用户未登录');
     }
 
-    // 获取用户最近的经验记录
+    // 获取用户最近的经验记录 - 使用子查询避免复杂的 GROUP BY
     const query = `
       SELECT 
         er.id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, er.relevance_score, 
         er.has_embedding, er.created_at, er.updated_at, er.deleted_at,
-        COALESCE(
-          json_agg(
-            CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
-          ) FILTER (WHERE ek.keyword IS NOT NULL), 
-          '[]'::json
+        (
+          SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
+          FROM experience_keywords ek
+          WHERE ek.experience_id = er.id
         ) as keywords
       FROM experience_records er
-      LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
       WHERE er.user_id = $1 AND er.is_deleted = false
-      GROUP BY er.id
       ORDER BY er.updated_at DESC
       LIMIT 10
     `;

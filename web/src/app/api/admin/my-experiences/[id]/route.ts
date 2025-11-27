@@ -23,23 +23,20 @@ export async function GET(
       return ApiRouteResponse.unauthorized('用户未登录');
     }
 
-    // 查询经验记录
+    // 查询经验记录 - 使用子查询避免复杂的 GROUP BY
     const query = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, er.relevance_score, 
         er.created_at, er.updated_at, er.deleted_at,
-        COALESCE(
-          json_agg(
-            CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
-          ) FILTER (WHERE ek.keyword IS NOT NULL), 
-          '[]'::json
+        (
+          SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
+          FROM experience_keywords ek
+          WHERE ek.experience_id = er.id
         ) as keywords
       FROM experience_records er
-      LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
       WHERE er.id = $1 AND er.user_id = $2
-      GROUP BY er.id
     `;
 
     const result = await db.query(query, [id, currentUser.id]);
@@ -91,7 +88,7 @@ export async function PUT(
 
     // 检查经验是否存在且属于当前用户
     const checkQuery = `
-      SELECT id, publish_status, is_deleted, review_status
+      SELECT id, publish_status, is_deleted
       FROM experience_records 
       WHERE id = $1 AND user_id = $2
     `;
@@ -176,7 +173,7 @@ export async function PATCH(
 
     // 检查经验是否存在且属于当前用户
     const checkQuery = `
-      SELECT id, publish_status, is_deleted, review_status
+      SELECT id, publish_status, is_deleted
       FROM experience_records 
       WHERE id = $1 AND user_id = $2
     `;
@@ -199,20 +196,16 @@ export async function PATCH(
           return ApiRouteResponse.badRequest('经验已经是发布状态');
         }
         
-        // 直接发布，跳过审核流程
+        // 直接发布
         updateQuery = `
           UPDATE experience_records 
           SET 
             publish_status = 'published',
-            review_status = 'approved',
-            reviewed_by = $3,
-            reviewed_at = NOW(),
-            review_note = NULL,
             updated_at = NOW()
           WHERE id = $1 AND user_id = $2
-          RETURNING id, publish_status, is_deleted, review_status
+          RETURNING id, publish_status, is_deleted
         `;
-        updateParams = [id, currentUser.id, currentUser.id];
+        updateParams = [id, currentUser.id];
         successMessage = '经验发布成功';
         break;
 

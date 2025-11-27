@@ -18,31 +18,9 @@
 - 关联经验ID、标题和问题描述
 - 支持API密钥验证失败的情况记录
 
-### 3. API密钥验证日志
-- 记录所有API密钥验证尝试（成功和失败）
-- 包含失败原因（无密钥、格式错误、无效密钥等）
-- 记录IP地址和用户代理信息
-- 仅记录密钥前缀，确保安全性
-
 ## 数据库表结构
 
-### 1. api_key_validation_logs (新增)
-```sql
-CREATE TABLE IF NOT EXISTS api_key_validation_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    api_key_id UUID REFERENCES api_keys(id) ON DELETE SET NULL,
-    user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
-    api_key_prefix VARCHAR(20),
-    validation_result VARCHAR(20) NOT NULL, -- 'success' or 'failed'
-    failure_reason TEXT,
-    ip_address INET,
-    user_agent TEXT,
-    session_id VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### 2. query_logs (扩展)
+### 1. query_logs (扩展)
 添加了以下字段：
 - `api_key_id` - 关联API密钥
 - `user_id` - 关联用户
@@ -85,7 +63,6 @@ CREATE TABLE IF NOT EXISTS api_key_validation_logs (
 #### src/mcp/mcpServer.ts
 - 添加API密钥验证逻辑
 - 在提交操作中强制要求API密钥
-- 集成API密钥验证日志记录
 - 从请求头中提取API密钥
 
 #### src/services/experienceService.ts (新创建)
@@ -131,36 +108,11 @@ CREATE TABLE IF NOT EXISTS api_key_validation_logs (
 }
 ```
 
-### 3. API密钥验证日志
-API密钥验证会自动记录：
-```typescript
-// 成功验证
-{
-  api_key_id: string,
-  user_id: string,
-  validation_result: 'success',
-  ip_address?: string,
-  user_agent?: string,
-  session_id?: string
-}
-
-// 失败验证
-{
-  api_key_prefix: string,
-  validation_result: 'failed',
-  failure_reason: string,
-  ip_address?: string,
-  user_agent?: string,
-  session_id?: string
-}
-```
-
 ## 安全考虑
 
-1. **API密钥安全**：只记录API密钥的前缀，不记录完整密钥
-2. **敏感信息过滤**：不记录请求体的完整内容，只记录关键字段
-3. **异步记录**：所有日志记录都是异步进行，不影响主要业务性能
-4. **错误处理**：日志记录失败不会影响主要业务流程
+1. **敏感信息过滤**：不记录请求体的完整内容，只记录关键字段
+2. **异步记录**：所有日志记录都是异步进行，不影响主要业务性能
+3. **错误处理**：日志记录失败不会影响主要业务流程
 
 ## 性能优化
 

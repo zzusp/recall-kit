@@ -23,17 +23,6 @@ export interface ApiKey {
   updated_at: string;
 }
 
-export interface ApiKeyUsageLog {
-  id: string;
-  api_key_id: string;
-  endpoint: string;
-  method: string;
-  ip_address: string | null;
-  user_agent: string | null;
-  status_code: number | null;
-  response_time_ms: number | null;
-  created_at: string;
-}
 
 export interface Role {
   id: string;

@@ -6,7 +6,8 @@
                 "-y",
                 "@modelcontextprotocol/server-filesystem",
                 "D:\\project\\recall-kit"
-            ]
+            ],
+            "disabled": true
         },
         "supabase": {
             "command": "cmd",
@@ -38,7 +39,8 @@
             "command": "npx",
             "args": [
                 "chrome-devtools-mcp@latest"
-            ]
+            ],
+            "disabled": true
         }
     }
 }

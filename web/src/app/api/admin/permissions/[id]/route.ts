@@ -14,25 +14,31 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
+    // Using subquery to avoid complex GROUP BY
     const result = await db.query(`
       SELECT p.*, 
-             COALESCE(
-               json_agg(
-                 CASE WHEN r.id IS NOT NULL THEN 
+             (
+               SELECT COALESCE(
+                 json_agg(
                    jsonb_build_object('id', r.id, 'name', r.name, 'description', r.description, 'is_system_role', r.is_system_role)
-                 END
-               ) FILTER (WHERE r.id IS NOT NULL), 
-               '[]'::json
+                 ),
+                 '[]'::json
+               )
+               FROM role_permissions rp
+               JOIN roles r ON rp.role_id = r.id
+               WHERE rp.permission_id = p.id
              ) as roles,
-             COALESCE(
-               json_agg(r.id) FILTER (WHERE r.id IS NOT NULL), 
-               '[]'::json
+             (
+               SELECT COALESCE(
+                 json_agg(r.id),
+                 '[]'::json
+               )
+               FROM role_permissions rp
+               JOIN roles r ON rp.role_id = r.id
+               WHERE rp.permission_id = p.id
              ) as role_ids
       FROM permissions p
-      LEFT JOIN role_permissions rp ON p.id = rp.permission_id
-      LEFT JOIN roles r ON rp.role_id = r.id
       WHERE p.id = $1
-      GROUP BY p.id
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -143,26 +149,31 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const permission = permissionResult.rows[0];
 
-    // Fetch updated permission with roles
+    // Fetch updated permission with roles - using subquery to avoid complex GROUP BY
     const updatedPermissionResult = await db.query(`
       SELECT p.*, 
-             COALESCE(
-               json_agg(
-                 CASE WHEN r.id IS NOT NULL THEN 
+             (
+               SELECT COALESCE(
+                 json_agg(
                    jsonb_build_object('id', r.id, 'name', r.name, 'description', r.description, 'is_system_role', r.is_system_role)
-                 END
-               ) FILTER (WHERE r.id IS NOT NULL), 
-               '[]'::json
+                 ),
+                 '[]'::json
+               )
+               FROM role_permissions rp
+               JOIN roles r ON rp.role_id = r.id
+               WHERE rp.permission_id = p.id
              ) as roles,
-             COALESCE(
-               json_agg(r.id) FILTER (WHERE r.id IS NOT NULL), 
-               '[]'::json
+             (
+               SELECT COALESCE(
+                 json_agg(r.id),
+                 '[]'::json
+               )
+               FROM role_permissions rp
+               JOIN roles r ON rp.role_id = r.id
+               WHERE rp.permission_id = p.id
              ) as role_ids
       FROM permissions p
-      LEFT JOIN role_permissions rp ON p.id = rp.permission_id
-      LEFT JOIN roles r ON rp.role_id = r.id
       WHERE p.id = $1
-      GROUP BY p.id
     `, [id]);
 
     // Add roles_count to the updated permission

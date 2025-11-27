@@ -62,12 +62,6 @@ export default function Sidebar() {
       permission: { resource: 'api-keys', action: 'view' }
     },
     {
-      href: '/admin/review',
-      label: '内容审核',
-      icon: 'fas fa-clipboard-check',
-      permission: { resource: 'experiences', action: 'review' }
-    },
-    {
       href: '/admin/my-experiences',
       label: '个人经验',
       icon: 'fas fa-book-open',

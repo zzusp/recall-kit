@@ -55,10 +55,6 @@ export default function AdminLogin() {
           permission: { resource: 'api-keys', action: 'view' }
         },
         {
-          href: '/admin/review',
-          permission: { resource: 'experiences', action: 'review' }
-        },
-        {
           href: '/admin/my-experiences',
           // 个人经验页面不需要特殊权限，只要登录即可访问
           permission: null

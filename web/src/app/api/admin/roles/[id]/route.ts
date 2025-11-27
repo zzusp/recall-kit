@@ -25,21 +25,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Using subquery to avoid complex GROUP BY
     const result = await db.query(`
       SELECT r.*, 
-             COALESCE(
-               json_agg(
-                 CASE WHEN p.id IS NOT NULL THEN 
+             (
+               SELECT COALESCE(
+                 json_agg(
                    jsonb_build_object('id', p.id, 'name', p.name, 'resource', p.resource, 'action', p.action, 'description', p.description)
-                 END
-               ) FILTER (WHERE p.id IS NOT NULL), 
-               '[]'::json
+                 ),
+                 '[]'::json
+               )
+               FROM role_permissions rp
+               JOIN permissions p ON rp.permission_id = p.id
+               WHERE rp.role_id = r.id
              ) as permissions
       FROM roles r
-      LEFT JOIN role_permissions rp ON r.id = rp.role_id
-      LEFT JOIN permissions p ON rp.permission_id = p.id
       WHERE r.id = $1
-      GROUP BY r.id
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -156,22 +157,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Fetch updated role with permissions
+    // Fetch updated role with permissions - using subquery to avoid complex GROUP BY
     const updatedRoleResult = await db.query(`
       SELECT r.*, 
-             COALESCE(
-               json_agg(
-                 CASE WHEN p.id IS NOT NULL THEN 
+             (
+               SELECT COALESCE(
+                 json_agg(
                    jsonb_build_object('id', p.id, 'name', p.name, 'resource', p.resource, 'action', p.action, 'description', p.description)
-                 END
-               ) FILTER (WHERE p.id IS NOT NULL), 
-               '[]'::json
+                 ),
+                 '[]'::json
+               )
+               FROM role_permissions rp
+               JOIN permissions p ON rp.permission_id = p.id
+               WHERE rp.role_id = r.id
              ) as permissions
       FROM roles r
-      LEFT JOIN role_permissions rp ON r.id = rp.role_id
-      LEFT JOIN permissions p ON rp.permission_id = p.id
       WHERE r.id = $1
-      GROUP BY r.id
     `, [id]);
 
     return NextResponse.json(updatedRoleResult.rows[0]);

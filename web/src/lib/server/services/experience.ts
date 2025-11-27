@@ -84,20 +84,19 @@ export class ExperienceService {
     }
 
     // Fallback to traditional text search using PostgreSQL
+    // Using subquery approach to avoid complex GROUP BY clauses
     let sql = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, er.relevance_score, er.created_at, 
         er.updated_at, er.deleted_at,
-        COALESCE(
-          json_agg(
-            CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
-          ) FILTER (WHERE ek.keyword IS NOT NULL), 
-          '[]'::json
+        (
+          SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
+          FROM experience_keywords ek
+          WHERE ek.experience_id = er.id
         ) as keywords
       FROM experience_records er
-      LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
       WHERE er.publish_status = 'published' AND er.is_deleted = false
     `;
 
@@ -128,9 +127,6 @@ export class ExperienceService {
       params.push(keywords);
       paramIndex++;
     }
-
-    // Group by
-    sql += ` GROUP BY er.id`;
 
     // Apply sorting
     switch (sort) {
@@ -202,22 +198,20 @@ export class ExperienceService {
   }
 
   async getExperienceById(id: string): Promise<ExperienceRecord | null> {
+    // Using subquery approach to avoid complex GROUP BY clauses
     const sql = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, er.relevance_score, er.created_at, 
         er.updated_at, er.deleted_at,
-        COALESCE(
-          json_agg(
-            CASE WHEN ek.keyword IS NOT NULL THEN ek.keyword END
-          ) FILTER (WHERE ek.keyword IS NOT NULL), 
-          '[]'::json
+        (
+          SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
+          FROM experience_keywords ek
+          WHERE ek.experience_id = er.id
         ) as keywords
       FROM experience_records er
-      LEFT JOIN experience_keywords ek ON er.id = ek.experience_id
       WHERE er.id = $1 AND er.publish_status = 'published' AND er.is_deleted = false
-      GROUP BY er.id
     `;
 
     try {

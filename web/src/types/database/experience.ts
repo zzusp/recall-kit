@@ -9,10 +9,6 @@ export interface ExperienceRecord {
   solution: string;
   context: string | null;
   publish_status: 'published' | 'draft';
-  review_status: 'approved';
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  review_note: string | null;
   is_deleted: boolean;
   query_count: number;
   view_count: number;
@@ -29,26 +25,5 @@ export interface ExperienceKeyword {
   id: string;
   experience_id: string;
   keyword: string;
-  created_at: string;
-}
-
-export interface QueryLog {
-  id: string;
-  query_keywords: string;
-  result_count: number;
-  response_time_ms: number | null;
-  experience_ids: string[] | null;
-  query_source: string;
-  created_at: string;
-}
-
-export interface AdminAction {
-  id: string;
-  admin_id: string | null;
-  action_type: string;
-  target_type: string;
-  target_id: string | null;
-  target_ids: string[] | null;
-  action_details: any | null;
   created_at: string;
 }
