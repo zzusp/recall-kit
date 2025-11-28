@@ -1,34 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser, hasPermission } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 import { settingsService } from '@/lib/server/services/settings';
 
 export const runtime = 'nodejs';
 
-export async function GET(request: NextRequest) {
+function hasSettingsPermission(
+  user: { is_superuser?: boolean; permissions?: Array<{ resource: string; action: string }> } | undefined,
+  action: 'read' | 'write'
+) {
+  if (user?.is_superuser) {
+    return true;
+  }
+
+  return Boolean(
+    user?.permissions?.some(
+      permission => permission.resource === 'settings' && permission.action === action
+    )
+  );
+}
+
+export async function GET(_request: NextRequest) {
   try {
-    // Get session token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const session = await getServerSession();
+
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'Authorization token required' },
+        { error: '未授权访问' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    
-    // Verify user and permissions
-    const user = await getCurrentUser(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
+    const currentUser = session.user as any;
 
-    if (!hasPermission(user, 'settings', 'read')) {
+    if (!hasSettingsPermission(currentUser, 'read')) {
       return NextResponse.json(
-        { error: 'Insufficient permissions' },
+        { error: '权限不足' },
         { status: 403 }
       );
     }
@@ -48,29 +54,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Get session token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const session = await getServerSession();
+
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'Authorization token required' },
+        { error: '未授权访问' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    
-    // Verify user and permissions
-    const user = await getCurrentUser(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
+    const currentUser = session.user as any;
 
-    if (!hasPermission(user, 'settings', 'write')) {
+    if (!hasSettingsPermission(currentUser, 'write')) {
       return NextResponse.json(
-        { error: 'Insufficient permissions' },
+        { error: '权限不足' },
         { status: 403 }
       );
     }
