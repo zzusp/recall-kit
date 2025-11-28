@@ -1,15 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+/**
+ * 中间件：在 Edge Runtime 中运行
+ * 注意：Edge Runtime 不支持数据库查询，这里只做基本检查
+ * 完整的 session 验证在 API 路由中使用 requireAuth 函数
+ */
 export async function middleware(req: NextRequest) {
-  console.log('Middleware called for:', req.nextUrl.pathname);
-  
   // 为API请求添加Authorization头
   if (req.nextUrl.pathname.startsWith('/api/')) {
     const sessionToken = req.cookies.get('session_token')?.value;
-    console.log('Session token from cookie:', sessionToken ? 'found' : 'not found');
     
     if (sessionToken) {
-      console.log('Adding Authorization header');
       const requestHeaders = new Headers(req.headers);
       requestHeaders.set('Authorization', `Bearer ${sessionToken}`);
       
@@ -30,6 +31,8 @@ export async function middleware(req: NextRequest) {
 
     const sessionToken = req.cookies.get('session_token')?.value;
     
+    // 基本检查：只验证 token 是否存在
+    // 完整的验证（包括过期检查）在页面加载时通过 API 路由进行
     if (!sessionToken) {
       return NextResponse.redirect(new URL('/admin/login', req.url));
     }

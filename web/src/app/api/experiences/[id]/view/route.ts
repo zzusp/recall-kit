@@ -21,12 +21,22 @@ export async function POST(
     }
 
     const experienceService = new ExperienceService();
+    
+    // 尝试增加查看次数，失败不影响主功能
+    // incrementViewCount 内部已处理错误，失败时返回 0
     const newCount = await experienceService.incrementViewCount(id);
     
+    // 即使更新失败（newCount 为 0），也返回成功响应
+    // 避免影响前端功能，前端可以根据 newCount 是否为 0 判断是否更新成功
     return ApiRouteResponse.success({ newCount }, 'View count incremented successfully');
   } catch (error) {
-    console.error('Error incrementing view count:', error);
-    return ApiRouteResponse.internalError('Failed to increment view count', 
-      process.env.NODE_ENV === 'development' ? error : undefined);
+    // 捕获未预期的错误，但仍返回成功响应，确保不影响主功能
+    console.error('Unexpected error in view count API (non-blocking):', {
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
+    });
+    
+    // 返回成功响应，但 newCount 为 0 表示更新失败
+    return ApiRouteResponse.success({ newCount: 0 }, 'View count update attempted');
   }
 }

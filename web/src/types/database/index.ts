@@ -211,6 +211,7 @@ export interface Database {
           fts: string | null;
           embedding: number[] | null;
           has_embedding: boolean;
+          keywords: string[]; // 关键字数组，已从 experience_keywords 表迁移到此字段
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -229,6 +230,7 @@ export interface Database {
           view_count?: number;
           embedding?: number[] | null;
           has_embedding?: boolean;
+          keywords?: string[];
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -247,29 +249,10 @@ export interface Database {
           view_count?: number;
           embedding?: number[] | null;
           has_embedding?: boolean;
+          keywords?: string[];
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
-        };
-      };
-      experience_keywords: {
-        Row: {
-          id: string;
-          experience_id: string;
-          keyword: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          experience_id: string;
-          keyword: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          experience_id?: string;
-          keyword?: string;
-          created_at?: string;
         };
       };
     };

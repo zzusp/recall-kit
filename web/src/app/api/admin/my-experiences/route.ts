@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 import { ApiRouteResponse, ErrorResponses } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/server/db/client';
 
@@ -7,23 +7,19 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
+      return ApiRouteResponse.unauthorized('未授权访问');
+    }
+    const currentUser = session.user as any;
+
     const { searchParams } = new URL(request.url);
     
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const status = searchParams.get('status') as 'all' | 'published' | 'draft' | 'deleted' || 'all';
     const offset = (page - 1) * limit;
-
-    // 获取当前用户信息
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
-      return ApiRouteResponse.unauthorized('未授权访问');
-    }
-
-    const currentUser = await getCurrentUser(sessionToken);
-    if (!currentUser) {
-      return ApiRouteResponse.unauthorized('用户未登录');
-    }
 
     // 构建查询条件
     let whereClause = 'WHERE er.user_id = $1';
@@ -50,18 +46,14 @@ export async function GET(request: NextRequest) {
         break;
     }
 
-    // 查询经验记录 - 使用子查询避免复杂的 GROUP BY
+    // 查询经验记录
     const query = `
       SELECT 
         er.id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, 
         er.has_embedding, er.created_at, er.updated_at, er.deleted_at,
-        (
-          SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
-          FROM experience_keywords ek
-          WHERE ek.experience_id = er.id
-        ) as keywords
+        COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
       FROM experience_records er
       ${whereClause}
       ORDER BY er.created_at DESC
@@ -112,6 +104,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
+      return ApiRouteResponse.unauthorized('未授权访问');
+    }
+    const currentUser = session.user as any;
+
     const body = await request.json();
     const { title, problem_description, root_cause, solution, context, keywords } = body;
 
@@ -120,44 +119,23 @@ export async function POST(request: NextRequest) {
       return ApiRouteResponse.badRequest('标题、问题描述和解决方案为必填项');
     }
 
-    // 获取当前用户信息
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
-      return ApiRouteResponse.unauthorized('未授权访问');
-    }
-
-    const currentUser = await getCurrentUser(sessionToken);
-    if (!currentUser) {
-      return ApiRouteResponse.unauthorized('用户未登录');
-    }
-
-    // 插入新的经验记录
+    // 插入新的经验记录，关键字直接存储在 keywords 字段中
+    const keywordsArray = keywords && Array.isArray(keywords) ? keywords : [];
     const insertQuery = `
       INSERT INTO experience_records 
-      (user_id, title, problem_description, root_cause, solution, context, 
+      (user_id, title, problem_description, root_cause, solution, context, keywords,
        publish_status, is_deleted, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, 'draft', false, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', false, NOW(), NOW())
       RETURNING id, user_id, title, problem_description, root_cause, 
-                solution, context, publish_status, is_deleted, query_count, view_count, 
+                solution, context, keywords, publish_status, is_deleted, query_count, view_count, 
                 created_at, updated_at, deleted_at
     `;
 
     const result = await db.query(insertQuery, [
-      currentUser.id, title, problem_description, root_cause, solution, context
+      currentUser.id, title, problem_description, root_cause, solution, context, keywordsArray
     ]);
 
     const experience = result.rows[0];
-
-    // 插入关键词
-    if (keywords && Array.isArray(keywords) && keywords.length > 0) {
-      const keywordValues = keywords.map((keyword: string) => 
-        `('${experience.id}', '${keyword.replace(/'/g, "''")}')`
-      ).join(', ');
-      
-      await db.query(
-        `INSERT INTO experience_keywords (experience_id, keyword) VALUES ${keywordValues}`
-      );
-    }
 
     return ApiRouteResponse.success(experience, '经验创建成功', 201);
 

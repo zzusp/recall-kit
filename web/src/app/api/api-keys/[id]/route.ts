@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiKeyById, updateApiKey, deleteApiKey, validateApiKey } from '@/lib/server/services/apiKey';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -12,23 +12,17 @@ export async function GET(
   try {
     const { id } = await params;
     
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
-        { message: '未提供会话令牌' },
+        { message: '未授权访问' },
         { status: 401 }
       );
     }
 
-    const user = await getCurrentUser(sessionToken);
-    if (!user) {
-      return NextResponse.json(
-        { message: '无效的会话令牌' },
-        { status: 401 }
-      );
-    }
-
-    const apiKey = await getApiKeyById(user.id, id);
+    const currentUser = session.user as any;
+    const apiKey = await getApiKeyById(currentUser.id, id);
     if (!apiKey) {
       return NextResponse.json(
         { message: 'API密钥不存在' },
@@ -57,21 +51,16 @@ export async function PUT(
     // Await params to get the id
     const { id } = await params;
     
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
-        { message: '未提供会话令牌' },
+        { message: '未授权访问' },
         { status: 401 }
       );
     }
 
-    const user = await getCurrentUser(sessionToken);
-    if (!user) {
-      return NextResponse.json(
-        { message: '无效的会话令牌' },
-        { status: 401 }
-      );
-    }
+    const currentUser = session.user as any;
 
     const body = await request.json();
     const { name, isActive } = body;
@@ -95,7 +84,7 @@ export async function PUT(
     if (name !== undefined) updates.name = name.trim();
     if (isActive !== undefined) updates.isActive = isActive;
 
-    const updatedKey = await updateApiKey(user.id, id, updates);
+    const updatedKey = await updateApiKey(currentUser.id, id, updates);
     if (!updatedKey) {
       return NextResponse.json(
         { message: 'API密钥不存在' },
@@ -123,23 +112,17 @@ export async function DELETE(
     // Await params to get the id
     const { id } = await params;
     
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
-        { message: '未提供会话令牌' },
+        { message: '未授权访问' },
         { status: 401 }
       );
     }
 
-    const user = await getCurrentUser(sessionToken);
-    if (!user) {
-      return NextResponse.json(
-        { message: '无效的会话令牌' },
-        { status: 401 }
-      );
-    }
-
-    const deleted = await deleteApiKey(user.id, id);
+    const currentUser = session.user as any;
+    const deleted = await deleteApiKey(currentUser.id, id);
     if (!deleted) {
       return NextResponse.json(
         { message: 'API密钥不存在' },

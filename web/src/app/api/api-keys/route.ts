@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createApiKey, getUserApiKeys, validateApiKey } from '@/lib/server/services/apiKey';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -22,24 +22,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(apiKeys);
     }
 
-    // 检查会话认证（用于用户界面访问）
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 检查会话认证（用于用户界面访问）- 使用 NextAuth.js
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
-        { message: '未提供认证信息' },
+        { message: '未授权访问' },
         { status: 401 }
       );
     }
 
-    const user = await getCurrentUser(sessionToken);
-    if (!user) {
-      return NextResponse.json(
-        { message: '无效的会话令牌' },
-        { status: 401 }
-      );
-    }
-
-    const apiKeys = await getUserApiKeys(user.id);
+    const currentUser = session.user as any;
+    const apiKeys = await getUserApiKeys(currentUser.id);
     return NextResponse.json(apiKeys);
 
   } catch (error) {
@@ -54,21 +47,16 @@ export async function GET(request: NextRequest) {
 // POST /api/api-keys - 创建新的API密钥
 export async function POST(request: NextRequest) {
   try {
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
-        { message: '未提供会话令牌' },
+        { message: '未授权访问' },
         { status: 401 }
       );
     }
 
-    const user = await getCurrentUser(sessionToken);
-    if (!user) {
-      return NextResponse.json(
-        { message: '无效的会话令牌' },
-        { status: 401 }
-      );
-    }
+    const currentUser = session.user as any;
 
     const body = await request.json();
     const { name } = body;
@@ -87,7 +75,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = await createApiKey(user.id, {
+    const apiKey = await createApiKey(currentUser.id, {
       name: name.trim()
     });
 

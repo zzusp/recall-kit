@@ -180,14 +180,10 @@ export async function getCurrentUser(sessionToken: string | undefined): Promise<
 }
 
 /**
- * Check if user is authenticated
+ * 验证 session token 是否有效
+ * 服务端专用函数，不依赖客户端环境
  */
-export async function isAuthenticated(): Promise<boolean> {
-  if (typeof window === 'undefined') {
-    return false; // Server-side, cannot access localStorage
-  }
-  
-  const sessionToken = localStorage.getItem('session_token');
+export async function validateSessionToken(sessionToken: string | undefined): Promise<boolean> {
   if (!sessionToken) {
     return false;
   }
@@ -199,103 +195,11 @@ export async function isAuthenticated(): Promise<boolean> {
     );
     return result.rows.length > 0;
   } catch (error) {
-    console.error('Error checking authentication:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error validating session token:', error);
+    }
     return false;
   }
-}
-
-/**
- * Get current user session
- */
-export async function getCurrentSession() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  
-  const sessionToken = localStorage.getItem('session_token');
-  if (!sessionToken) {
-    return null;
-  }
-
-  try {
-    const result = await db.query(
-      'SELECT user_id, expires_at FROM user_sessions WHERE session_token = $1 AND expires_at > NOW()',
-      [sessionToken]
-    );
-    
-    return result.rows.length > 0 ? {
-      user: { id: result.rows[0].user_id },
-      expires_at: result.rows[0].expires_at
-    } : null;
-  } catch (error) {
-    console.error('Error getting session:', error);
-    return null;
-  }
-}
-
-/**
- * Get current user profile (including role information)
- */
-export async function getCurrentUserProfile(): Promise<UserProfile | null> {
-  const session = await getCurrentSession();
-  if (!session) {
-    return null;
-  }
-
-  try {
-    const result = await db.query(`
-      SELECT u.id, u.username, u.email, u.created_at, u.updated_at, u.last_login_at,
-             CASE WHEN r.name = 'admin' THEN 'admin' ELSE 'user' END as role
-      FROM users u
-      LEFT JOIN user_roles ur ON u.id = ur.user_id
-      LEFT JOIN roles r ON ur.role_id = r.id
-      WHERE u.id = $1 AND u.is_active = true
-    `, [session.user.id]);
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    return result.rows[0] as UserProfile;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return null;
-  }
-}
-
-/**
- * Check if user is admin
- */
-export async function isAdmin(): Promise<boolean> {
-  const profile = await getCurrentUserProfile();
-  return profile?.role === 'admin';
-}
-
-/**
- * Listen to authentication state changes
- */
-export function onAuthStateChange(callback: (session: any) => void) {
-  // For PostgreSQL, we don't have real-time subscriptions like Supabase
-  // This is a simplified implementation that checks localStorage changes
-  if (typeof window !== 'undefined') {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'session_token') {
-        getCurrentSession().then(callback);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    // Initial check
-    getCurrentSession().then(callback);
-
-    // Return cleanup function
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }
-
-  return () => {};
 }
 
 /**

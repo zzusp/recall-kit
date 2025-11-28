@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getSessionToken } from '@/lib/client/services/auth';
+import { useSession } from 'next-auth/react';
 import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -27,27 +27,31 @@ interface Experience {
 export default function ExperienceDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [experience, setExperience] = useState<Experience | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   useEffect(() => {
+    // 如果 session 还在加载中，等待
+    if (status === 'loading') {
+      return;
+    }
+
+    // 如果没有 session，重定向到登录页
+    if (status === 'unauthenticated' || !session) {
+      router.push('/admin/login');
+      return;
+    }
+
     const fetchExperience = async () => {
       setIsLoading(true);
       setError('');
 
       try {
-        const sessionToken = getSessionToken();
-        if (!sessionToken) {
-          router.push('/admin/login');
-          return;
-        }
-
         const response = await fetch(`/api/admin/my-experiences/${params.id}`, {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`
-          }
+          credentials: 'include'
         });
 
         if (!response.ok) {
@@ -109,18 +113,12 @@ export default function ExperienceDetailPage() {
     if (!confirmed) return;
 
     try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) {
-        router.push('/admin/login');
-        return;
-      }
-
       const response = await fetch(`/api/admin/my-experiences/${experience.id}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${sessionToken}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ action })
       });
 

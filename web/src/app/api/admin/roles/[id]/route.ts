@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -14,11 +14,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     
-    // Verify user and permissions - 从Authorization头或cookie中获取token
-    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-                 request.cookies.get('session_token')?.value;
-    const user = await getCurrentUser(token);
-    if (!user) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -66,19 +64,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { name, description, is_system_role, permissions, permissionIds } = body;
     
-    // Verify user and permissions - 从Authorization头或cookie中获取token
-    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-                 request.cookies.get('session_token')?.value;
-    const user = await getCurrentUser(token);
-    if (!user) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const currentUser = session.user as any;
+
     // Only superusers can modify roles
-    if (!user.is_superuser) {
+    if (!currentUser.is_superuser) {
       return NextResponse.json(
         { error: 'Only superusers can modify roles' },
         { status: 403 }
@@ -189,19 +187,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     
-    // Verify user and permissions - 从Authorization头或cookie中获取token
-    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-                 request.cookies.get('session_token')?.value;
-    const user = await getCurrentUser(token);
-    if (!user) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const currentUser = session.user as any;
+
     // Only superusers can delete roles
-    if (!user.is_superuser) {
+    if (!currentUser.is_superuser) {
       return NextResponse.json(
         { error: 'Only superusers can delete roles' },
         { status: 403 }

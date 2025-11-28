@@ -98,13 +98,13 @@ export async function initSubmitHandler(
       try {
         // Use sql.begin for proper transaction handling
         await sql.begin(async (sql) => {
-          // 插入经验记录
+          // 插入经验记录，关键字直接存储在 keywords 字段中
           const insertQuery = `
             INSERT INTO experience_records (
               id, user_id, title, problem_description, root_cause, solution, 
-              context, publish_status, is_deleted, query_count, created_at
+              context, keywords, publish_status, is_deleted, query_count, created_at
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, 'published', false, 0, NOW()
+              $1, $2, $3, $4, $5, $6, $7, $8, 'published', false, 0, NOW()
             )
             RETURNING id
           `;
@@ -116,15 +116,9 @@ export async function initSubmitHandler(
             problem_description,
             root_cause || null,
             solution,
-            experienceContext || null
+            experienceContext || null,
+            keywords || []
           ]);
-
-          // 插入关键词
-          if (keywords.length > 0) {
-            for (const keyword of keywords) {
-              await sql`INSERT INTO experience_keywords (experience_id, keyword) VALUES (${experienceId}, ${keyword})`;
-            }
-          }
 
           // 生成嵌入向量（如果服务可用）
           if (options?.embeddingService) {

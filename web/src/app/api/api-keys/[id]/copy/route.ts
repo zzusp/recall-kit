@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFullApiKey } from '@/lib/server/services/apiKey';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -11,23 +11,17 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
-        { message: '未提供会话令牌' },
+        { message: '未授权访问' },
         { status: 401 }
       );
     }
 
-    const user = await getCurrentUser(sessionToken);
-    if (!user) {
-      return NextResponse.json(
-        { message: '无效的会话令牌' },
-        { status: 401 }
-      );
-    }
-
-    const apiKey = await getFullApiKey(user.id, id);
+    const currentUser = session.user as any;
+    const apiKey = await getFullApiKey(currentUser.id, id);
     if (!apiKey) {
       return NextResponse.json(
         { message: 'API密钥不存在' },

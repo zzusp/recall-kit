@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken, getCurrentUser } from '@/lib/client/services/auth';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
 export default function UserDashboardPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState({
     myExperiences: 0,
@@ -22,32 +23,37 @@ export default function UserDashboardPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // 如果session还在加载中，等待
+    if (status === 'loading') {
+      return;
+    }
+
+    // 如果没有session，重定向到登录页
+    if (status === 'unauthenticated' || !session) {
+      router.push('/admin/login');
+      return;
+    }
+
+    // 设置用户信息
+    if (session?.user) {
+      setUser(session.user as any);
+    }
+
     const fetchDashboardData = async () => {
       setIsLoading(true);
       setError('');
 
       try {
-        // Get session token
-        const sessionToken = getSessionToken();
-        if (!sessionToken) {
-          router.push('/admin/login');
-          return;
-        }
-
-        // Get current user
-        const currentUser = await getCurrentUser();
-        if (!currentUser) {
-          router.push('/admin/login');
-          return;
-        }
-        setUser(currentUser);
-
-        // Fetch dashboard stats
+        // Fetch dashboard stats (使用 NextAuth.js session)
         const statsResponse = await fetch('/api/admin/user-dashboard/stats', {
-          headers: { 'Authorization': `Bearer ${sessionToken}` }
+          credentials: 'include' // 确保发送 NextAuth.js session cookie
         });
 
         if (!statsResponse.ok) {
+          if (statsResponse.status === 401) {
+            router.push('/admin/login');
+            return;
+          }
           throw new Error('Failed to fetch stats');
         }
 
@@ -56,9 +62,9 @@ export default function UserDashboardPage() {
           setStats(statsData.data);
         }
 
-        // Fetch recent experiences
+        // Fetch recent experiences (使用 NextAuth.js session)
         const recentResponse = await fetch('/api/admin/user-dashboard/recent-experiences', {
-          headers: { 'Authorization': `Bearer ${sessionToken}` }
+          credentials: 'include' // 确保发送 NextAuth.js session cookie
         });
 
         if (recentResponse.ok) {
@@ -66,6 +72,9 @@ export default function UserDashboardPage() {
           if (recentData.success) {
             setRecentExperiences(recentData.data.experiences || []);
           }
+        } else if (recentResponse.status === 401) {
+          router.push('/admin/login');
+          return;
         }
 
         // Fetch popular experiences (public)
@@ -85,9 +94,10 @@ export default function UserDashboardPage() {
     };
 
     fetchDashboardData();
-  }, [router]);
+  }, [router, session, status]);
 
-  if (isLoading) {
+  // 如果session还在加载中，显示加载状态
+  if (status === 'loading' || isLoading) {
     return (
       <div className="admin-loading">
         <div className="admin-loading-spinner">

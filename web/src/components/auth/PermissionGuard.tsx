@@ -1,8 +1,9 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getSessionToken, hasPermission, AuthUser } from '@/lib/client/services/auth';
+import { useSession } from 'next-auth/react';
+import { hasPermission, AuthUser } from '@/lib/client/services/auth';
 
 interface PermissionGuardProps {
   children: ReactNode;
@@ -19,56 +20,11 @@ export default function PermissionGuard({
   requireAuth = true,
   fallback
 }: PermissionGuardProps) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { data: session, status } = useSession();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const sessionToken = getSessionToken();
-        
-        if (!sessionToken) {
-          if (requireAuth) {
-            router.push('/admin/login');
-            return;
-          }
-          setLoading(false);
-          return;
-        }
-
-        const currentUser = await getCurrentUser();
-        
-        if (!currentUser) {
-          if (requireAuth) {
-            router.push('/admin/login');
-            return;
-          }
-          setLoading(false);
-          return;
-        }
-
-        // Check specific permission if required
-        if (resource && action && !hasPermission(currentUser, resource, action)) {
-          router.push('/admin/dashboard'); // Redirect to dashboard if no permission
-          return;
-        }
-
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        if (requireAuth) {
-          router.push('/admin/login');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [resource, action, requireAuth, router]);
-
-  if (loading) {
+  // 如果 session 还在加载中，显示加载状态
+  if (status === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -79,20 +35,28 @@ export default function PermissionGuard({
     );
   }
 
-  if (requireAuth && !user) {
-    return null; // Will redirect
+  // 如果需要认证但没有 session，重定向到登录页
+  if (requireAuth && (status === 'unauthenticated' || !session)) {
+    router.push('/admin/login');
+    return null;
   }
 
-  if (resource && action && user && !hasPermission(user, resource, action)) {
-    return fallback || (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <i className="fas fa-exclamation-triangle text-yellow-500 text-5xl mb-4"></i>
-          <h2 className="text-2xl font-bold mb-2">权限不足</h2>
-          <p className="text-gray-600">您没有权限访问此页面</p>
+  // 如果 session 存在，检查权限
+  if (session?.user) {
+    const currentUser = session.user as any as AuthUser;
+
+    // 检查特定权限
+    if (resource && action && !hasPermission(currentUser, resource, action)) {
+      return fallback || (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <i className="fas fa-exclamation-triangle text-yellow-500 text-5xl mb-4"></i>
+            <h2 className="text-2xl font-bold mb-2">权限不足</h2>
+            <p className="text-gray-600">您没有权限访问此页面</p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
   }
 
   return <>{children}</>;
@@ -100,26 +64,9 @@ export default function PermissionGuard({
 
 // Hook for checking permissions in components
 export function usePermissions() {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const sessionToken = getSessionToken();
-        if (sessionToken) {
-          const currentUser = await getCurrentUser();
-          setUser(currentUser);
-        }
-      } catch (error) {
-        console.error('Failed to load user:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUser();
-  }, []);
+  const { data: session, status } = useSession();
+  const user = session?.user as any as AuthUser | null;
+  const loading = status === 'loading';
 
   const checkPermission = (resource: string, action: string): boolean => {
     if (!user) return false;

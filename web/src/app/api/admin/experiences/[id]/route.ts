@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getCurrentUser, hasRole } from '@/lib/server/services/auth';
+import { getServerSession, isAdminOrSuperuser } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -11,28 +11,17 @@ export async function PUT(
   try {
     const { id } = await params;
     
-    // Get session token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authorization token required' },
+        { error: 'Authorization required' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    
-    // Verify user and admin role
-    const user = await getCurrentUser(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is admin or superuser
-    if (!hasRole(user, 'admin') && !user.is_superuser) {
+    // 检查用户是否为管理员或超级用户
+    if (!isAdminOrSuperuser(session)) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
@@ -116,28 +105,17 @@ export async function DELETE(
   try {
     const { id } = await params;
     
-    // Get session token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authorization token required' },
+        { error: 'Authorization required' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    
-    // Verify user and admin role
-    const user = await getCurrentUser(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is admin or superuser
-    if (!hasRole(user, 'admin') && !user.is_superuser) {
+    // 检查用户是否为管理员或超级用户
+    if (!isAdminOrSuperuser(session)) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }

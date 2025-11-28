@@ -1,8 +1,9 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
 import { User, Role, Permission } from '@/types/database/auth';
 import bcrypt from 'bcryptjs';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
+import { authConfig } from '@/config/auth';
 
 export const runtime = 'nodejs';
 
@@ -48,14 +49,7 @@ export async function POST(request: NextRequest) {
     const user = userResult.rows[0];
 
     // Verify password using bcrypt
-    let isPasswordValid = false;
-    try {
-      isPasswordValid = await bcrypt.compare(credentials.password, user.password_hash);
-    } catch (error) {
-      console.error('Password comparison error:', error);
-      // Fallback for development/testing - remove in production
-      isPasswordValid = credentials.password === user.password_hash;
-    }
+    const isPasswordValid = await bcrypt.compare(credentials.password, user.password_hash);
     
     if (!isPasswordValid) {
       return ApiRouteResponse.error('INVALID_CREDENTIALS', '用户名或密码错误', undefined, 401);
@@ -114,13 +108,35 @@ export async function POST(request: NextRequest) {
       is_superuser: user.is_superuser
     };
 
-    return ApiRouteResponse.success({
-      user: authUser,
-      sessionToken
-    }, '登录成功');
+    // 创建响应数据
+    const responseData = {
+      success: true,
+      data: {
+        user: authUser,
+        sessionToken
+      },
+      message: '登录成功',
+      timestamp: new Date().toISOString()
+    };
+
+    // 使用 NextResponse 设置 httpOnly cookie（更安全的方式）
+    const cookieMaxAge = authConfig.session.maxAge / 1000; // 转换为秒
+    const response = NextResponse.json(responseData, { status: 200 });
+    
+    response.cookies.set('session_token', sessionToken, {
+      httpOnly: true,
+      secure: authConfig.session.secure,
+      sameSite: authConfig.session.sameSite,
+      maxAge: cookieMaxAge,
+      path: '/',
+    });
+
+    return response;
 
   } catch (error) {
-    console.error('Login error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Login error:', error);
+    }
     return ApiRouteResponse.internalError('服务器内部错误', 
       process.env.NODE_ENV === 'development' ? error : undefined);
   }

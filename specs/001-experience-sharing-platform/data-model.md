@@ -13,8 +13,7 @@
 ```
 users (Supabase Auth)
   └── profiles (扩展用户信息)
-       └── experience_records (经验记录)
-            └── experience_keywords (经验关键字关联表)
+       └── experience_records (经验记录，包含 keywords 数组字段)
 ```
 
 ## Tables
@@ -55,6 +54,7 @@ users (Supabase Auth)
 | root_cause | TEXT | NULL | 根本原因 |
 | solution | TEXT | NOT NULL | 解决方案 |
 | context | TEXT | NULL | 上下文信息（包含代码片段，需脱敏） |
+| keywords | TEXT[] | DEFAULT ARRAY[]::TEXT[] | 关键字数组，用于存储经验的关键字标签 |
 | status | VARCHAR(20) | NOT NULL, DEFAULT 'published' | 状态：'published' 或 'deleted' |
 | query_count | INTEGER | NOT NULL, DEFAULT 0 | 查询次数 |
 | relevance_score | FLOAT | DEFAULT 0.0 | 相关性得分（用于排序） |
@@ -68,6 +68,7 @@ users (Supabase Auth)
 - `idx_experience_records_query_count` ON `query_count DESC`
 - `idx_experience_records_relevance_score` ON `relevance_score DESC`
 - `idx_experience_records_user_id` ON `user_id`
+- `GIN idx_experience_records_keywords` ON `keywords` (关键字数组索引，用于快速查询)
 - `GIN idx_experience_records_search` ON `to_tsvector('english', title || ' ' || problem_description || ' ' || COALESCE(root_cause, '') || ' ' || solution || ' ' || COALESCE(context, ''))` (全文搜索)
 
 **RLS Policies**:
@@ -76,25 +77,20 @@ users (Supabase Auth)
 - 匿名用户可创建记录（user_id为NULL）
 - 只有管理员可更新和删除记录
 
-### 3. experience_keywords (经验关键字表)
+### 3. ~~experience_keywords (经验关键字表)~~ (已废弃)
 
-存储经验记录的关键字，用于搜索和匹配。关键字不需要预先定义，由AI自动生成或用户手动添加。
+**注意**：此表已被废弃。关键字现在直接存储在 `experience_records.keywords` 字段中（TEXT[] 数组类型）。
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | UUID | PRIMARY KEY, DEFAULT gen_random_uuid() | 关键字ID |
-| experience_id | UUID | REFERENCES experience_records(id) ON DELETE CASCADE | 经验记录ID |
-| keyword | VARCHAR(100) | NOT NULL | 关键字内容（如：nodejs, react, typescript） |
-| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 创建时间 |
+**废弃原因**：
+- 关键字的不可控性，且查询时主要依赖向量检索
+- 关键字的模糊匹配作用不大
+- 简化数据结构，减少 JOIN 操作，提高查询性能
 
-**Indexes**:
-- `UNIQUE idx_experience_keywords_unique` ON `(experience_id, keyword)` - 确保同一经验记录不重复关键字
-- `idx_experience_keywords_experience_id` ON `experience_id` - 查询某条经验的所有关键字
-- `idx_experience_keywords_keyword` ON `keyword` - 查询包含某个关键字的所有经验（用于搜索）
-
-**RLS Policies**:
-- 所有用户可读取关键字关联关系
-- 系统自动创建关联（通过API）
+**迁移说明**：
+- 所有关键字数据已迁移到 `experience_records.keywords` 字段
+- 使用 PostgreSQL 数组类型 `TEXT[]` 存储
+- 使用 GIN 索引提高查询性能
+- 查询时使用数组操作符 `&&` 进行关键字过滤
 
 ### 4. query_logs (查询日志表)
 

@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken } from '@/lib/client/services/auth';
+import { useSession } from 'next-auth/react';
 
 type AIServiceType = 'openai' | 'anthropic' | 'custom';
 
 export default function AdminSettingsPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [aiServiceType, setAiServiceType] = useState<AIServiceType>('openai');
   const [aiConfig, setAiConfig] = useState({
     // OpenAI 配置
@@ -28,56 +29,29 @@ export default function AdminSettingsPage() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    // 验证管理员权限
-    const verifyAdmin = async () => {
-      try {
-        const sessionToken = getSessionToken();
-        if (!sessionToken) {
-          router.push('/admin/login');
-          return false;
-        }
-        
-        const response = await fetch('/api/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-          },
-        });
-        
-        if (!response.ok) {
-          router.push('/admin/login');
-          return false;
-        }
-        
-        const user = await response.json();
-        if (!user.is_superuser) {
-          router.push('/admin/dashboard');
-          return false;
-        }
-        
-        return true;
-      } catch (error) {
-        router.push('/admin/login');
-        return false;
-      }
-    };
+    // 如果 session 还在加载中，等待
+    if (status === 'loading') {
+      return;
+    }
 
-    verifyAdmin();
+    // 如果没有 session，重定向到登录页
+    if (status === 'unauthenticated' || !session) {
+      router.push('/admin/login');
+      return;
+    }
+
+    // 验证管理员权限
+    const currentUser = session.user as any;
+    if (!currentUser?.is_superuser) {
+      router.push('/admin/dashboard');
+      return;
+    }
 
     // 加载设置
     const loadSettings = async () => {
       try {
-        // 获取 session token
-        const sessionToken = getSessionToken();
-        if (!sessionToken) {
-          console.error('No session token found');
-          return;
-        }
-
         const response = await fetch('/api/admin/settings', {
-          credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-          },
+          credentials: 'include'
         });
         if (response.ok) {
           const data = await response.json();
@@ -103,7 +77,7 @@ export default function AdminSettingsPage() {
     };
 
     loadSettings();
-  }, [router]);
+  }, [router, session, status]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,12 +86,6 @@ export default function AdminSettingsPage() {
     setSuccess('');
 
     try {
-      // 获取 session token
-      const sessionToken = getSessionToken();
-      if (!sessionToken) {
-        throw new Error('未登录，请先登录');
-      }
-
       // 根据选择的AI服务类型，只保存相关的配置
       let settings: any = {
         aiServiceType,
@@ -149,8 +117,7 @@ export default function AdminSettingsPage() {
       const response = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
+          'Content-Type': 'application/json'
         },
         credentials: 'include',
         body: JSON.stringify(settings),

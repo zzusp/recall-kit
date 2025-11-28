@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/server/db/client';
 
@@ -7,15 +7,17 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    // 获取当前用户信息
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    
+    if (!session || !session.user) {
       return ApiRouteResponse.unauthorized('未授权访问');
     }
-
-    const currentUser = await getCurrentUser(sessionToken);
-    if (!currentUser) {
-      return ApiRouteResponse.unauthorized('用户未登录');
+    
+    const currentUser = session.user as any;
+    
+    if (!currentUser.id) {
+      return ApiRouteResponse.unauthorized('未授权访问');
     }
 
     // 获取用户的经验统计

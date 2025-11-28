@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -12,19 +12,19 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const offset = (page - 1) * limit;
     
-    // Verify user and permissions - 从Authorization头或cookie中获取token
-    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-                 request.cookies.get('session_token')?.value;
-    const user = await getCurrentUser(token);
-    if (!user) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const currentUser = session.user as any;
+
     // Only superusers can view roles
-    if (!user.is_superuser) {
+    if (!currentUser.is_superuser) {
       return NextResponse.json(
         { error: 'Only superusers can view roles' },
         { status: 403 }
@@ -92,19 +92,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, description, permissions, permissionIds } = body;
     
-    // Verify user and permissions - 从Authorization头或cookie中获取token
-    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-                 request.cookies.get('session_token')?.value;
-    const user = await getCurrentUser(token);
-    if (!user) {
+    // 使用 NextAuth.js 验证会话
+    const session = await getServerSession();
+    if (!session || !session.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const currentUser = session.user as any;
+
     // Only superusers can create roles
-    if (!user.is_superuser) {
+    if (!currentUser.is_superuser) {
       return NextResponse.json(
         { error: 'Only superusers can create roles' },
         { status: 403 }

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 import { ApiRouteResponse } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/server/db/client';
 
@@ -7,16 +7,12 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    // 获取当前用户信息
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return ApiRouteResponse.unauthorized('未授权访问');
     }
-
-    const currentUser = await getCurrentUser(sessionToken);
-    if (!currentUser) {
-      return ApiRouteResponse.unauthorized('用户未登录');
-    }
+    const currentUser = session.user as any;
 
     const body = await request.json();
     const {
@@ -85,16 +81,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // 获取当前用户信息
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return ApiRouteResponse.unauthorized('未授权访问');
     }
-
-    const currentUser = await getCurrentUser(sessionToken);
-    if (!currentUser) {
-      return ApiRouteResponse.unauthorized('用户未登录');
-    }
+    const currentUser = session.user as any;
 
     // 获取用户详细信息 - 查询正确的字段名
     const userQuery = `

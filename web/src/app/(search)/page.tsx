@@ -10,7 +10,8 @@ export default async function HomePage() {
     sort: 'created_at'
   });
 
-  const popularKeywords = await experienceService.getPopularKeywords(12);
+  const popularExperiences = await experienceService.getPopularExperiences(6);
+  const platformStats = await experienceService.getPlatformStats();
 
   return (
     <>
@@ -40,13 +41,18 @@ export default async function HomePage() {
               </Link>
               <div className="hero-stats">
                 <div className="stat-item">
-                  <span className="stat-number">{totalCount || 0}+</span>
+                  <span className="stat-number">{platformStats.totalExperiences || 0}+</span>
                   <span className="stat-label">经验记录</span>
                 </div>
                 <div className="stat-divider"></div>
                 <div className="stat-item">
-                  <span className="stat-number">{popularKeywords.length || 0}+</span>
-                  <span className="stat-label">技术标签</span>
+                  <span className="stat-number">{platformStats.totalViews || 0}+</span>
+                  <span className="stat-label">总浏览量</span>
+                </div>
+                <div className="stat-divider"></div>
+                <div className="stat-item">
+                  <span className="stat-number">{platformStats.totalQueries || 0}+</span>
+                  <span className="stat-label">总查询数</span>
                 </div>
               </div>
             </div>
@@ -58,29 +64,69 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* Popular Keywords Section */}
-        {popularKeywords.length > 0 && (
-          <section className="keywords-section">
+        {/* Popular Experiences Section */}
+        {popularExperiences.length > 0 && (
+          <section className="experiences-section">
             <div className="section-header">
               <h2 className="section-title">
                 <i className="fas fa-fire"></i>
-                热门技术标签
+                热门经验
               </h2>
-              <Link href="/search" className="section-link">
+              <Link href="/search?sort=query_count" className="section-link">
                 查看全部 <i className="fas fa-arrow-right"></i>
               </Link>
             </div>
-            <div className="keywords-grid">
-              {popularKeywords.map((keyword, index) => (
+            <div className="experiences-grid">
+              {popularExperiences.map(experience => (
                 <Link
-                  key={keyword}
-                  href={`/search?q=${encodeURIComponent(keyword)}`}
-                  className="keyword-chip"
-                  style={{ animationDelay: `${index * 50}ms` }}
+                  key={experience.id}
+                  href={`/experience/${experience.id}`}
+                  className="experience-card-modern"
                 >
-                  <span className="keyword-rank">#{index + 1}</span>
-                  <span className="keyword-text">{keyword}</span>
-                  <i className="fas fa-chevron-right keyword-arrow"></i>
+                  <div className="experience-header">
+                    <h3 className="experience-title">{experience.title}</h3>
+                    <div className="experience-meta">
+                      <span className="meta-item">
+                        <i className="fas fa-eye"></i>
+                        {experience.view_count || 0}
+                      </span>
+                      <span className="meta-item">
+                        <i className="fas fa-search"></i>
+                        {experience.query_count || 0}
+                      </span>
+                      <span className="meta-item">
+                        <i className="fas fa-calendar"></i>
+                        {new Date(experience.created_at).toLocaleDateString('zh-CN', {
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="experience-description">
+                    {experience.problem_description.length > 120
+                      ? experience.problem_description.substring(0, 120) + '...'
+                      : experience.problem_description}
+                  </p>
+                  {experience.keywords && experience.keywords.length > 0 && (
+                    <div className="experience-tags">
+                      {experience.keywords.slice(0, 3).map(keyword => (
+                        <span key={keyword} className="experience-tag">
+                          {keyword}
+                        </span>
+                      ))}
+                      {experience.keywords.length > 3 && (
+                        <span className="experience-tag-more">
+                          +{experience.keywords.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <div className="experience-footer">
+                    <span className="read-more">
+                      查看详情 <i className="fas fa-arrow-right"></i>
+                    </span>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -165,8 +211,8 @@ export default async function HomePage() {
               <div className="feature-icon-modern icon-tags">
                 <i className="fas fa-tags"></i>
               </div>
-              <h3 className="feature-title-modern">经验分类标签</h3>
-              <p className="feature-desc-modern">归类AI开发踩坑经验，支持Vue、React、Next.js、Python、Java等主流技术栈分类</p>
+              <h3 className="feature-title-modern">智能向量检索</h3>
+              <p className="feature-desc-modern">基于语义理解的向量搜索，精准匹配相关经验，无需精确关键词匹配</p>
             </div>
             
             <div className="feature-card-modern">

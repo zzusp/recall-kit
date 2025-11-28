@@ -84,18 +84,13 @@ export class ExperienceService {
     }
 
     // Fallback to traditional text search using PostgreSQL
-    // Using subquery approach to avoid complex GROUP BY clauses
     let sql = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, er.created_at, 
         er.updated_at, er.deleted_at,
-        (
-          SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
-          FROM experience_keywords ek
-          WHERE ek.experience_id = er.id
-        ) as keywords
+        COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
       FROM experience_records er
       WHERE er.publish_status = 'published' AND er.is_deleted = false
     `;
@@ -119,11 +114,7 @@ export class ExperienceService {
 
     // Apply keyword filtering if provided
     if (keywords.length > 0) {
-      sql += ` AND er.id IN (
-        SELECT DISTINCT experience_id 
-        FROM experience_keywords 
-        WHERE keyword = ANY($${paramIndex})
-      )`;
+      sql += ` AND er.keywords && $${paramIndex}::TEXT[]`;
       params.push(keywords);
       paramIndex++;
     }
@@ -175,11 +166,7 @@ export class ExperienceService {
     }
 
     if (keywords.length > 0) {
-      countSql += ` AND er.id IN (
-        SELECT DISTINCT experience_id 
-        FROM experience_keywords 
-        WHERE keyword = ANY($${countParamIndex})
-      )`;
+      countSql += ` AND er.keywords && $${countParamIndex}::TEXT[]`;
       countParams.push(keywords);
     }
 
@@ -200,18 +187,13 @@ export class ExperienceService {
   }
 
   async getExperienceById(id: string): Promise<ExperienceRecord | null> {
-    // Using subquery approach to avoid complex GROUP BY clauses
     const sql = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, er.created_at, 
         er.updated_at, er.deleted_at,
-        (
-          SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
-          FROM experience_keywords ek
-          WHERE ek.experience_id = er.id
-        ) as keywords
+        COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
       FROM experience_records er
       WHERE er.id = $1 AND er.publish_status = 'published' AND er.is_deleted = false
     `;
@@ -231,23 +213,86 @@ export class ExperienceService {
       throw new Error(`Failed to get experience: ${error}`);
     }
   }
+  /**
+   * 增加查看次数（用户点击查看时使用）
+   * 使用原子操作确保并发安全，失败不影响主功能
+   * @param experienceId 经验记录ID
+   * @returns 更新后的查看次数，失败时返回0
+   */
   async incrementViewCount(experienceId: string): Promise<number> {
+    if (!experienceId) {
+      return 0;
+    }
+
     try {
-      // Direct SQL update to increment view count
+      // 使用原子操作更新 view_count
+      // COALESCE 和 +1 操作在 PostgreSQL 中是原子的，确保并发安全
+      // 只更新已发布且未删除的记录
       const result = await db.query(
-        'UPDATE experience_records SET view_count = COALESCE(view_count, 0) + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND publish_status = $2 AND is_deleted = false RETURNING view_count',
-        [experienceId, 'published']
+        `UPDATE experience_records 
+         SET view_count = COALESCE(view_count, 0) + 1, 
+             updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $1 
+           AND publish_status = 'published' 
+           AND is_deleted = false 
+         RETURNING view_count`,
+        [experienceId]
       );
       
       return result.rows[0]?.view_count || 0;
     } catch (error) {
-      console.error('Error in incrementViewCount:', error);
-      // If view_count column doesn't exist, just return 0
+      // 静默处理错误，确保不影响主功能
+      // 记录错误但不抛出异常
       if (error instanceof Error && error.message.includes('does not exist')) {
         console.warn('view_count column does not exist, skipping update. Please run migration 005_add_view_count.sql');
-        return 0;
+      } else {
+        console.error('Error in incrementViewCount (non-blocking):', {
+          error: error instanceof Error ? error.message : String(error),
+          experienceId,
+          timestamp: new Date().toISOString()
+        });
       }
       return 0;
+    }
+  }
+
+  /**
+   * 批量增加查询次数（工具调用查询时使用）
+   * 使用原子操作确保并发安全，失败不影响主功能
+   * @param experienceIds 经验记录ID数组
+   */
+  async incrementQueryCount(experienceIds: string[]): Promise<void> {
+    if (!experienceIds || experienceIds.length === 0) {
+      return;
+    }
+
+    // 去重，避免同一个ID被多次更新
+    const uniqueIds = Array.from(new Set(experienceIds));
+    if (uniqueIds.length === 0) {
+      return;
+    }
+
+    try {
+      // 使用原子操作批量更新 query_count
+      // COALESCE 和 +1 操作在 PostgreSQL 中是原子的，确保并发安全
+      // 只更新已发布且未删除的记录
+      await db.query(
+        `UPDATE experience_records 
+         SET query_count = COALESCE(query_count, 0) + 1, 
+             updated_at = CURRENT_TIMESTAMP 
+         WHERE id = ANY($1::uuid[]) 
+           AND publish_status = 'published' 
+           AND is_deleted = false`,
+        [uniqueIds]
+      );
+    } catch (error) {
+      // 静默处理错误，确保不影响主功能
+      // 记录错误但不抛出异常
+      console.error('Error in incrementQueryCount (non-blocking):', {
+        error: error instanceof Error ? error.message : String(error),
+        experienceIdsCount: uniqueIds.length,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
@@ -306,6 +351,7 @@ export class ExperienceService {
           er.publish_status,
           er.query_count,
           er.view_count,
+          COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords,
           1 - (er.embedding <=> $1) as similarity,
           er.created_at,
           er.updated_at
@@ -336,6 +382,7 @@ export class ExperienceService {
               er.publish_status,
               er.query_count,
               er.view_count,
+              COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords,
               1 - (er.embedding <=> $1) as similarity,
               er.created_at,
               er.updated_at
@@ -369,28 +416,13 @@ export class ExperienceService {
       // Apply offset and limit
       const paginatedData = vectorResults.slice(offset, offset + limit);
 
-      // Fetch keywords for each experience
-      const experienceIds = paginatedData.map((exp: any) => exp.id);
-      const keywordsResult = await db.query(
-        'SELECT experience_id, keyword FROM experience_keywords WHERE experience_id = ANY($1)',
-        [experienceIds]
-      );
-
-      // Map keywords to experiences
-      const keywordsMap = new Map<string, string[]>();
-      keywordsResult.rows.forEach((item: { experience_id: string; keyword: string }) => {
-        if (!keywordsMap.has(item.experience_id)) {
-          keywordsMap.set(item.experience_id, []);
-        }
-        keywordsMap.get(item.experience_id)!.push(item.keyword);
-      });
-
       // Transform results and remove embedding field
+      // Keywords are already included in the query result
       return paginatedData.map((record: any) => {
         const { embedding, ...recordWithoutEmbedding } = record;
         return {
           ...recordWithoutEmbedding,
-          keywords: keywordsMap.get(record.id) || [],
+          keywords: Array.isArray(record.keywords) ? record.keywords : [],
           similarity: record.similarity
         };
       }) as ExperienceRecord[];
@@ -449,25 +481,67 @@ export class ExperienceService {
     }
   }
 
-  async getPopularKeywords(limit: number = 10): Promise<string[]> {
+  /**
+   * 获取热门经验（基于查看次数和查询次数）
+   */
+  async getPopularExperiences(limit: number = 6): Promise<ExperienceRecord[]> {
     try {
-      // 查询获取所有关键词并统计频率
+      const sql = `
+        SELECT 
+          er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
+          er.solution, er.context, er.publish_status, er.is_deleted,
+          er.query_count, er.view_count, er.created_at, 
+          er.updated_at, er.deleted_at,
+          COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
+        FROM experience_records er
+        WHERE er.publish_status = 'published' AND er.is_deleted = false
+        ORDER BY (er.view_count * 0.7 + er.query_count * 0.3) DESC, er.created_at DESC
+        LIMIT $1
+      `;
+
+      const result = await db.query(sql, [limit]);
+      
+      return result.rows.map(record => ({
+        ...record,
+        keywords: Array.isArray(record.keywords) ? record.keywords.filter(Boolean) : []
+      })) as ExperienceRecord[];
+    } catch (error) {
+      console.error('Error in getPopularExperiences:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取平台统计数据
+   */
+  async getPlatformStats(): Promise<{
+    totalExperiences: number;
+    totalViews: number;
+    totalQueries: number;
+  }> {
+    try {
       const result = await db.query(`
-        SELECT keyword, COUNT(*) as count 
-        FROM experience_keywords 
-        GROUP BY keyword 
-        ORDER BY count DESC 
-        LIMIT 100
+        SELECT 
+          COUNT(*) as total_experiences,
+          COALESCE(SUM(view_count), 0) as total_views,
+          COALESCE(SUM(query_count), 0) as total_queries
+        FROM experience_records
+        WHERE publish_status = 'published' AND is_deleted = false
       `);
 
-      // 按频率排序并返回前limit个
-      return result.rows
-        .sort((a, b) => b.count - a.count)
-        .slice(0, limit)
-        .map(row => row.keyword);
+      const row = result.rows[0];
+      return {
+        totalExperiences: parseInt(row.total_experiences) || 0,
+        totalViews: parseInt(row.total_views) || 0,
+        totalQueries: parseInt(row.total_queries) || 0
+      };
     } catch (error) {
-      console.error('Error in getPopularKeywords:', error);
-      return [];
+      console.error('Error in getPlatformStats:', error);
+      return {
+        totalExperiences: 0,
+        totalViews: 0,
+        totalQueries: 0
+      };
     }
   }
 }

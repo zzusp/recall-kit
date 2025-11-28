@@ -6,6 +6,8 @@ import { isInitializeRequest, ServerNotification, ServerRequest } from '@modelco
 import { InMemoryEventStore } from '@modelcontextprotocol/sdk/examples/shared/inMemoryEventStore.js';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
+import { readFileSync, existsSync } from 'fs';
+import { join, resolve, dirname } from 'path';
 import { initQueryHandler } from './queryHandler';
 import { initSubmitHandler } from './submitHandler';
 import { loadMCPServerConfig, MCPServerConfig } from './config';
@@ -13,6 +15,38 @@ import { SystemConfigService } from '../services/systemConfigService';
 import { EmbeddingService } from '../services/embeddingService';
 import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol';
 import { logger, LogContext } from '../services/loggerService.js';
+
+// 读取提示词文件的辅助函数
+function loadPromptFile(filename: string): string {
+  // 尝试多个可能的路径，以兼容开发和生产环境
+  // 1. 从当前文件所在目录（编译后可能在 dist/mcp/，需要回到 src/mcp/prompts/）
+  // 2. 从项目根目录的 src/mcp/prompts/
+  const possiblePaths = [
+    resolve(process.cwd(), 'src', 'mcp', 'prompts', filename),
+    resolve(process.cwd(), 'mcp-server', 'src', 'mcp', 'prompts', filename),
+  ];
+  
+  // 如果存在 __dirname（CommonJS 编译后会有），也尝试使用它
+  try {
+    // @ts-ignore - __dirname 在编译后的 CommonJS 代码中存在
+    if (typeof __dirname !== 'undefined') {
+      // 编译后文件在 dist/mcp/index.js，需要回到 src/mcp/prompts/
+      possiblePaths.unshift(resolve(__dirname, '..', '..', 'src', 'mcp', 'prompts', filename));
+    }
+  } catch {
+    // 忽略错误，继续尝试其他路径
+  }
+  
+  // 尝试每个路径，找到存在的文件
+  for (const path of possiblePaths) {
+    if (existsSync(path)) {
+      return readFileSync(path, 'utf-8');
+    }
+  }
+  
+  // 如果所有路径都失败，抛出错误
+  throw new Error(`无法找到提示词文件: ${filename}。尝试的路径: ${possiblePaths.join(', ')}`);
+}
 
 // 扩展 SSEServerTransport 类型以包含自定义属性
 interface ExtendedSSEServerTransport extends SSEServerTransport {
@@ -221,57 +255,21 @@ function createMCPServer(
       'Guide model through extracting experience fields from active conversation,',
       `drafting Markdown, and explicitly saving it to specs/experiences.`,
     ].join(' '),
-  }, async () => ({
-    description: 'Workflow instructions for producing and storing a Recall Kit experience file from current conversation.',
-    messages: [
-      {
-        role: 'assistant',
-        content: {
-          type: 'text',
-          text: [
-            'Role: You are Recall Kit documentation scribe responsible for turning current conversation into a polished experience log.',
-            '',
-            'Steps:',
-            '1. Review the latest conversation and capture: title, problem description, root cause, solution, context, and at least three keywords (include the programming language or tech stack when possible).',
-            '2. If there are multiple resolved problems in the history messages, determine if the solution methods for these problems are the same. If they are the same, merge the solution methods into a single solution; if they are different, split them into different documents for summary.',
-            '3. Populate the Markdown template below. For every field, first wrap the draft value with <!-- example-start --> and <!-- example-end --> to make edits safer, then remove those markers before returning the final Markdown.',
-            '4. Create one or more markdown files in specs/experiences/ to save the results from step 3.',
-            '5. You only need to generate the documentation, instruct the user to save it under specs/experiences/, and advise them to review and adjust as needed.',
-            '',
-            'Markdown template (fill in placeholders and remove markers before returning the final Markdown):',
-            '```markdown',
-            '---',
-            'title: "<!-- example-start -->Title<!-- example-end -->"',
-            'generated_at: <!-- example-start -->YYYY-MM-DDTHH:MM:SSZ<!-- example-end -->',
-            'keywords:',
-            '  - <!-- example-start -->keyword-1<!-- example-end -->',
-            '  - <!-- example-start -->keyword-2<!-- example-end -->',
-            '  - <!-- example-start -->keyword-3<!-- example-end -->',
-            '---',
-            '',
-            '## Problem Description',
-            '<!-- example-start -->Problem description goes here<!-- example-end -->',
-            '',
-            '## Root Cause',
-            '<!-- example-start -->Root cause goes here<!-- example-end -->',
-            '',
-            '## Solution',
-            '<!-- example-start -->Solution goes here<!-- example-end -->',
-            '',
-            '## Context',
-            '<!-- example-start -->Context information goes here<!-- example-end -->',
-            '',
-            '## Lessons Learned (Will not be submitted)',
-            '<!-- example-start -->Lessons learned/reflections go here<!-- example-end -->',
-            '',
-            '## References (Will not be submitted)',
-            '<!-- example-start -->Reference links or code go here<!-- example-end -->',
-            '```',
-          ].join('\n'),
+  }, async () => {
+    const promptText = loadPromptFile('summarize_experience.md');
+    return {
+      description: 'Workflow instructions for producing and storing a Recall Kit experience file from current conversation.',
+      messages: [
+        {
+          role: 'assistant',
+          content: {
+            type: 'text',
+            text: promptText,
+          },
         },
-      },
-    ],
-  }));
+      ],
+    };
+  });
 
   // Register prompt to submit experience from existing document
   server.registerPrompt('submit_doc_experience', {
@@ -280,63 +278,21 @@ function createMCPServer(
       'Submit an existing experience document to the Recall Kit platform.',
       'Validates document format and extracts parameters for submission.',
     ].join(' '),
-  }, async () => ({
-    description: 'Instructions for submitting an existing experience document to the Recall Kit platform without additional processing.',
-    messages: [
-      {
-        role: 'assistant',
-        content: {
-          type: 'text',
-          text: [
-            'Role: You are the Recall Kit document processor responsible for submitting existing experience documents to the platform.',
-            '',
-            'Process:',
-            '1. Check if the user provided a document path in their input',
-            '2. If no document path, ask the user to specify the path to the experience document',
-            '3. Read the specified document and validate it follows the required template structure:',
-            '   - YAML frontmatter with title, generated_at, and keywords (at least 3)',
-            '   - Required sections: ## Problem Description, ## Root Cause, ## Solution, ## Context',
-            '4. If validation fails, provide specific feedback about what needs to be fixed',
-            '5. If validation passes, extract parameters from the document:',
-            '   - title (from YAML frontmatter)',
-            '   - problem_description (from "## Problem Description" section)',
-            '   - root_cause (from "## Root Cause" section)',
-            '   - solution (from "## Solution" section)',
-            '   - context (from "## Context" section)',
-            '   - keywords (from YAML frontmatter)',
-            '6. Call the submit_experience tool with the extracted parameters without any additional processing',
-            '7. Display the submission result to the user',
-            '',
-            'Important: Do not summarize or modify the content from the document. Extract the exact text and submit it as-is.',
-            '',
-            'Document Template Structure Required:',
-            '```yaml',
-            '---',
-            'title: "Descriptive title"',
-            'generated_at: YYYY-MM-DDTHH:MM:SSZ',
-            'keywords:',
-            '  - keyword1',
-            '  - keyword2',
-            '  - keyword3',
-            '---',
-            '',
-            '## Problem Description',
-            '[content]',
-            '',
-            '## Root Cause',
-            '[content]',
-            '',
-            '## Solution',
-            '[content]',
-            '',
-            '## Context',
-            '[content]',
-            '```',
-          ].join('\n'),
+  }, async () => {
+    const promptText = loadPromptFile('submit_doc_experience.md');
+    return {
+      description: 'Instructions for submitting an existing experience document to the Recall Kit platform without additional processing.',
+      messages: [
+        {
+          role: 'assistant',
+          content: {
+            type: 'text',
+            text: promptText,
+          },
         },
-      },
-    ],
-  }));
+      ],
+    };
+  });
 
   return server;
 }

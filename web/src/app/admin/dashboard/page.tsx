@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken } from '@/lib/client/services/auth';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [stats, setStats] = useState({
     totalExperiences: 0,
     publishedExperiences: 0,
@@ -17,21 +18,23 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // 如果 session 还在加载中，等待
+    if (status === 'loading') {
+      return;
+    }
+
+    // 如果没有 session，重定向到登录页
+    if (status === 'unauthenticated' || !session) {
+      router.push('/admin/login');
+      return;
+    }
+
     const fetchStats = async () => {
       setIsLoading(true);
       setError('');
 
       try {
-        // Get session token
-        const sessionToken = getSessionToken();
-        console.log('Dashboard: sessionToken:', sessionToken ? 'found' : 'missing');
-        if (!sessionToken) {
-          console.log('Dashboard: No session token, redirecting to login');
-          router.push('/admin/login');
-          return;
-        }
-
-        // Fetch stats from API
+        // Fetch stats from API (使用 NextAuth.js session)
         const [
           totalResponse,
           publishedResponse,
@@ -39,20 +42,25 @@ export default function AdminDashboardPage() {
           recentResponse
         ] = await Promise.all([
           fetch('/api/admin/experiences?limit=1&page=1', {
-            headers: { 'Authorization': `Bearer ${sessionToken}` }
+            credentials: 'include'
           }),
           fetch('/api/admin/experiences?status=published&limit=1&page=1', {
-            headers: { 'Authorization': `Bearer ${sessionToken}` }
+            credentials: 'include'
           }),
           fetch('/api/admin/experiences?status=deleted&limit=1&page=1', {
-            headers: { 'Authorization': `Bearer ${sessionToken}` }
+            credentials: 'include'
           }),
           fetch('/api/admin/experiences?status=published&limit=1&page=1', {
-            headers: { 'Authorization': `Bearer ${sessionToken}` }
+            credentials: 'include'
           })
         ]);
 
         if (!totalResponse.ok || !publishedResponse.ok || !deletedResponse.ok || !recentResponse.ok) {
+          if (totalResponse.status === 401 || publishedResponse.status === 401 || 
+              deletedResponse.status === 401 || recentResponse.status === 401) {
+            router.push('/admin/login');
+            return;
+          }
           throw new Error('Failed to fetch stats');
         }
 
@@ -75,7 +83,7 @@ export default function AdminDashboardPage() {
     };
 
     fetchStats();
-  }, [router]);
+  }, [router, session, status]);
 
   if (isLoading) {
     return (

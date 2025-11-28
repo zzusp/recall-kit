@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession } from '@/lib/server/auth';
 import { ApiRouteResponse, ErrorResponses } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/server/db/client';
 
@@ -12,29 +12,21 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // 获取当前用户信息
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return ApiRouteResponse.unauthorized('未授权访问');
     }
+    const currentUser = session.user as any;
 
-    const currentUser = await getCurrentUser(sessionToken);
-    if (!currentUser) {
-      return ApiRouteResponse.unauthorized('用户未登录');
-    }
-
-    // 查询经验记录 - 使用子查询避免复杂的 GROUP BY
+    // 查询经验记录
     const query = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
         er.query_count, er.view_count, 
         er.created_at, er.updated_at, er.deleted_at,
-        (
-          SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
-          FROM experience_keywords ek
-          WHERE ek.experience_id = er.id
-        ) as keywords
+        COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
       FROM experience_records er
       WHERE er.id = $1 AND er.user_id = $2
     `;
@@ -75,16 +67,12 @@ export async function PUT(
       return ApiRouteResponse.badRequest('标题、问题描述和解决方案为必填项');
     }
 
-    // 获取当前用户信息
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return ApiRouteResponse.unauthorized('未授权访问');
     }
-
-    const currentUser = await getCurrentUser(sessionToken);
-    if (!currentUser) {
-      return ApiRouteResponse.unauthorized('用户未登录');
-    }
+    const currentUser = session.user as any;
 
     // 检查经验是否存在且属于当前用户
     const checkQuery = `
@@ -101,42 +89,23 @@ export async function PUT(
 
     const existingExperience = checkResult.rows[0];
 
-    // 更新经验记录
+    // 更新经验记录，关键字直接更新到 keywords 字段
+    const keywordsArray = keywords && Array.isArray(keywords) ? keywords : [];
     const updateQuery = `
       UPDATE experience_records 
       SET title = $1, problem_description = $2, root_cause = $3, 
-          solution = $4, context = $5, updated_at = NOW()
-      WHERE id = $6 AND user_id = $7
+          solution = $4, context = $5, keywords = $6, updated_at = NOW()
+      WHERE id = $7 AND user_id = $8
       RETURNING id, user_id, title, problem_description, root_cause, 
-                solution, context, publish_status, is_deleted, query_count, view_count, 
+                solution, context, keywords, publish_status, is_deleted, query_count, view_count, 
                 created_at, updated_at, deleted_at
     `;
 
     const updateResult = await db.query(updateQuery, [
-      title, problem_description, root_cause, solution, context, id, currentUser.id
+      title, problem_description, root_cause, solution, context, keywordsArray, id, currentUser.id
     ]);
 
     const experience = updateResult.rows[0];
-
-    // 更新关键词
-    if (keywords && Array.isArray(keywords)) {
-      // 先删除现有关键词
-      await db.query(
-        'DELETE FROM experience_keywords WHERE experience_id = $1',
-        [id]
-      );
-
-      // 插入新关键词
-      if (keywords.length > 0) {
-        const keywordValues = keywords.map((keyword: string) => 
-          `('${id}', '${keyword.replace(/'/g, "''")}')`
-        ).join(', ');
-        
-        await db.query(
-          `INSERT INTO experience_keywords (experience_id, keyword) VALUES ${keywordValues}`
-        );
-      }
-    }
 
     return ApiRouteResponse.success(experience, '经验更新成功');
 
@@ -160,16 +129,12 @@ export async function PATCH(
       return ApiRouteResponse.badRequest('无效的操作类型');
     }
 
-    // 获取当前用户信息
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return ApiRouteResponse.unauthorized('未授权访问');
     }
-
-    const currentUser = await getCurrentUser(sessionToken);
-    if (!currentUser) {
-      return ApiRouteResponse.unauthorized('用户未登录');
-    }
+    const currentUser = session.user as any;
 
     // 检查经验是否存在且属于当前用户
     const checkQuery = `

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken } from '@/lib/client/services/auth';
+import { useSession } from 'next-auth/react';
 import { toast } from '@/lib/client/services/toast';
 import Link from 'next/link';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -51,18 +51,10 @@ export default function MyExperiencesPage() {
     setError('');
 
     try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) {
-        router.push('/admin/login');
-        return;
-      }
-
       const response = await fetch(
         `/api/admin/my-experiences?page=${page}&limit=10&status=${status}`,
         {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`
-          }
+          credentials: 'include'
         }
       );
 
@@ -129,18 +121,12 @@ export default function MyExperiencesPage() {
     if (!confirmed) return;
 
     try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) {
-        router.push('/admin/login');
-        return;
-      }
-
       const response = await fetch(`/api/admin/my-experiences/${experienceId}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${sessionToken}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ action })
       });
 
@@ -178,17 +164,9 @@ export default function MyExperiencesPage() {
     if (!confirmed) return;
 
     try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) {
-        router.push('/admin/login');
-        return;
-      }
-
       const response = await fetch(`/api/admin/my-experiences/${experienceId}/embedding`, {
         method: action === 'generate' ? 'POST' : 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`
-        }
+        credentials: 'include'
       });
 
       if (!response.ok) {

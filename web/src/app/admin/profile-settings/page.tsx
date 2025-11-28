@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionToken, getCurrentUser } from '@/lib/client/services/auth';
+import { useSession } from 'next-auth/react';
 
 export default function ProfileSettingsPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<any>(null);
   const [profileData, setProfileData] = useState({
     username: '',
@@ -22,20 +23,20 @@ export default function ProfileSettingsPage() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    // 如果 session 还在加载中，等待
+    if (status === 'loading') {
+      return;
+    }
+
+    // 如果没有 session，重定向到登录页
+    if (status === 'unauthenticated' || !session) {
+      router.push('/admin/login');
+      return;
+    }
+
     const loadUserProfile = async () => {
       try {
-        const sessionToken = getSessionToken();
-        if (!sessionToken) {
-          router.push('/admin/login');
-          return;
-        }
-
-        const currentUser = await getCurrentUser();
-        if (!currentUser) {
-          router.push('/admin/login');
-          return;
-        }
-
+        const currentUser = session.user as any;
         setUser(currentUser);
         
         // 设置用户基本信息 - 只设置存在的字段
@@ -51,7 +52,7 @@ export default function ProfileSettingsPage() {
     };
 
     loadUserProfile();
-  }, [router]);
+  }, [router, session, status]);
 
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,17 +61,12 @@ export default function ProfileSettingsPage() {
     setSuccess('');
 
     try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) {
-        throw new Error('未登录，请先登录');
-      }
-
       const response = await fetch('/api/admin/profile-settings', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(profileData),
       });
 
@@ -112,17 +108,12 @@ export default function ProfileSettingsPage() {
     setIsPasswordLoading(true);
 
     try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) {
-        throw new Error('未登录，请先登录');
-      }
-
       const response = await fetch('/api/admin/profile-settings/password', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword,

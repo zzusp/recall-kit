@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getCurrentUser, hasRole } from '@/lib/server/services/auth';
+import { getServerSession, hasRole, isAdminOrSuperuser } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -8,28 +8,17 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get session token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authorization token required' },
+        { error: 'Authorization required' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    
-    // Verify user and admin role
-    const user = await getCurrentUser(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is admin or superuser
-    if (!hasRole(user, 'admin') && !user.is_superuser) {
+    // 检查用户是否为管理员或超级用户
+    if (!isAdminOrSuperuser(session)) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
@@ -86,17 +75,13 @@ export async function GET(request: NextRequest) {
     );
     const total = parseInt(countResult.rows[0].total);
 
-    // Get experiences with keywords - using subquery to avoid complex GROUP BY
+    // Get experiences with keywords
     const experiencesResult = await db.query(`
       SELECT er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
              er.solution, er.context, er.publish_status, er.is_deleted,
              er.query_count, er.view_count, er.has_embedding,
              er.created_at, er.updated_at, er.deleted_at,
-             (
-               SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
-               FROM experience_keywords ek
-               WHERE ek.experience_id = er.id
-             ) as keywords
+             COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
       FROM experience_records er
       ${whereClause}
       ORDER BY er.created_at DESC
@@ -128,28 +113,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Get session token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authorization token required' },
+        { error: 'Authorization required' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    
-    // Verify user and admin role
-    const user = await getCurrentUser(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is admin or superuser
-    if (!hasRole(user, 'admin') && !user.is_superuser) {
+    // 检查用户是否为管理员或超级用户
+    if (!isAdminOrSuperuser(session)) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
@@ -166,29 +140,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert new experience
+    // Insert new experience with keywords
+    const keywordsArray = keywords && Array.isArray(keywords) ? keywords : [];
     const result = await db.query(
       `INSERT INTO experience_records 
-       (title, problem_description, solution, root_cause, context, publish_status, is_deleted, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, false, NOW(), NOW())
+       (title, problem_description, solution, root_cause, context, keywords, publish_status, is_deleted, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, false, NOW(), NOW())
        RETURNING id, user_id, title, problem_description, root_cause, 
-                solution, context, publish_status, is_deleted,
+                solution, context, keywords, publish_status, is_deleted,
                 query_count, view_count, created_at, updated_at, deleted_at`,
-      [title, problem_description, solution, root_cause, context, publish_status]
+      [title, problem_description, solution, root_cause, context, keywordsArray, publish_status]
     );
 
     const experience = result.rows[0];
-
-    // Insert keywords if provided
-    if (keywords && Array.isArray(keywords) && keywords.length > 0) {
-      const keywordValues = keywords.map((keyword: string) => 
-        `('${experience.id}', '${keyword}')`
-      ).join(', ');
-      
-      await db.query(
-        `INSERT INTO experience_keywords (experience_id, keyword) VALUES ${keywordValues}`
-      );
-    }
 
     return NextResponse.json(experience, { status: 201 });
   } catch (error) {

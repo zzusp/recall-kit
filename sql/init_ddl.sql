@@ -84,56 +84,6 @@ COMMENT ON COLUMN public.api_keys.created_at IS 'API密钥创建时间';
 
 COMMENT ON COLUMN public.api_keys.updated_at IS 'API密钥最后更新时间';
 
-
---
--- Name: experience_keywords; Type: TABLE; Schema: public; Owner: root
---
-
-CREATE TABLE public.experience_keywords (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    experience_id uuid,
-    keyword character varying(100) NOT NULL,
-    created_at timestamp(6) with time zone DEFAULT now() NOT NULL
-);
-
-
-ALTER TABLE public.experience_keywords OWNER TO root;
-
---
--- Name: TABLE experience_keywords; Type: COMMENT; Schema: public; Owner: root
---
-
-COMMENT ON TABLE public.experience_keywords IS '经验关键字关联表：存储经验记录与关键字的关联关系';
-
-
---
--- Name: COLUMN experience_keywords.id; Type: COMMENT; Schema: public; Owner: root
---
-
-COMMENT ON COLUMN public.experience_keywords.id IS '主键ID，使用UUID格式';
-
-
---
--- Name: COLUMN experience_keywords.experience_id; Type: COMMENT; Schema: public; Owner: root
---
-
-COMMENT ON COLUMN public.experience_keywords.experience_id IS '经验记录ID，关联experience_records表';
-
-
---
--- Name: COLUMN experience_keywords.keyword; Type: COMMENT; Schema: public; Owner: root
---
-
-COMMENT ON COLUMN public.experience_keywords.keyword IS '关键字内容';
-
-
---
--- Name: COLUMN experience_keywords.created_at; Type: COMMENT; Schema: public; Owner: root
---
-
-COMMENT ON COLUMN public.experience_keywords.created_at IS '关联记录创建时间';
-
-
 --
 -- Name: experience_records; Type: TABLE; Schema: public; Owner: root
 --
@@ -156,6 +106,7 @@ CREATE TABLE public.experience_records (
     deleted_at timestamp(6) with time zone,
     publish_status character varying(20) DEFAULT 'published'::character varying NOT NULL,
     is_deleted boolean DEFAULT false NOT NULL,
+    keywords TEXT[] DEFAULT ARRAY[]::TEXT[],
     CONSTRAINT check_publish_status CHECK (((publish_status)::text = ANY (ARRAY[('published'::character varying)::text, ('draft'::character varying)::text, ('publishing'::character varying)::text, ('rejected'::character varying)::text])))
 );
 
@@ -286,6 +237,13 @@ COMMENT ON COLUMN public.experience_records.publish_status IS '发布状态：dr
 --
 
 COMMENT ON COLUMN public.experience_records.is_deleted IS '删除标记，true表示已删除';
+
+
+--
+-- Name: COLUMN experience_records.keywords; Type: COMMENT; Schema: public; Owner: root
+--
+
+COMMENT ON COLUMN public.experience_records.keywords IS '经验关键字数组，用于存储经验的关键字标签';
 
 
 --
@@ -759,14 +717,6 @@ ALTER TABLE ONLY public.api_keys
 
 
 --
--- Name: experience_keywords experience_keywords_pkey; Type: CONSTRAINT; Schema: public; Owner: root
---
-
-ALTER TABLE ONLY public.experience_keywords
-    ADD CONSTRAINT experience_keywords_pkey PRIMARY KEY (id);
-
-
---
 -- Name: experience_records experience_records_pkey; Type: CONSTRAINT; Schema: public; Owner: root
 --
 
@@ -828,14 +778,6 @@ ALTER TABLE ONLY public.system_settings
 
 ALTER TABLE ONLY public.system_settings
     ADD CONSTRAINT system_settings_setting_key_key UNIQUE (setting_key);
-
-
---
--- Name: experience_keywords unique_experience_keyword; Type: CONSTRAINT; Schema: public; Owner: root
---
-
-ALTER TABLE ONLY public.experience_keywords
-    ADD CONSTRAINT unique_experience_keyword UNIQUE (experience_id, keyword);
 
 
 --
@@ -932,20 +874,6 @@ CREATE INDEX idx_api_keys_user_id ON public.api_keys USING btree (user_id);
 
 
 --
--- Name: idx_experience_keywords_experience_id; Type: INDEX; Schema: public; Owner: root
---
-
-CREATE INDEX idx_experience_keywords_experience_id ON public.experience_keywords USING btree (experience_id);
-
-
---
--- Name: idx_experience_keywords_keyword; Type: INDEX; Schema: public; Owner: root
---
-
-CREATE INDEX idx_experience_keywords_keyword ON public.experience_keywords USING btree (keyword);
-
-
---
 -- Name: idx_experience_records_created_at; Type: INDEX; Schema: public; Owner: root
 --
 
@@ -1013,6 +941,12 @@ CREATE INDEX idx_experience_records_search ON public.experience_records USING gi
 --
 
 CREATE INDEX idx_experience_records_user_id ON public.experience_records USING btree (user_id);
+
+--
+-- Name: idx_experience_records_keywords; Type: INDEX; Schema: public; Owner: root
+--
+
+CREATE INDEX idx_experience_records_keywords ON public.experience_records USING GIN (keywords);
 
 
 --

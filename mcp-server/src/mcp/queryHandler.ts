@@ -89,8 +89,7 @@ export async function initQueryHandler(
             context,
             query_count,
             created_at,
-            (SELECT COALESCE(array_agg(keyword ORDER BY keyword), ARRAY[]::TEXT[]) 
-             FROM experience_keywords ek WHERE ek.experience_id = er.id) as keywords
+            COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
           FROM experience_records er
           WHERE er.id = ANY($1)
             AND er.publish_status = 'published'
@@ -160,6 +159,15 @@ export async function initQueryHandler(
         total_count: totalCount,
         has_more: hasMore
       };
+
+      // 批量更新返回的经验记录的 query_count（工具调用查询时使用）
+      // 异步执行，不阻塞响应
+      if (result.experiences.length > 0) {
+        const experienceIds = result.experiences.map(exp => exp.id);
+        incrementQueryCountAsync(experienceIds).catch(error => {
+          console.error('Error incrementing query count:', error);
+        });
+      }
 
       return result;
 
@@ -340,4 +348,44 @@ async function getEmptyQueryCount(): Promise<number> {
 
   const result = await sql.unsafe(query);
   return parseInt(result[0].count);
+}
+
+/**
+ * 异步批量增加查询次数（工具调用查询时使用）
+ * 使用原子操作确保并发安全，失败不影响主功能
+ * @param experienceIds 经验记录ID数组
+ */
+async function incrementQueryCountAsync(experienceIds: string[]): Promise<void> {
+  if (!experienceIds || experienceIds.length === 0) {
+    return;
+  }
+
+  // 去重，避免同一个ID被多次更新
+  const uniqueIds = Array.from(new Set(experienceIds));
+  if (uniqueIds.length === 0) {
+    return;
+  }
+
+  try {
+    // 使用原子操作批量更新 query_count
+    // COALESCE 和 +1 操作在 PostgreSQL 中是原子的，确保并发安全
+    // 只更新已发布且未删除的记录
+    await sql.unsafe(
+      `UPDATE experience_records 
+       SET query_count = COALESCE(query_count, 0) + 1, 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = ANY($1::uuid[]) 
+         AND publish_status = 'published' 
+         AND is_deleted = false`,
+      [uniqueIds]
+    );
+  } catch (error) {
+    // 静默处理错误，确保不影响主功能
+    // 记录错误但不抛出异常
+    console.error('Error in incrementQueryCountAsync (non-blocking):', {
+      error: error instanceof Error ? error.message : String(error),
+      experienceIdsCount: uniqueIds.length,
+      timestamp: new Date().toISOString()
+    });
+  }
 }

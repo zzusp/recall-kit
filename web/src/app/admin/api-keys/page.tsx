@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { getSessionToken } from '@/lib/client/services/auth';
 import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -24,6 +24,7 @@ interface NewApiKey extends ApiKey {
 
 export default function ApiKeysManagement() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -36,14 +37,8 @@ export default function ApiKeysManagement() {
   const fetchApiKeys = async () => {
     try {
       setLoading(true);
-      const sessionToken = getSessionToken();
-      if (!sessionToken) {
-        router.push('/admin/login');
-        return;
-      }
-
       const response = await fetch('/api/api-keys', {
-        headers: { 'Authorization': `Bearer ${sessionToken}` }
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -61,8 +56,19 @@ export default function ApiKeysManagement() {
   };
 
   useEffect(() => {
+    // 如果 session 还在加载中，等待
+    if (status === 'loading') {
+      return;
+    }
+
+    // 如果没有 session，重定向到登录页
+    if (status === 'unauthenticated' || !session) {
+      router.push('/admin/login');
+      return;
+    }
+
     fetchApiKeys();
-  }, []);
+  }, [router, session, status]);
 
   const handleDeleteApiKey = async (apiKeyId: string) => {
     const confirmed = await confirm({
@@ -76,12 +82,9 @@ export default function ApiKeysManagement() {
     if (!confirmed) return;
 
     try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) return;
-
       const response = await fetch(`/api/api-keys/${apiKeyId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${sessionToken}` }
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -97,15 +100,12 @@ export default function ApiKeysManagement() {
 
   const handleToggleApiKey = async (apiKey: ApiKey) => {
     try {
-      const sessionToken = getSessionToken();
-      if (!sessionToken) return;
-
       const response = await fetch(`/api/api-keys/${apiKey.id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${sessionToken}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ isActive: !apiKey.isActive })
       });
 
@@ -416,18 +416,15 @@ function ApiKeyModal({ apiKey, onClose, onSave }: ApiKeyModalProps) {
     setLoading(true);
 
     try {
-      const sessionToken = localStorage.getItem('session_token');
-      if (!sessionToken) return;
-
       const url = apiKey ? `/api/api-keys/${apiKey.id}` : '/api/api-keys';
       const method = apiKey ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Bearer ${sessionToken}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
