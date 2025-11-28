@@ -18,7 +18,6 @@ interface Experience {
   is_deleted: boolean;
   query_count: number;
   view_count: number;
-  relevance_score?: number;
   has_embedding: boolean;
   created_at: string;
   updated_at: string;

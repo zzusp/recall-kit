@@ -46,7 +46,7 @@ WITH experience_list AS (
   SELECT 
     er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
     er.solution, er.context, er.publish_status, er.is_deleted,
-    er.query_count, er.view_count, er.relevance_score, er.created_at, 
+    er.query_count, er.view_count, er.created_at, 
     er.updated_at, er.deleted_at
   FROM experience_records er
   WHERE er.publish_status = 'published' AND er.is_deleted = false

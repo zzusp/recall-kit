@@ -208,7 +208,6 @@ export interface Database {
           is_deleted: boolean;
           query_count: number;
           view_count: number;
-          relevance_score: number | null;
           fts: string | null;
           embedding: number[] | null;
           has_embedding: boolean;
@@ -228,7 +227,6 @@ export interface Database {
           is_deleted?: boolean;
           query_count?: number;
           view_count?: number;
-          relevance_score?: number | null;
           embedding?: number[] | null;
           has_embedding?: boolean;
           created_at?: string;
@@ -247,7 +245,6 @@ export interface Database {
           is_deleted?: boolean;
           query_count?: number;
           view_count?: number;
-          relevance_score?: number | null;
           embedding?: number[] | null;
           has_embedding?: boolean;
           created_at?: string;

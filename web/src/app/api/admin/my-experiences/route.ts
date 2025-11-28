@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         er.id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
-        er.query_count, er.view_count, er.relevance_score, 
+        er.query_count, er.view_count, 
         er.has_embedding, er.created_at, er.updated_at, er.deleted_at,
         (
           SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       VALUES ($1, $2, $3, $4, $5, $6, 'draft', false, NOW(), NOW())
       RETURNING id, user_id, title, problem_description, root_cause, 
                 solution, context, publish_status, is_deleted, query_count, view_count, 
-                relevance_score, created_at, updated_at, deleted_at
+                created_at, updated_at, deleted_at
     `;
 
     const result = await db.query(insertQuery, [

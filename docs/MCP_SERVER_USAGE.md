@@ -303,7 +303,7 @@ Authorization: Bearer your-api-key
     context?: string;
     keywords: string[];
     query_count: number;
-    relevance_score: number;
+    similarity: number;
     created_at: string;
   }>;
   total_count: number;

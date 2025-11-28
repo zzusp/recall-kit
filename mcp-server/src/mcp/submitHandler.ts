@@ -102,9 +102,9 @@ export async function initSubmitHandler(
           const insertQuery = `
             INSERT INTO experience_records (
               id, user_id, title, problem_description, root_cause, solution, 
-              context, publish_status, is_deleted, query_count, relevance_score, created_at
+              context, publish_status, is_deleted, query_count, created_at
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, 'published', false, 0, 0, NOW()
+              $1, $2, $3, $4, $5, $6, $7, 'published', false, 0, NOW()
             )
             RETURNING id
           `;

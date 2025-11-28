@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
        VALUES ($1, $2, $3, $4, $5, $6, 'draft', false, NOW(), NOW())
        RETURNING id, user_id, title, problem_description, root_cause, 
                 solution, context, publish_status, is_deleted,
-                query_count, view_count, relevance_score, created_at, updated_at, deleted_at`,
+                query_count, view_count, created_at, updated_at, deleted_at`,
       [
         user.id,
         title,

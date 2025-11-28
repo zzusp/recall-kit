@@ -12,7 +12,6 @@ export interface ExperienceRecord {
   is_deleted: boolean;
   query_count: number;
   view_count: number;
-  relevance_score: number | null;
   fts: string | null;
   embedding: number[] | null;
   has_embedding: boolean;

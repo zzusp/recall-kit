@@ -60,7 +60,7 @@ interface ExperienceRecord {
   keywords: string[];         // 关键字数组（如：["nodejs", "react", "typescript"]）
   query_count: number;        // 查询次数
   created_at: string;         // ISO 8601格式
-  relevance_score: number;    // 相关性得分
+  similarity: number;         // 相关性得分（查询时动态计算，范围0-1）
 }
 ```
 
@@ -95,7 +95,7 @@ interface ExperienceRecord {
         "keywords": ["react", "hooks", "state"],
         "query_count": 45,
         "created_at": "2025-01-20T10:30:00Z",
-        "relevance_score": 0.95
+        "similarity": 0.95
       }
     ],
     "total": 1,
@@ -108,9 +108,9 @@ interface ExperienceRecord {
 **Sorting Algorithm**:
 结果按以下公式排序：
 ```
-final_score = (relevance_score * 0.6) + (normalized_query_count * 0.3) + (normalized_recency * 0.1)
+final_score = (similarity * 0.6) + (normalized_query_count * 0.3) + (normalized_recency * 0.1)
 ```
-- relevance_score: 相关性得分（0-1）
+- similarity: 相关性得分（0-1），查询时动态计算
 - normalized_query_count: 查询次数归一化（0-1）
 - normalized_recency: 时间新鲜度归一化（0-1）
 

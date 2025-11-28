@@ -89,7 +89,7 @@ export class ExperienceService {
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
-        er.query_count, er.view_count, er.relevance_score, er.created_at, 
+        er.query_count, er.view_count, er.created_at, 
         er.updated_at, er.deleted_at,
         (
           SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
@@ -138,7 +138,9 @@ export class ExperienceService {
         break;
       case 'relevance':
       default:
-        sql += ` ORDER BY er.relevance_score DESC NULLS LAST, er.created_at DESC`;
+        // Relevance is calculated dynamically in vector search as 'similarity'
+        // For text search, we use query_count and created_at for sorting
+        sql += ` ORDER BY er.query_count DESC, er.created_at DESC`;
         break;
     }
 
@@ -203,7 +205,7 @@ export class ExperienceService {
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
-        er.query_count, er.view_count, er.relevance_score, er.created_at, 
+        er.query_count, er.view_count, er.created_at, 
         er.updated_at, er.deleted_at,
         (
           SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
@@ -304,7 +306,6 @@ export class ExperienceService {
           er.publish_status,
           er.query_count,
           er.view_count,
-          er.relevance_score,
           1 - (er.embedding <=> $1) as similarity,
           er.created_at,
           er.updated_at
@@ -335,7 +336,6 @@ export class ExperienceService {
               er.publish_status,
               er.query_count,
               er.view_count,
-              er.relevance_score,
               1 - (er.embedding <=> $1) as similarity,
               er.created_at,
               er.updated_at

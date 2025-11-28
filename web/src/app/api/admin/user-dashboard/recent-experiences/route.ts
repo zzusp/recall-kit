@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         er.id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
-        er.query_count, er.view_count, er.relevance_score, 
+        er.query_count, er.view_count, 
         er.has_embedding, er.created_at, er.updated_at, er.deleted_at,
         (
           SELECT COALESCE(json_agg(ek.keyword), '[]'::json)

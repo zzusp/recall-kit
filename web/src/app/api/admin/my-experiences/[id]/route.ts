@@ -28,7 +28,7 @@ export async function GET(
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
         er.solution, er.context, er.publish_status, er.is_deleted,
-        er.query_count, er.view_count, er.relevance_score, 
+        er.query_count, er.view_count, 
         er.created_at, er.updated_at, er.deleted_at,
         (
           SELECT COALESCE(json_agg(ek.keyword), '[]'::json)
@@ -109,7 +109,7 @@ export async function PUT(
       WHERE id = $6 AND user_id = $7
       RETURNING id, user_id, title, problem_description, root_cause, 
                 solution, context, publish_status, is_deleted, query_count, view_count, 
-                relevance_score, created_at, updated_at, deleted_at
+                created_at, updated_at, deleted_at
     `;
 
     const updateResult = await db.query(updateQuery, [

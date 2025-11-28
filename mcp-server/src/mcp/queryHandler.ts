@@ -16,7 +16,7 @@ export interface QueryExperienceResult {
     context?: string;
     keywords: string[];
     query_count: number;
-    relevance_score: number;
+    similarity: number;
     created_at: string;
   }>;
   total_count: number;
@@ -88,7 +88,6 @@ export async function initQueryHandler(
             solution,
             context,
             query_count,
-            relevance_score,
             created_at,
             (SELECT COALESCE(array_agg(keyword ORDER BY keyword), ARRAY[]::TEXT[]) 
              FROM experience_keywords ek WHERE ek.experience_id = er.id) as keywords
@@ -155,9 +154,8 @@ export async function initQueryHandler(
           context: exp.context,
           keywords: exp.keywords || [],
           query_count: exp.query_count || 0,
-          relevance_score: exp.relevance_score || 0,
           created_at: exp.created_at,
-          similarity: exp.similarity
+          similarity: exp.similarity || 0
         })),
         total_count: totalCount,
         has_more: hasMore
@@ -182,7 +180,8 @@ function getOrderByClause(sort: string): string {
       return 'er.created_at DESC';
     case 'relevance':
     default:
-      return 'er.relevance_score DESC, er.created_at DESC';
+      // Relevance is calculated dynamically in the query as 'similarity'
+      return 'similarity DESC, er.created_at DESC';
   }
 }
 
@@ -212,7 +211,6 @@ async function performVectorSearch(
       er.solution,
       er.context,
       er.query_count,
-      er.relevance_score,
       er.created_at,
       (SELECT COALESCE(array_agg(keyword ORDER BY keyword), ARRAY[]::TEXT[]) 
        FROM experience_keywords ek WHERE ek.experience_id = er.id) as keywords,
@@ -271,7 +269,6 @@ async function performTextSearch(
       er.solution,
       er.context,
       er.query_count,
-      er.relevance_score,
       er.created_at,
       (SELECT COALESCE(array_agg(keyword ORDER BY keyword), ARRAY[]::TEXT[]) 
        FROM experience_keywords ek WHERE ek.experience_id = er.id) as keywords,
@@ -319,7 +316,6 @@ async function performEmptyQuery(
       er.solution,
       er.context,
       er.query_count,
-      er.relevance_score,
       er.created_at,
       (SELECT COALESCE(array_agg(keyword ORDER BY keyword), ARRAY[]::TEXT[]) 
        FROM experience_keywords ek WHERE ek.experience_id = er.id) as keywords
