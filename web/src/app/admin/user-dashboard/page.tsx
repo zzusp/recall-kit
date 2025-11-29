@@ -241,8 +241,8 @@ export default function UserDashboardPage() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
           <QuickActionCard
-            title="创建新经验"
-            description="分享您的开发经验和解决方案"
+            title="个人经验"
+            description="查看和管理您的个人经验记录"
             icon="fas fa-plus-circle"
             link="/admin/my-experiences?action=create"
             color="#2ecc71"
