@@ -65,7 +65,7 @@ export function validateEnvironment(): void {
   }
   
   if (environmentConfig.isProduction) {
-    const prodRequiredVars = ['JWT_SECRET', 'SESSION_SECRET'];
+    const prodRequiredVars = ['NEXTAUTH_SECRET'];
     const missingProdVars = prodRequiredVars.filter(varName => !process.env[varName]);
     
     if (missingProdVars.length > 0) {

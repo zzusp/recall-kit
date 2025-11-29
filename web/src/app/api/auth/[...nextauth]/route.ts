@@ -3,14 +3,33 @@ import Credentials from 'next-auth/providers/credentials';
 import { db } from '@/lib/server/db/client';
 import bcrypt from 'bcryptjs';
 import { authConfig } from '@/config/auth';
+import type { NextRequest } from 'next/server';
 
 /**
- * NextAuth.js 配置
+ * NextAuth.js v5 配置
  * 使用 Credentials Provider 适配现有的数据库用户系统
+ * 
+ * 关于 basePath 和 URL 配置：
+ * - NextAuth v5 会自动从请求头推断 URL，通常不需要手动配置 AUTH_URL
+ * - 根据官方文档（https://authjs.dev/getting-started/deployment#environment-variables）：
+ *   "AUTH_URL is mostly unnecessary with v5 as the host is inferred from the request headers.
+ *    However, if you are using a different base path, you can set this environment variable as well.
+ *    For example, AUTH_URL=http://localhost:3000/web/auth or AUTH_URL=https://company.com/app1/auth"
+ * 
+ * 重要发现：
+ * - 官方文档的例子是 `/web/auth`，但我们的路由是 `/api/auth/[...nextauth]`，所以完整路径是 `/web/api/auth`
+ * - 如果按照官方例子设置 AUTH_URL=http://localhost:3000/web/auth，路径不匹配（缺少 /api）
+ * - 如果设置 AUTH_URL=http://localhost:3000/web/api/auth，而 SessionProvider 的 basePath 也是 `/web/api/auth`，
+ *   可能导致路径被重复处理，从而出现 400 错误
+ * - 不设置 AUTH_URL 时，NextAuth 可以自动推断，并且 SessionProvider 的 basePath 会正确处理，所以正常工作
+ * 
+ * 解决方案：不设置 AUTH_URL，让 NextAuth 从请求头自动推断，它会正确处理 basePath
+ * - 设置 trustHost: true 可以让 NextAuth 信任反向代理的请求头，这对于 basePath 场景很重要
+ * - SessionProvider 的 basePath 属性用于客户端，应该设置为包含 /api/auth 的完整路径（已在 providers.tsx 中正确设置）
  */
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: authConfig.secret,
-  trustHost: true,
+  trustHost: true, // 信任主机，NextAuth 会尝试自动识别 URL（包括 basePath）
   providers: [
     Credentials({
       name: 'Credentials',
@@ -56,15 +75,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           const roles = userRolesResult.rows;
 
-          // 获取权限
+          // 获取权限（所有类型：module, page, function）
           let permissions: any[] = [];
           if (roles.length > 0) {
             const roleIds = roles.map((r: any) => r.id);
             const rolePermissionsResult = await db.query(`
-              SELECT p.id, p.name, p.resource, p.action, p.description
+              SELECT 
+                p.id, 
+                p.name, 
+                p.code,
+                p.type,
+                p.parent_id,
+                p.page_path,
+                p.description,
+                p.sort_order,
+                p.is_active,
+                p.created_at,
+                p.updated_at
               FROM permissions p
               JOIN role_permissions rp ON p.id = rp.permission_id
               WHERE rp.role_id = ANY($1)
+                AND p.is_active = true
+              ORDER BY p.type, p.sort_order
             `, [roleIds]);
 
             permissions = rolePermissionsResult.rows;
@@ -142,5 +174,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 });
 
 // 导出 GET 和 POST 处理器
+// 按照 NextAuth v5 官方文档的写法：https://next-auth.js.org/getting-started/installation
+// NextAuth v5 应该能够自动识别 Next.js 的 basePath，通过 trustHost: true 和 AUTH_URL 配置
+// 注意：NextAuth v5 中 NEXTAUTH_URL 已被 AUTH_URL 取代
+
+// 导出 GET 和 POST 处理器
+// 注意：在 Next.js 开发模式下，路由在首次访问时需要编译，可能导致偶发的 404 错误
+// 这是开发环境的正常行为，不影响功能，生产环境不会出现此问题
+// NextAuth 的 handlers 会自动处理这些情况，我们直接导出即可
 export const { GET, POST } = handlers;
 

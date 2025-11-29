@@ -10,6 +10,7 @@ export interface SubmitExperienceParams {
 export interface SubmitExperienceResult {
   experience_id: string;
   status: 'success' | 'failed';
+  publish_status?: 'published' | 'draft';
   error?: string;
 }
 
@@ -162,7 +163,8 @@ export async function initSubmitHandler(
 
         return {
           experience_id: experienceId,
-          status: 'success'
+          status: 'success',
+          publish_status: 'published'
         };
 
       } catch (dbError) {

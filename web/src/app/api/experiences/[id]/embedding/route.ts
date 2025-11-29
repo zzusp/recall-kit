@@ -20,8 +20,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    console.log('[API] Generating embedding for experience:', id);
-
     const experienceService = new ExperienceService();
     const success = await experienceService.updateExperienceEmbedding(id);
 

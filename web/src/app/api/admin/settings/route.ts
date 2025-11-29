@@ -1,22 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/server/auth';
+import { getServerSession, hasPermission } from '@/lib/server/auth';
 import { settingsService } from '@/lib/server/services/settings';
 
 export const runtime = 'nodejs';
 
 function hasSettingsPermission(
-  user: { is_superuser?: boolean; permissions?: Array<{ resource: string; action: string }> } | undefined,
+  session: any,
   action: 'read' | 'write'
 ) {
-  if (user?.is_superuser) {
+  if (session?.user?.is_superuser) {
     return true;
   }
 
-  return Boolean(
-    user?.permissions?.some(
-      permission => permission.resource === 'settings' && permission.action === action
-    )
-  );
+  // 使用新的权限检查方式
+  const code = action === 'read' ? 'admin.settings.view' : 'admin.settings.edit';
+  return hasPermission(session, code);
 }
 
 export async function GET(_request: NextRequest) {
@@ -30,9 +28,7 @@ export async function GET(_request: NextRequest) {
       );
     }
 
-    const currentUser = session.user as any;
-
-    if (!hasSettingsPermission(currentUser, 'read')) {
+    if (!hasSettingsPermission(session, 'read')) {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -63,9 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const currentUser = session.user as any;
-
-    if (!hasSettingsPermission(currentUser, 'write')) {
+    if (!hasSettingsPermission(session, 'write')) {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }

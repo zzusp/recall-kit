@@ -1,6 +1,8 @@
 // Client-side authentication service
 // This file only contains client-side logic and API calls
 
+import { getApiUrl } from '@/config/paths';
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -43,7 +45,7 @@ export function removeSessionToken(): void {
 
 // API call to login
 export async function login(credentials: LoginCredentials): Promise<{ user: AuthUser; sessionToken: string }> {
-  const response = await fetch('/api/auth/login', {
+  const response = await fetch(getApiUrl('/api/auth/login'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -57,7 +59,6 @@ export async function login(credentials: LoginCredentials): Promise<{ user: Auth
   }
 
   const result = await response.json();
-  console.log('Login API response:', result);
   
   // 处理统一API响应格式
   if (result.success && result.data) {
@@ -74,7 +75,7 @@ export async function logout(): Promise<void> {
     return;
   }
 
-  const response = await fetch('/api/auth/logout', {
+  const response = await fetch(getApiUrl('/api/auth/logout'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -92,23 +93,19 @@ export async function logout(): Promise<void> {
 // API call to get current user
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const sessionToken = getSessionToken();
-  console.log('getCurrentUser: sessionToken:', sessionToken ? 'found' : 'missing');
   if (!sessionToken) {
     return null;
   }
 
-  console.log('getCurrentUser: Making request with Authorization header');
-  const response = await fetch('/api/auth/me', {
+  const response = await fetch(getApiUrl('/api/auth/me'), {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${sessionToken}`,
     },
   });
 
-  console.log('getCurrentUser: Response status:', response.status);
   if (!response.ok) {
     if (response.status === 401) {
-      console.log('getCurrentUser: 401 response, removing session token');
       removeSessionToken();
       return null;
     }
@@ -119,13 +116,42 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 }
 
 // Permission checking
-export function hasPermission(user: AuthUser, resource: string, action: string): boolean {
+// 新的权限检查函数：使用 code 字段（function 类型）
+export function hasPermission(user: AuthUser, code: string): boolean {
   if (user.is_superuser) {
     return true;
   }
 
   return user.permissions.some(
-    permission => permission.resource === resource && permission.action === action
+    permission => permission.type === 'function' && permission.code === code && permission.is_active
+  );
+}
+
+// 兼容旧的 resource + action 调用方式
+export function hasPermissionByResourceAction(user: AuthUser, resource: string, action: string): boolean {
+  const code = `${resource}.${action}`;
+  return hasPermission(user, code);
+}
+
+// 页面权限检查（page 类型）
+export function hasPagePermission(user: AuthUser, pagePath: string): boolean {
+  if (user.is_superuser) {
+    return true;
+  }
+
+  return user.permissions.some(
+    permission => permission.type === 'page' && permission.page_path === pagePath && permission.is_active
+  );
+}
+
+// 模块权限检查（module 类型）
+export function hasModulePermission(user: AuthUser, moduleCode: string): boolean {
+  if (user.is_superuser) {
+    return true;
+  }
+
+  return user.permissions.some(
+    permission => permission.type === 'module' && permission.code === moduleCode && permission.is_active
   );
 }
 
@@ -135,7 +161,7 @@ export function hasAnyPermission(user: AuthUser, permissions: Array<{ resource: 
   }
 
   return permissions.some(({ resource, action }) => 
-    hasPermission(user, resource, action)
+    hasPermissionByResourceAction(user, resource, action)
   );
 }
 

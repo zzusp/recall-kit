@@ -6,6 +6,8 @@ import { useSession } from 'next-auth/react';
 import { toast } from '@/lib/client/services/toast';
 import Link from 'next/link';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import PermissionGuard from '@/components/auth/PermissionGuard';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
 interface Experience {
   id: string;
@@ -36,7 +38,7 @@ interface PaginationInfo {
 
 type StatusFilter = 'all' | 'published' | 'draft' | 'deleted';
 
-export default function MyExperiencesPage() {
+function MyExperiencesContent() {
   const router = useRouter();
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
@@ -51,21 +53,15 @@ export default function MyExperiencesPage() {
     setError('');
 
     try {
-      const response = await fetch(
-        `/api/admin/my-experiences?page=${page}&limit=10&status=${status}`,
-        {
-          credentials: 'include'
-        }
+      const data = await apiFetch<{ experiences: Experience[]; pagination: PaginationInfo }>(
+        `/api/admin/my-experiences?page=${page}&limit=10&status=${status}`
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch experiences');
+      if (data && typeof data === 'object' && 'experiences' in data) {
+        setExperiences(data.experiences);
+        setPagination(data.pagination);
       }
-
-      const data = await response.json();
-      setExperiences(data.data.experiences);
-      setPagination(data.data.pagination);
     } catch (err) {
+      // apiFetch 已经处理了 toast 提示，这里只设置本地错误状态
       setError(err instanceof Error ? err.message : '获取经验列表失败');
     } finally {
       setIsLoading(false);
@@ -121,24 +117,18 @@ export default function MyExperiencesPage() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/admin/my-experiences/${experienceId}`, {
+      await apiFetch(`/api/admin/my-experiences/${experienceId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify({ action })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '操作失败');
-      }
 
       // 刷新列表
       fetchExperiences(currentPage, statusFilter);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '操作失败');
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
@@ -164,23 +154,16 @@ export default function MyExperiencesPage() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/admin/my-experiences/${experienceId}/embedding`, {
-        method: action === 'generate' ? 'POST' : 'DELETE',
-        credentials: 'include'
+      const result = await apiFetch<{ message?: string }>(`/api/admin/my-experiences/${experienceId}/embedding`, {
+        method: action === 'generate' ? 'POST' : 'DELETE'
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '向量化操作失败');
-      }
-
-      const result = await response.json();
-      toast.success(result.message || (action === 'generate' ? '向量化成功' : '向量化数据已清除'));
+      
+      toast.success(result?.message || (action === 'generate' ? '向量化成功' : '向量化数据已清除'));
       
       // 刷新列表
       fetchExperiences(currentPage, statusFilter);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '向量化操作失败');
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
@@ -442,7 +425,6 @@ export default function MyExperiencesPage() {
                             ) : (
                               <button
                                 onClick={() => {
-                                  console.log('清除向量按钮被点击', experience.id);
                                   handleEmbeddingAction(experience.id, 'clear');
                                 }}
                                 className="admin-btn admin-btn-outline admin-btn-warning-outline admin-btn-sm"
@@ -453,10 +435,6 @@ export default function MyExperiencesPage() {
                                   cursor: 'pointer',
                                   zIndex: 1000,
                                   position: 'relative'
-                                }}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  console.log('鼠标按下事件触发');
                                 }}
                               >
                                 <i className="fas fa-trash"></i>
@@ -582,5 +560,13 @@ function StatCard({
       </div>
       <div className="admin-stat-value">{value.toLocaleString()}</div>
     </div>
+  );
+}
+
+export default function MyExperiencesPage() {
+  return (
+    <PermissionGuard requireAuth={true}>
+      <MyExperiencesContent />
+    </PermissionGuard>
   );
 }

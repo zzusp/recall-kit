@@ -40,21 +40,10 @@ export class ExperienceService {
     // Try vector search first if query is provided and embedding service is available
     if (q.trim() && useVectorSearch) {
       const isAvailable = await this.embeddingService.isAvailable();
-      console.log('[ExperienceService] Vector search check:', {
-        query: q,
-        useVectorSearch,
-        isAvailable,
-        willTryVectorSearch: isAvailable
-      });
       
       if (isAvailable) {
         try {
-          console.log('[ExperienceService] Attempting vector search...');
           const vectorResults = await this.queryByVector(q, limit, offset);
-          console.log('[ExperienceService] Vector search results:', {
-            resultCount: vectorResults?.length || 0,
-            hasResults: !!(vectorResults && vectorResults.length > 0)
-          });
           
           if (vectorResults && vectorResults.length > 0) {
             // Apply keyword filtering if provided
@@ -65,21 +54,16 @@ export class ExperienceService {
               );
             }
 
-            console.log('[ExperienceService] Using vector search results:', filteredResults.length);
             return {
               experiences: filteredResults,
               totalCount: filteredResults.length,
               hasMore: false // Vector search doesn't support pagination easily
             };
-          } else {
-            console.log('[ExperienceService] Vector search returned no results, falling back to text search');
           }
         } catch (error) {
           console.warn('[ExperienceService] Vector search failed, falling back to text search:', error);
           // Fall through to text search
         }
-      } else {
-        console.log('[ExperienceService] Embedding service not available, using text search');
       }
     }
 
@@ -305,8 +289,6 @@ export class ExperienceService {
     offset: number = 0
   ): Promise<ExperienceRecord[]> {
     try {
-      console.log('[ExperienceService] queryByVector called:', { queryText, limit, offset });
-      
       // Generate embedding for the query
       const queryEmbedding = await this.embeddingService.generateEmbedding(queryText);
       if (!queryEmbedding || queryEmbedding.length === 0) {
@@ -314,28 +296,9 @@ export class ExperienceService {
         return [];
       }
 
-      console.log('[ExperienceService] Generated query embedding:', {
-        dimensions: queryEmbedding.length,
-        firstValue: queryEmbedding[0] // Only log first value instead of first few
-      });
-
-      // First, check how many experiences have embeddings
-      const countResult = await db.query(
-        'SELECT COUNT(*) as count FROM experience_records WHERE publish_status = $1 AND is_deleted = false AND embedding IS NOT NULL',
-        ['published']
-      );
-      
-      const embeddingCount = parseInt(countResult.rows[0].count);
-      console.log('[ExperienceService] Experiences with embeddings:', { count: embeddingCount });
-
       // Call the RPC function for vector search
       // Lower threshold for bge-m3 model (0.3 instead of 0.5 to get more results)
       const matchThreshold = 0.3;
-      console.log('[ExperienceService] Performing vector search:', {
-        match_threshold: matchThreshold,
-        limit: limit + offset,
-        queryEmbeddingDimensions: queryEmbedding.length
-      });
       
       let vectorResults: any[] = [];
       
@@ -369,7 +332,7 @@ export class ExperienceService {
       );
         vectorResults = vectorResult.rows;
       } catch (error) {
-        console.log('[ExperienceService] No results from vector search. Trying with lower threshold (0.1)...');
+        // Try with lower threshold (0.1) if no results
         try {
           const lowThresholdQuery = `
             SELECT 
@@ -399,12 +362,7 @@ export class ExperienceService {
             [`[${queryEmbedding.join(',')}]`, 0.1, limit + offset]
           );
           vectorResults = lowThresholdResult.rows;
-          console.log('[ExperienceService] Found results with lower threshold (0.1):', {
-            count: vectorResults.length,
-            similarities: vectorResults.map((r: any) => r.similarity)
-          });
         } catch (lowThresholdError) {
-          console.log('[ExperienceService] No results even with threshold 0.1. Possible issues: no embeddings in DB, dimension mismatch, or very low similarity.');
           return [];
         }
       }
@@ -464,7 +422,6 @@ export class ExperienceService {
         console.error('Generated embedding is empty');
         return false;
       }
-      console.log(`Generated embedding with ${embedding.length} dimensions for experience ${experienceId}`);
 
       // Update embedding in database using direct SQL
       await db.query(
@@ -472,7 +429,6 @@ export class ExperienceService {
         [`[${embedding.join(',')}]`, experienceId] // Convert to JSON array string for PostgreSQL vector type
       );
 
-      console.log(`Successfully updated embedding for experience ${experienceId}`);
       return true;
     } catch (error) {
       console.error('Error updating embedding:', error);

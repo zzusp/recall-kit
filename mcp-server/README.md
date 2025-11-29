@@ -184,9 +184,12 @@ npm run test:coverage # 生成测试覆盖率报告
 {
   experience_id: string;    // 新创建的经验记录 ID
   status: 'success' | 'failed';  // 状态
+  publish_status?: 'published' | 'draft';  // 发布状态（成功时返回 'published'）
   error?: string;           // 错误信息（如有）
 }
 ```
+
+**注意**: 通过此工具提交的经验记录将自动保存为**已发布**状态（`published`），而不是草稿状态（`draft`）。经验提交后即可在后台管理界面查看，并且会被向量化用于语义搜索。
 
 ### 支持的 Prompts
 

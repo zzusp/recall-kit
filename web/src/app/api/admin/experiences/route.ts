@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getServerSession, hasRole, isAdminOrSuperuser } from '@/lib/server/auth';
+import { getServerSession, hasPermission } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -17,10 +17,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 检查用户是否为管理员或超级用户
-    if (!isAdminOrSuperuser(session)) {
+    // 检查用户是否有权限查看经验
+    const currentUser = session.user as any;
+    if (!currentUser.is_superuser && !hasPermission(session, 'experiences.view')) {
       return NextResponse.json(
-        { error: 'Insufficient permissions' },
+        { error: '您没有权限查看经验' },
         { status: 403 }
       );
     }
@@ -42,23 +43,32 @@ export async function GET(request: NextRequest) {
       if (status === 'published') {
         whereClause = 'WHERE publish_status = $1 AND is_deleted = false';
         params.push('published');
+        paramIndex++;
       } else if (status === 'draft') {
         whereClause = 'WHERE publish_status = $1 AND is_deleted = false';
         params.push('draft');
+        paramIndex++;
       } else if (status === 'publishing') {
         whereClause = 'WHERE publish_status = $1 AND is_deleted = false';
         params.push('publishing');
+        paramIndex++;
       } else if (status === 'rejected') {
         whereClause = 'WHERE publish_status = $1 AND is_deleted = false';
         params.push('rejected');
+        paramIndex++;
       } else if (status === 'deleted') {
         whereClause = 'WHERE is_deleted = $1';
         params.push(true);
+        paramIndex++;
       } else {
-        whereClause = 'WHERE status = $1';
+        // 对于其他未知状态，使用 publish_status 字段
+        whereClause = 'WHERE publish_status = $1 AND is_deleted = false';
         params.push(status);
+        paramIndex++;
       }
-      paramIndex++;
+    } else {
+      // 当 status 为 'all' 时，只显示未删除的记录
+      whereClause = 'WHERE is_deleted = false';
     }
 
     if (search) {
@@ -122,10 +132,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 检查用户是否为管理员或超级用户
-    if (!isAdminOrSuperuser(session)) {
+    // 检查用户是否有权限创建经验
+    const currentUser = session.user as any;
+    if (!currentUser.is_superuser && !hasPermission(session, 'experiences.create')) {
       return NextResponse.json(
-        { error: 'Insufficient permissions' },
+        { error: '您没有权限创建经验' },
         { status: 403 }
       );
     }

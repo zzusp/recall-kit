@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
 interface Experience {
   id: string;
@@ -50,21 +51,15 @@ export default function ExperienceDetailPage() {
       setError('');
 
       try {
-        const response = await fetch(`/api/admin/my-experiences/${params.id}`, {
-          credentials: 'include'
-        });
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error('经验不存在');
-          }
-          throw new Error('获取经验详情失败');
-        }
-
-        const data = await response.json();
-        setExperience(data.data);
+        const data = await apiFetch<Experience>(`/api/admin/my-experiences/${params.id}`);
+        setExperience(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : '获取经验详情失败');
+        // apiFetch 已经处理了 toast 提示
+        if (err instanceof Error && err.message === 'HTTP_404') {
+          setError('经验不存在');
+        } else {
+          setError(err instanceof Error ? err.message : '获取经验详情失败');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -113,28 +108,28 @@ export default function ExperienceDetailPage() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/admin/my-experiences/${experience.id}`, {
+      const result = await apiFetch<Partial<Experience>>(`/api/admin/my-experiences/${experience.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify({ action })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '操作失败');
-      }
-
-      const result = await response.json();
-      toast.success(result.message);
+      
+      // 根据操作类型显示成功消息
+      const successMessages = {
+        'publish': '经验发布成功',
+        'unpublish': '经验已取消发布',
+        'delete': '经验删除成功',
+        'restore': '经验恢复成功'
+      };
+      toast.success(successMessages[action] || '操作成功');
       
       // 更新本地状态
-      setExperience(prev => prev ? { ...prev, ...result.data } : null);
+      setExperience(prev => prev ? { ...prev, ...result } : null);
       
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '操作失败');
+      // apiFetch 已经处理了 toast 提示
     }
   };
 

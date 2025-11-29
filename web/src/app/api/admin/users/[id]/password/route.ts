@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getCurrentUser } from '@/lib/server/services/auth';
+import { getServerSession, isAdminOrSuperuser } from '@/lib/server/auth';
 import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';
@@ -13,33 +13,29 @@ interface RouteParams {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const { newPassword } = await request.json();
-
-    // 获取当前用户信息
-    const sessionToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
       );
     }
 
-    const currentUser = await getCurrentUser(sessionToken);
-    if (!currentUser) {
-      return NextResponse.json(
-        { error: '用户未登录' },
-        { status: 401 }
-      );
-    }
+    const currentUser = session.user as any;
 
     // 检查超级管理员权限
-    if (!currentUser.is_superuser) {
+    if (!currentUser.is_superuser && !isAdminOrSuperuser(session)) {
       return NextResponse.json(
         { error: '权限不足，只有超级管理员可以修改用户密码' },
         { status: 403 }
       );
     }
+
+    // 现在读取请求体
+    const { id } = await params;
+    const body = await request.json();
+    const { newPassword } = body;
 
     // 验证必填字段
     if (!newPassword) {
@@ -70,13 +66,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // 防止超级管理员修改自己的密码（应该通过专门的密码修改功能）
-    if (currentUser.id === id) {
-      return NextResponse.json(
-        { error: '不能通过此接口修改自己的密码，请使用个人设置中的密码修改功能' },
-        { status: 400 }
-      );
-    }
+    // 允许超级管理员修改任何用户的密码，包括自己的
+    // 如果用户想修改自己的密码，可以使用个人设置中的密码修改功能（需要输入当前密码）
+    // 但这里也允许直接重置，因为超级管理员有权限
 
     const targetUser = userResult.rows[0];
 

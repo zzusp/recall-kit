@@ -36,9 +36,13 @@ export interface Role {
 export interface Permission {
   id: string;
   name: string;
-  resource: string;
-  action: string;
+  code: string | null;  // 权限代码（function类型必填，如："users.view"）
+  type: 'module' | 'page' | 'function';  // 权限类型
+  parent_id: string | null;  // 父权限ID，NULL表示根节点
+  page_path: string | null;  // 页面路径（page类型必填，如："/admin/users"）
   description: string | null;
+  sort_order: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }

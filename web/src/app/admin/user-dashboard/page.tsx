@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
+import PermissionGuard from '@/components/auth/PermissionGuard';
 
-export default function UserDashboardPage() {
+function UserDashboardContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [user, setUser] = useState<any>(null);
@@ -28,9 +30,8 @@ export default function UserDashboardPage() {
       return;
     }
 
-    // 如果没有session，重定向到登录页
+    // 如果没有session，不加载数据（PermissionGuard 会处理重定向）
     if (status === 'unauthenticated' || !session) {
-      router.push('/admin/login');
       return;
     }
 
@@ -44,50 +45,37 @@ export default function UserDashboardPage() {
       setError('');
 
       try {
-        // Fetch dashboard stats (使用 NextAuth.js session)
-        const statsResponse = await fetch('/api/admin/user-dashboard/stats', {
-          credentials: 'include' // 确保发送 NextAuth.js session cookie
-        });
-
-        if (!statsResponse.ok) {
-          if (statsResponse.status === 401) {
-            router.push('/admin/login');
-            return;
-          }
-          throw new Error('Failed to fetch stats');
+        // Fetch dashboard stats
+        const statsData = await apiFetch<typeof stats>('/api/admin/user-dashboard/stats');
+        if (statsData && typeof statsData === 'object') {
+          setStats(statsData);
         }
 
-        const statsData = await statsResponse.json();
-        if (statsData.success) {
-          setStats(statsData.data);
-        }
-
-        // Fetch recent experiences (使用 NextAuth.js session)
-        const recentResponse = await fetch('/api/admin/user-dashboard/recent-experiences', {
-          credentials: 'include' // 确保发送 NextAuth.js session cookie
-        });
-
-        if (recentResponse.ok) {
-          const recentData = await recentResponse.json();
-          if (recentData.success) {
-            setRecentExperiences(recentData.data.experiences || []);
+        // Fetch recent experiences
+        try {
+          const recentData = await apiFetch<{ experiences: any[] }>('/api/admin/user-dashboard/recent-experiences');
+          if (recentData && typeof recentData === 'object' && 'experiences' in recentData) {
+            setRecentExperiences(recentData.experiences || []);
           }
-        } else if (recentResponse.status === 401) {
-          router.push('/admin/login');
-          return;
+        } catch (err) {
+          // 如果获取最近经验失败，不影响其他数据加载
+          // apiFetch 已经处理了 toast 提示
         }
 
         // Fetch popular experiences (public)
-        const popularResponse = await fetch('/api/admin/user-dashboard/popular-experiences');
-        if (popularResponse.ok) {
-          const popularData = await popularResponse.json();
-          if (popularData.success) {
-            setPopularExperiences(popularData.data.experiences || []);
+        try {
+          const popularData = await apiFetch<{ experiences: any[] }>('/api/admin/user-dashboard/popular-experiences');
+          if (popularData && typeof popularData === 'object' && 'experiences' in popularData) {
+            setPopularExperiences(popularData.experiences || []);
           }
+        } catch (err) {
+          // 如果获取热门经验失败，不影响其他数据加载
+          // apiFetch 已经处理了 toast 提示
         }
 
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+        // apiFetch 已经处理了 toast 提示，这里只设置本地错误状态
+        setError(err instanceof Error ? err.message : '加载数据失败');
       } finally {
         setIsLoading(false);
       }
@@ -483,5 +471,13 @@ function QuickActionCard({
         </p>
       </div>
     </Link>
+  );
+}
+
+export default function UserDashboardPage() {
+  return (
+    <PermissionGuard requireAuth={true}>
+      <UserDashboardContent />
+    </PermissionGuard>
   );
 }

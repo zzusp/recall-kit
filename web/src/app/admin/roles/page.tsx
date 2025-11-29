@@ -1,11 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { getSessionToken } from '@/lib/client/services/auth';
 import { toast } from '@/lib/client/services/toast';
 import PermissionGuard from '@/components/auth/PermissionGuard';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import RoleModal from '@/components/admin/RoleModal';
 import { Role as DatabaseRole, Permission } from '@/types/database/auth';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
 interface Role extends Omit<DatabaseRole, 'description'> {
   user_count: number;
@@ -50,15 +50,11 @@ function RolesManagementContent() {
         ...(searchTerm && { search: searchTerm })
       });
 
-      // 不需要手动添加认证头，middleware会自动处理
-      const response = await fetch(`/api/admin/roles?${params}`);
-      const data = await response.json();
-
+      const data = await apiFetch<RolesResponse>(`/api/admin/roles?${params}`);
       setRoles(data.roles || []);
       setPagination(data.pagination);
     } catch (error) {
-      console.error('Error fetching roles:', error);
-      toast.error('获取角色列表失败');
+      // apiFetch 已经处理了 toast 提示
     } finally {
       setLoading(false);
     }
@@ -76,20 +72,13 @@ function RolesManagementContent() {
     if (!confirmed) return;
     
     try {
-      const response = await fetch(`/api/admin/roles/${roleId}`, {
+      await apiFetch(`/api/admin/roles/${roleId}`, {
         method: 'DELETE'
       });
-
-      if (response.ok) {
-        toast.success('角色删除成功');
-        fetchRoles();
-      } else {
-        const error = await response.json();
-        toast.error(error.error || '删除失败');
-      }
+      toast.success('角色删除成功');
+      fetchRoles();
     } catch (error) {
-      console.error('Error deleting role:', error);
-      toast.error('删除失败');
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
@@ -271,7 +260,7 @@ function RolesManagementContent() {
 
 export default function RolesPage() {
   return (
-    <PermissionGuard resource="roles" action="view">
+    <PermissionGuard code="roles.view">
       <RolesManagementContent />
     </PermissionGuard>
   );

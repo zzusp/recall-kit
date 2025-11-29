@@ -6,6 +6,8 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import PermissionGuard from '@/components/auth/PermissionGuard';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
 interface ApiKey {
   id: string;
@@ -22,7 +24,7 @@ interface NewApiKey extends ApiKey {
   apiKey: string; // Only available during creation
 }
 
-export default function ApiKeysManagement() {
+function ApiKeysManagementContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -37,18 +39,10 @@ export default function ApiKeysManagement() {
   const fetchApiKeys = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/api-keys', {
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch API keys');
-      }
-
-      const data = await response.json();
-      setApiKeys(data || []);
+      const data = await apiFetch<ApiKey[]>('/api/api-keys');
+      setApiKeys(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error fetching API keys:', error);
+      // apiFetch 已经处理了 toast 提示
       setApiKeys([]);
     } finally {
       setLoading(false);
@@ -61,14 +55,13 @@ export default function ApiKeysManagement() {
       return;
     }
 
-    // 如果没有 session，重定向到登录页
+    // 如果没有 session，不加载数据（PermissionGuard 会处理重定向）
     if (status === 'unauthenticated' || !session) {
-      router.push('/admin/login');
       return;
     }
 
     fetchApiKeys();
-  }, [router, session, status]);
+  }, [session, status]);
 
   const handleDeleteApiKey = async (apiKeyId: string) => {
     const confirmed = await confirm({
@@ -82,41 +75,27 @@ export default function ApiKeysManagement() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/api-keys/${apiKeyId}`, {
-        method: 'DELETE',
-        credentials: 'include'
+      await apiFetch(`/api/api-keys/${apiKeyId}`, {
+        method: 'DELETE'
       });
-
-      if (response.ok) {
-        fetchApiKeys();
-      } else {
-        toast.error('删除API密钥失败');
-      }
+      fetchApiKeys();
     } catch (error) {
-      console.error('Error deleting API key:', error);
-      toast.error('删除API密钥失败');
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
   const handleToggleApiKey = async (apiKey: ApiKey) => {
     try {
-      const response = await fetch(`/api/api-keys/${apiKey.id}`, {
+      await apiFetch(`/api/api-keys/${apiKey.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify({ isActive: !apiKey.isActive })
       });
-
-      if (response.ok) {
-        fetchApiKeys();
-      } else {
-        toast.error('更新API密钥状态失败');
-      }
+      fetchApiKeys();
     } catch (error) {
-      console.error('Error toggling API key:', error);
-      toast.error('更新API密钥状态失败');
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
@@ -144,7 +123,7 @@ const copyToClipboard = async (text: string): Promise<boolean> => {
     
     return successful;
   } catch (error) {
-    console.error('复制失败:', error);
+    // 复制失败，返回 false 由调用方处理
     return false;
   }
 };
@@ -159,7 +138,7 @@ const copyToClipboard = async (text: string): Promise<boolean> => {
         toast.error('复制API密钥失败，请手动复制');
       }
     } catch (error) {
-      console.error('Error copying API key:', error);
+      // 复制失败，已通过 toast 提示
       toast.error('复制API密钥失败');
     } finally {
       setLoadingCopy(null);
@@ -419,25 +398,16 @@ function ApiKeyModal({ apiKey, onClose, onSave }: ApiKeyModalProps) {
       const url = apiKey ? `/api/api-keys/${apiKey.id}` : '/api/api-keys';
       const method = apiKey ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const data = await apiFetch<NewApiKey>(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify(formData)
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        onSave(data);
-      } else {
-        const error = await response.json();
-        toast.error(error.message || '保存失败');
-      }
+      onSave(data);
     } catch (error) {
-      console.error('Error saving API key:', error);
-      toast.error('保存失败');
+      // apiFetch 已经处理了 toast 提示
     } finally {
       setLoading(false);
     }
@@ -586,7 +556,7 @@ function NewApiKeyModal({ apiKey, onClose }: NewApiKeyModalProps) {
         }
       }
     } catch (error) {
-      console.error('Failed to copy:', error);
+      // 复制失败，已通过 toast 提示
       toast.error('复制失败，请手动复制');
     }
   };
@@ -676,5 +646,13 @@ function NewApiKeyModal({ apiKey, onClose }: NewApiKeyModalProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ApiKeysManagement() {
+  return (
+    <PermissionGuard requireAuth={true}>
+      <ApiKeysManagementContent />
+    </PermissionGuard>
   );
 }

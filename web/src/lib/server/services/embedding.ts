@@ -35,24 +35,14 @@ export class EmbeddingService {
     // Check cache first
     const now = Date.now();
     if (this.configCache && (now - this.configCacheTime) < this.CACHE_TTL) {
-      console.log('[EmbeddingService] Using cached AI config:', { serviceType: this.configCache.aiServiceType });
       return this.configCache;
     }
-
-    console.log('[EmbeddingService] Loading AI config from database...');
 
     try {
       // 直接调用服务端设置服务，避免HTTP调用
       const data = await settingsService.getAIConfig();
       
       if (data && data.aiServiceType) {
-        console.log('[EmbeddingService] Loaded config from database:', { 
-          serviceType: data.aiServiceType,
-          hasOpenaiKey: !!data.openaiKey,
-          hasAnthropicKey: !!data.anthropicKey,
-          hasCustomKey: !!data.customApiKey
-        });
-
         this.configCache = data;
         this.configCacheTime = now;
         return data;
@@ -61,11 +51,8 @@ export class EmbeddingService {
       console.warn('[EmbeddingService] Error loading config from database:', error);
     }
 
-    console.log('[EmbeddingService] Falling back to environment variables...');
-
     // Fallback to environment variables
     if (OPENAI_API_KEY) {
-      console.log('[EmbeddingService] Using OPENAI_API_KEY from environment variables');
       const config = {
         aiServiceType: 'openai' as const,
         openaiKey: OPENAI_API_KEY,
@@ -116,7 +103,6 @@ export class EmbeddingService {
         : `${config.openaiApiUrl.replace(/\/$/, '')}/embeddings`;
       apiKey = config.openaiKey;
       model = config.openaiModel;
-      console.log('[EmbeddingService] Using OpenAI service:', { apiUrl, model });
       requestBody = {
         model,
         input: text.trim()
@@ -147,7 +133,6 @@ export class EmbeddingService {
         : `${config.customApiUrl.replace(/\/$/, '')}/embeddings`;
       apiKey = config.customApiKey;
       model = config.customModel;
-      console.log('[EmbeddingService] Using custom service:', { apiUrl, model });
       requestBody = {
         model,
         input: text.trim()
@@ -175,15 +160,6 @@ export class EmbeddingService {
 
       const data = await response.json();
       
-      console.log('[EmbeddingService] API response structure:', {
-        hasData: !!data.data,
-        hasEmbedding: !!data.embedding,
-        isArray: Array.isArray(data),
-        dataKeys: Object.keys(data || {}),
-        dataDataLength: data.data?.length,
-        firstItemHasEmbedding: data.data?.[0]?.embedding ? true : false
-      });
-      
       // Handle different response formats
       // OpenAI format: { data: [{ embedding: [...] }] }
       let embedding: number[] | null = null;
@@ -202,11 +178,6 @@ export class EmbeddingService {
         });
         throw new Error('Unexpected API response format');
       }
-      
-      console.log('[EmbeddingService] Extracted embedding:', {
-        dimensions: embedding.length,
-        firstValue: embedding[0] // Only log first value instead of first few
-      });
       
       return embedding;
     } catch (error) {

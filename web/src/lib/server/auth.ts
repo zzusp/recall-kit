@@ -43,18 +43,44 @@ export function isAdminOrSuperuser(session: NonNullable<Awaited<ReturnType<typeo
 }
 
 /**
- * 检查用户是否具有指定权限
+ * 检查用户是否具有指定权限（使用 code 字段，function 类型）
  */
 export function hasPermission(
   session: NonNullable<Awaited<ReturnType<typeof getServerSession>>>,
-  resource: string,
-  action: string
+  code: string
 ): boolean {
   const user = session.user as any;
   if (user?.is_superuser) return true;
   if (!user?.permissions) return false;
   return user.permissions.some(
-    (permission: any) => permission.resource === resource && permission.action === action
+    (permission: any) => permission.type === 'function' && permission.code === code && permission.is_active
+  );
+}
+
+/**
+ * 兼容旧的 resource + action 调用方式
+ */
+export function hasPermissionByResourceAction(
+  session: NonNullable<Awaited<ReturnType<typeof getServerSession>>>,
+  resource: string,
+  action: string
+): boolean {
+  const code = `${resource}.${action}`;
+  return hasPermission(session, code);
+}
+
+/**
+ * 检查用户是否有页面权限（page 类型）
+ */
+export function hasPagePermission(
+  session: NonNullable<Awaited<ReturnType<typeof getServerSession>>>,
+  pagePath: string
+): boolean {
+  const user = session.user as any;
+  if (user?.is_superuser) return true;
+  if (!user?.permissions) return false;
+  return user.permissions.some(
+    (permission: any) => permission.type === 'page' && permission.page_path === pagePath && permission.is_active
   );
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getServerSession } from '@/lib/server/auth';
+import { getServerSession, hasPermission } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -23,10 +23,10 @@ export async function GET(request: NextRequest) {
 
     const currentUser = session.user as any;
 
-    // Only superusers can view roles
-    if (!currentUser.is_superuser) {
+    // Check if user has permission to view roles
+    if (!currentUser.is_superuser && !hasPermission(session, 'roles.view')) {
       return NextResponse.json(
-        { error: 'Only superusers can view roles' },
+        { error: '您没有权限查看角色' },
         { status: 403 }
       );
     }
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
              (
                SELECT COALESCE(
                  json_agg(
-                   jsonb_build_object('id', p.id, 'name', p.name, 'resource', p.resource, 'action', p.action, 'description', p.description)
+                   jsonb_build_object('id', p.id, 'name', p.name, 'code', p.code, 'type', p.type, 'parent_id', p.parent_id, 'page_path', p.page_path, 'description', p.description)
                  ),
                  '[]'::json
                )
@@ -103,10 +103,10 @@ export async function POST(request: NextRequest) {
 
     const currentUser = session.user as any;
 
-    // Only superusers can create roles
-    if (!currentUser.is_superuser) {
+    // Check if user has permission to create roles
+    if (!currentUser.is_superuser && !hasPermission(session, 'roles.create')) {
       return NextResponse.json(
-        { error: 'Only superusers can create roles' },
+        { error: '您没有权限创建角色' },
         { status: 403 }
       );
     }
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
              (
                SELECT COALESCE(
                  json_agg(
-                   jsonb_build_object('id', p.id, 'name', p.name, 'resource', p.resource, 'action', p.action, 'description', p.description)
+                   jsonb_build_object('id', p.id, 'name', p.name, 'code', p.code, 'type', p.type, 'parent_id', p.parent_id, 'page_path', p.page_path, 'description', p.description)
                  ),
                  '[]'::json
                )

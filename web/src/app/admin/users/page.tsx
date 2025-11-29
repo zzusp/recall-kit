@@ -5,6 +5,7 @@ import { User, Role } from '@/types/database';
 import PermissionGuard from '@/components/auth/PermissionGuard';
 import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 // 移除数据库相关的客户端导入
 // import { getCurrentUser } from '@/lib/services/internal/authService';
 
@@ -22,7 +23,7 @@ interface UsersResponse {
 
 export default function UsersManagement() {
   return (
-    <PermissionGuard resource="users" action="view">
+    <PermissionGuard code="users.view">
       <UsersManagementContent />
     </PermissionGuard>
   );
@@ -56,25 +57,17 @@ function PasswordModal({ user, onClose, onSave }: PasswordModalProps) {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/admin/users/${user?.id}/password`, {
+      await apiFetch(`/api/admin/users/${user?.id}/password`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('session_token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ newPassword })
       });
-
-      if (response.ok) {
-        toast.success('密码重置成功');
-        onSave();
-      } else {
-        const error = await response.json();
-        toast.error(error.error || '密码重置失败');
-      }
+      toast.success('密码重置成功');
+      onSave();
     } catch (error) {
-      console.error('Error resetting password:', error);
-      toast.error('密码重置失败');
+      // apiFetch 已经处理了 toast 提示
     } finally {
       setLoading(false);
     }
@@ -195,22 +188,10 @@ function UsersManagementContent() {
 
   const checkSuperUser = async () => {
     try {
-      const sessionToken = localStorage.getItem('session_token');
-      if (sessionToken) {
-        // 通过API检查当前用户权限，而不是直接调用数据库服务
-        const response = await fetch('/api/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setIsSuperUser(data.is_superuser || false);
-        }
-      }
+      const data = await apiFetch<{ is_superuser?: boolean }>('/api/auth/me');
+      setIsSuperUser(data?.is_superuser || false);
     } catch (error) {
-      console.error('Error checking super user:', error);
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
@@ -223,13 +204,11 @@ function UsersManagementContent() {
         ...(search && { search })
       });
 
-      const response = await fetch(`/api/admin/users?${params}`);
-      const data: UsersResponse = await response.json();
-
+      const data = await apiFetch<UsersResponse>(`/api/admin/users?${params}`);
       setUsers(data.users);
       setTotalPages(data.pagination.pages);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      // apiFetch 已经处理了 toast 提示
     } finally {
       setLoading(false);
     }
@@ -251,18 +230,12 @@ function UsersManagementContent() {
     if (!confirmed) return;
     
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      await apiFetch(`/api/admin/users/${userId}`, {
         method: 'DELETE'
       });
-
-      if (response.ok) {
-        fetchUsers();
-      } else {
-        toast.error('删除用户失败');
-      }
+      fetchUsers();
     } catch (error) {
-      console.error('Error deleting user:', error);
-      toast.error('删除用户失败');
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
@@ -517,11 +490,10 @@ function UserModal({ user, onClose, onSave }: UserModalProps) {
 
   const fetchRoles = async () => {
     try {
-      const response = await fetch('/api/admin/roles');
-      const data = await response.json();
+      const data = await apiFetch<{ roles: any[] }>('/api/admin/roles');
       setRoles(data.roles || []);
     } catch (error) {
-      console.error('Error fetching roles:', error);
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
@@ -529,15 +501,14 @@ function UserModal({ user, onClose, onSave }: UserModalProps) {
     if (!user) return;
     
     try {
-      const response = await fetch(`/api/admin/users/${user.id}`);
-      const data = await response.json();
+      const data = await apiFetch<any>(`/api/admin/users/${user.id}`);
       // 处理不同的API响应结构
       const userData = data.user || data;
       const userRoles = userData.user_roles || userData.roles || [];
       const userRoleIds = userRoles.map((ur: any) => ur.roles?.id || ur.id).filter(Boolean);
       setFormData(prev => ({ ...prev, roleIds: userRoleIds }));
     } catch (error) {
-      console.error('Error fetching user roles:', error);
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
@@ -549,23 +520,16 @@ function UserModal({ user, onClose, onSave }: UserModalProps) {
       const url = user ? `/api/admin/users/${user.id}` : '/api/admin/users';
       const method = user ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      await apiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(formData)
       });
-
-      if (response.ok) {
-        onSave();
-      } else {
-        const error = await response.json();
-        toast.error(error.error || '保存失败');
-      }
+      onSave();
     } catch (error) {
-      console.error('Error saving user:', error);
-      toast.error('保存失败');
+      // apiFetch 已经处理了 toast 提示
     } finally {
       setLoading(false);
     }

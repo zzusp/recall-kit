@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { hasPermission } from '@/lib/client/services/auth';
+import { getFullPath } from '@/config/paths';
 
 export default function AdminLogin() {
   const [credentials, setCredentials] = useState({
@@ -12,7 +13,9 @@ export default function AdminLogin() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const router = useRouter();
+  const { data: session, status, update } = useSession();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,90 +36,11 @@ export default function AdminLogin() {
       }
 
       if (result?.ok) {
-        // 登录成功，等待一下确保 cookie 已设置
-        // 需要等待更长时间，确保 NextAuth.js 的 cookie 已写入
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // 验证 session 是否已设置
-        let retries = 0;
-        let session = null;
-        while (retries < 5 && !session?.user) {
-          const response = await fetch('/api/auth/session', {
-            cache: 'no-store',
-            credentials: 'include',
-          });
-          session = await response.json();
-          if (!session?.user) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            retries++;
-          }
-        }
-        
-        const currentUser = session?.user;
-
-        if (!currentUser) {
-          setError('获取用户信息失败，请重试');
-          return;
-        }
-
-        // 定义菜单项及其权限要求
-        const navItems = [
-          {
-            href: '/admin/user-dashboard',
-            // 个人仪表盘只需要登录即可访问，不需要特殊权限
-            permission: null
-          },
-          {
-            href: '/admin/dashboard',
-            permission: { resource: 'admin', action: 'dashboard' }
-          },
-          {
-            href: '/admin/users',
-            permission: { resource: 'users', action: 'view' }
-          },
-          {
-            href: '/admin/roles',
-            permission: { resource: 'roles', action: 'view' }
-          },
-          {
-            href: '/admin/permissions',
-            permission: { resource: 'permissions', action: 'view' }
-          },
-          {
-            href: '/admin/api-keys',
-            permission: { resource: 'api-keys', action: 'view' }
-          },
-          {
-            href: '/admin/my-experiences',
-            // 个人经验页面不需要特殊权限，只要登录即可访问
-            permission: null
-          },
-          {
-            href: '/admin/settings',
-            permission: { resource: 'admin', action: 'settings' }
-          },
-        ];
-
-        // 找到用户有权限的第一个页面
-        const firstAccessiblePage = navItems.find(item => {
-          // 如果没有权限要求，直接返回true
-          if (!item.permission) return true;
-          
-          // 超级管理员可以看到所有菜单
-          if (currentUser?.is_superuser) return true;
-          
-          // 检查用户是否有对应权限
-          return currentUser && hasPermission(currentUser, item.permission.resource, item.permission.action);
-        });
-
-        // 跳转到第一个有权限的页面
-        // 使用 window.location 确保完全刷新，包括中间件检查
-        if (firstAccessiblePage) {
-          window.location.href = firstAccessiblePage.href;
-        } else {
-          // 如果没有任何权限，默认跳转到 user-dashboard
-          window.location.href = '/admin/user-dashboard';
-        }
+        // 登录成功，使用 useSession 的 update 方法强制刷新 session
+        // 这是 NextAuth 官方推荐的方式，比手动 fetch 更可靠
+        // 设置标志，让 useEffect 处理 session 更新后的跳转逻辑
+        setLoginSuccess(true);
+        await update();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
@@ -124,6 +48,76 @@ export default function AdminLogin() {
       setLoading(false);
     }
   };
+
+  // 监听 session 更新，登录成功后自动跳转
+  useEffect(() => {
+    if (loginSuccess && status === 'authenticated' && session?.user) {
+      const currentUser = session.user;
+      
+      // 定义菜单项及其权限要求
+      const navItems = [
+        {
+          href: '/admin/user-dashboard',
+          // 个人仪表盘只需要登录即可访问，不需要特殊权限
+          permission: null
+        },
+        {
+          href: '/admin/dashboard',
+          permission: { code: 'admin.dashboard' } // 使用 code 字段
+        },
+        {
+          href: '/admin/users',
+          permission: { code: 'users.view' } // 使用 code 字段
+        },
+        {
+          href: '/admin/roles',
+          permission: { code: 'roles.view' } // 使用 code 字段
+        },
+        {
+          href: '/admin/permissions',
+          permission: { code: 'permissions.view' } // 使用 code 字段
+        },
+        {
+          href: '/admin/api-keys',
+          permission: null // API密钥管理是个人功能，不需要权限检查
+        },
+        {
+          href: '/admin/my-experiences',
+          // 个人经验页面不需要特殊权限，只要登录即可访问
+          permission: null
+        },
+        {
+          href: '/admin/settings',
+          permission: { code: 'admin.settings.view' } // 使用 code 字段
+        },
+      ];
+
+      // 找到用户有权限的第一个页面
+      const firstAccessiblePage = navItems.find(item => {
+        // 如果没有权限要求，直接返回true
+        if (!item.permission) return true;
+        
+        // 超级管理员可以看到所有菜单
+        if ((currentUser as any)?.is_superuser) return true;
+        
+        // 检查用户是否有对应权限（使用 code 字段）
+        if (item.permission.code) {
+          return currentUser && hasPermission(currentUser as any, item.permission.code);
+        }
+        
+        return false;
+      });
+
+      // 跳转到第一个有权限的页面
+      // 使用 window.location 确保完全刷新，包括中间件检查
+      if (firstAccessiblePage) {
+        window.location.href = getFullPath(firstAccessiblePage.href);
+      } else {
+        // 如果没有任何权限，默认跳转到 user-dashboard
+        window.location.href = getFullPath('/admin/user-dashboard');
+      }
+    }
+  }, [loginSuccess, status, session]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCredentials(prev => ({

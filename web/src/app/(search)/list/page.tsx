@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ExperienceRecord } from '@/lib/server/services/experience';
 import Link from 'next/link';
+import { getApiUrl } from '@/config/paths';
 
 export default function ListPage() {
   const [activeTag, setActiveTag] = useState('Vue.js');
@@ -13,7 +14,7 @@ export default function ListPage() {
   // 增加查看次数的函数
   const incrementViewCount = async (experienceId: string) => {
     try {
-      const response = await fetch(`/api/experiences/${experienceId}/view`, {
+      const response = await fetch(getApiUrl(`/api/experiences/${experienceId}/view`), {
         method: 'POST',
         cache: 'no-store'
       });
@@ -39,7 +40,7 @@ export default function ListPage() {
           sort: 'relevance'
         });
 
-        const response = await fetch(`/api/experiences?${params.toString()}`, {
+        const response = await fetch(getApiUrl(`/api/experiences?${params.toString()}`), {
           cache: 'no-store'
         });
         
@@ -115,7 +116,7 @@ export default function ListPage() {
                   onClick={async () => {
                     // 在跳转前增加查看次数
                     await incrementViewCount(experience.id);
-                    window.location.href = `/experience/${experience.id}`;
+                    window.location.href = `/web/experience/${experience.id}`;
                   }}
                 >
                   <div className="feature-title">

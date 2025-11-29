@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import PermissionGuard from '@/components/auth/PermissionGuard';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
-export default function AdminDashboardPage() {
+function AdminDashboardContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [stats, setStats] = useState({
@@ -34,49 +36,23 @@ export default function AdminDashboardPage() {
       setError('');
 
       try {
-        // Fetch stats from API (使用 NextAuth.js session)
-        const [
-          totalResponse,
-          publishedResponse,
-          deletedResponse,
-          recentResponse
-        ] = await Promise.all([
-          fetch('/api/admin/experiences?limit=1&page=1', {
-            credentials: 'include'
-          }),
-          fetch('/api/admin/experiences?status=published&limit=1&page=1', {
-            credentials: 'include'
-          }),
-          fetch('/api/admin/experiences?status=deleted&limit=1&page=1', {
-            credentials: 'include'
-          }),
-          fetch('/api/admin/experiences?status=published&limit=1&page=1', {
-            credentials: 'include'
-          })
+        // Fetch stats from API
+        const [totalData, publishedData, deletedData, recentData] = await Promise.all([
+          apiFetch<{ pagination?: { total: number } }>('/api/admin/experiences?limit=1&page=1'),
+          apiFetch<{ pagination?: { total: number } }>('/api/admin/experiences?status=published&limit=1&page=1'),
+          apiFetch<{ pagination?: { total: number } }>('/api/admin/experiences?status=deleted&limit=1&page=1'),
+          apiFetch<{ pagination?: { total: number } }>('/api/admin/experiences?status=published&limit=1&page=1')
         ]);
 
-        if (!totalResponse.ok || !publishedResponse.ok || !deletedResponse.ok || !recentResponse.ok) {
-          if (totalResponse.status === 401 || publishedResponse.status === 401 || 
-              deletedResponse.status === 401 || recentResponse.status === 401) {
-            router.push('/admin/login');
-            return;
-          }
-          throw new Error('Failed to fetch stats');
-        }
-
-        const totalData = await totalResponse.json();
-        const publishedData = await publishedResponse.json();
-        const deletedData = await deletedResponse.json();
-        const recentData = await recentResponse.json();
-
         setStats({
-          totalExperiences: totalData.pagination?.total || 0,
-          publishedExperiences: publishedData.pagination?.total || 0,
-          deletedExperiences: deletedData.pagination?.total || 0,
-          recentSubmissions: recentData.pagination?.total || 0, // Note: This should be filtered by date in API
+          totalExperiences: totalData?.pagination?.total || 0,
+          publishedExperiences: publishedData?.pagination?.total || 0,
+          deletedExperiences: deletedData?.pagination?.total || 0,
+          recentSubmissions: recentData?.pagination?.total || 0, // Note: This should be filtered by date in API
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load stats');
+        // apiFetch 已经处理了 toast 提示，这里只设置本地错误状态
+        setError(err instanceof Error ? err.message : '加载统计数据失败');
       } finally {
         setIsLoading(false);
       }
@@ -160,7 +136,7 @@ export default function AdminDashboardPage() {
         />
         <QuickActionCard
           title="个人中心"
-          description="管理个人资料和提交的经验记录"
+          description="管理个人资料和个人提交的经验记录"
           icon="fas fa-user"
           link="/admin/my-experiences"
           color="#3b82f6"
@@ -271,5 +247,13 @@ function QuickActionCard({
         </div>
       </div>
     </Link>
+  );
+}
+
+export default function AdminDashboardPage() {
+  return (
+    <PermissionGuard code="admin.dashboard">
+      <AdminDashboardContent />
+    </PermissionGuard>
   );
 }

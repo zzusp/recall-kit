@@ -70,10 +70,23 @@ export async function POST(request: NextRequest) {
     if (roles.length > 0) {
       const roleIds = roles.map(r => r.id);
       const rolePermissionsResult = await db.query(`
-        SELECT p.id, p.name, p.resource, p.action, p.description
+        SELECT 
+          p.id, 
+          p.name, 
+          p.code,
+          p.type,
+          p.parent_id,
+          p.page_path,
+          p.description,
+          p.sort_order,
+          p.is_active,
+          p.created_at,
+          p.updated_at
         FROM permissions p
         JOIN role_permissions rp ON p.id = rp.permission_id
         WHERE rp.role_id = ANY($1)
+          AND p.is_active = true
+        ORDER BY p.type, p.sort_order
       `, [roleIds]);
 
       permissions = rolePermissionsResult.rows;

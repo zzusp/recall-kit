@@ -1,33 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
 import { ExperienceService } from '@/lib/server/services/experience';
-import { getCurrentUser, hasRole } from '@/lib/server/services/auth';
+import { getServerSession, hasRole } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get session token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // 使用 NextAuth.js 获取会话
+    const session = await getServerSession();
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authorization token required' },
+        { error: 'Authorization required' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    
-    // Verify user and admin role
-    const user = await getCurrentUser(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
-
-    if (!hasRole(user, 'admin')) {
+    // 检查管理员权限
+    if (!hasRole(session, 'admin')) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getServerSession } from '@/lib/server/auth';
+import { getServerSession, hasPermission } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
              (
                SELECT COALESCE(
                  json_agg(
-                   jsonb_build_object('id', p.id, 'name', p.name, 'resource', p.resource, 'action', p.action, 'description', p.description)
+                   jsonb_build_object('id', p.id, 'name', p.name, 'code', p.code, 'type', p.type, 'parent_id', p.parent_id, 'page_path', p.page_path, 'description', p.description)
                  ),
                  '[]'::json
                )
@@ -75,10 +75,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const currentUser = session.user as any;
 
-    // Only superusers can modify roles
-    if (!currentUser.is_superuser) {
+    // Check if user has permission to modify roles
+    if (!currentUser.is_superuser && !hasPermission(session, 'roles.edit')) {
       return NextResponse.json(
-        { error: 'Only superusers can modify roles' },
+        { error: '您没有权限修改角色' },
         { status: 403 }
       );
     }
@@ -161,7 +161,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
              (
                SELECT COALESCE(
                  json_agg(
-                   jsonb_build_object('id', p.id, 'name', p.name, 'resource', p.resource, 'action', p.action, 'description', p.description)
+                   jsonb_build_object('id', p.id, 'name', p.name, 'code', p.code, 'type', p.type, 'parent_id', p.parent_id, 'page_path', p.page_path, 'description', p.description)
                  ),
                  '[]'::json
                )
@@ -198,10 +198,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const currentUser = session.user as any;
 
-    // Only superusers can delete roles
-    if (!currentUser.is_superuser) {
+    // Check if user has permission to delete roles
+    if (!currentUser.is_superuser && !hasPermission(session, 'roles.delete')) {
       return NextResponse.json(
-        { error: 'Only superusers can delete roles' },
+        { error: '您没有权限删除角色' },
         { status: 403 }
       );
     }

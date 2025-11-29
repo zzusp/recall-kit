@@ -155,7 +155,7 @@ function createMCPServer(
   // Register submit_experience tool using registerTool
   server.registerTool('submit_experience', {
     title: 'Submit Experience',
-    description: 'Submit a new experience record',
+    description: 'Submit a new experience record. The experience will be saved with published status (已发布), not draft (草稿).',
     inputSchema: {
       title: z.string().describe('Title of experience'),
       problem_description: z.string().describe('Description of problem'),

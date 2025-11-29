@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getServerSession, isAdminOrSuperuser } from '@/lib/server/auth';
+import { getServerSession, hasPermission } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 
@@ -20,10 +20,11 @@ export async function PUT(
       );
     }
 
-    // 检查用户是否为管理员或超级用户
-    if (!isAdminOrSuperuser(session)) {
+    // 检查用户是否有权限编辑经验
+    const currentUser = session.user as any;
+    if (!currentUser.is_superuser && !hasPermission(session, 'experiences.edit')) {
       return NextResponse.json(
-        { error: 'Insufficient permissions' },
+        { error: '您没有权限编辑经验' },
         { status: 403 }
       );
     }
@@ -114,10 +115,11 @@ export async function DELETE(
       );
     }
 
-    // 检查用户是否为管理员或超级用户
-    if (!isAdminOrSuperuser(session)) {
+    // 检查用户是否有权限删除经验
+    const currentUser = session.user as any;
+    if (!currentUser.is_superuser && !hasPermission(session, 'experiences.delete')) {
       return NextResponse.json(
-        { error: 'Insufficient permissions' },
+        { error: '您没有权限删除经验' },
         { status: 403 }
       );
     }

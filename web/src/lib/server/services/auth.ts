@@ -57,15 +57,28 @@ export async function login(credentials: LoginCredentials): Promise<{ user: Auth
 
   const roles = userRolesResult.rows;
 
-  // Get permissions from roles
+  // Get permissions from roles (all types: module, page, function)
   let permissions: Permission[] = [];
   if (roles.length > 0) {
     const roleIds = roles.map(r => r.id);
     const rolePermissionsResult = await db.query(`
-      SELECT p.id, p.name, p.resource, p.action, p.description
+      SELECT 
+        p.id, 
+        p.name, 
+        p.code,
+        p.type,
+        p.parent_id,
+        p.page_path,
+        p.description,
+        p.sort_order,
+        p.is_active,
+        p.created_at,
+        p.updated_at
       FROM permissions p
       JOIN role_permissions rp ON p.id = rp.permission_id
       WHERE rp.role_id = ANY($1)
+        AND p.is_active = true
+      ORDER BY p.type, p.sort_order
     `, [roleIds]);
 
     permissions = rolePermissionsResult.rows;
@@ -155,15 +168,28 @@ export async function getCurrentUser(sessionToken: string | undefined): Promise<
 
   const roles = userRolesResult.rows;
 
-  // Get permissions from roles
+  // Get permissions from roles (all types: module, page, function)
   let permissions: Permission[] = [];
   if (roles.length > 0) {
     const roleIds = roles.map(r => r.id);
     const rolePermissionsResult = await db.query(`
-      SELECT p.id, p.name, p.resource, p.action, p.description
+      SELECT 
+        p.id, 
+        p.name, 
+        p.code,
+        p.type,
+        p.parent_id,
+        p.page_path,
+        p.description,
+        p.sort_order,
+        p.is_active,
+        p.created_at,
+        p.updated_at
       FROM permissions p
       JOIN role_permissions rp ON p.id = rp.permission_id
       WHERE rp.role_id = ANY($1)
+        AND p.is_active = true
+      ORDER BY p.type, p.sort_order
     `, [roleIds]);
 
     permissions = rolePermissionsResult.rows;
@@ -217,13 +243,42 @@ export async function updateLastLoginTime(userId: string) {
 }
 
 // Permission checking
-export function hasPermission(user: AuthUser, resource: string, action: string): boolean {
+// 新的权限检查函数：使用 code 字段（function 类型）
+export function hasPermission(user: AuthUser, code: string): boolean {
   if (user.is_superuser) {
     return true;
   }
 
   return user.permissions.some(
-    permission => permission.resource === resource && permission.action === action
+    permission => permission.type === 'function' && permission.code === code && permission.is_active
+  );
+}
+
+// 兼容旧的 resource + action 调用方式
+export function hasPermissionByResourceAction(user: AuthUser, resource: string, action: string): boolean {
+  const code = `${resource}.${action}`;
+  return hasPermission(user, code);
+}
+
+// 页面权限检查（page 类型）
+export function hasPagePermission(user: AuthUser, pagePath: string): boolean {
+  if (user.is_superuser) {
+    return true;
+  }
+
+  return user.permissions.some(
+    permission => permission.type === 'page' && permission.page_path === pagePath && permission.is_active
+  );
+}
+
+// 模块权限检查（module 类型）
+export function hasModulePermission(user: AuthUser, moduleCode: string): boolean {
+  if (user.is_superuser) {
+    return true;
+  }
+
+  return user.permissions.some(
+    permission => permission.type === 'module' && permission.code === moduleCode && permission.is_active
   );
 }
 
@@ -233,7 +288,7 @@ export function hasAnyPermission(user: AuthUser, permissions: Array<{ resource: 
   }
 
   return permissions.some(({ resource, action }) => 
-    hasPermission(user, resource, action)
+    hasPermissionByResourceAction(user, resource, action)
   );
 }
 

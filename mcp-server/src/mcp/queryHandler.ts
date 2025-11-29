@@ -220,8 +220,7 @@ async function performVectorSearch(
       er.context,
       er.query_count,
       er.created_at,
-      (SELECT COALESCE(array_agg(keyword ORDER BY keyword), ARRAY[]::TEXT[]) 
-       FROM experience_keywords ek WHERE ek.experience_id = er.id) as keywords,
+      COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords,
       1 - (er.embedding <=> $1) as similarity
     FROM experience_records er
     WHERE er.publish_status = 'published'
@@ -278,8 +277,7 @@ async function performTextSearch(
       er.context,
       er.query_count,
       er.created_at,
-      (SELECT COALESCE(array_agg(keyword ORDER BY keyword), ARRAY[]::TEXT[]) 
-       FROM experience_keywords ek WHERE ek.experience_id = er.id) as keywords,
+      COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords,
       ts_rank_cd(er.fts, plainto_tsquery('english', $1)) as similarity
     FROM experience_records er
     WHERE er.publish_status = 'published'
@@ -325,8 +323,7 @@ async function performEmptyQuery(
       er.context,
       er.query_count,
       er.created_at,
-      (SELECT COALESCE(array_agg(keyword ORDER BY keyword), ARRAY[]::TEXT[]) 
-       FROM experience_keywords ek WHERE ek.experience_id = er.id) as keywords
+      COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
     FROM experience_records er
     WHERE er.publish_status = 'published'
       AND er.is_deleted = false

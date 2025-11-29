@@ -35,31 +35,31 @@ export default function Sidebar() {
       href: '/admin/dashboard',
       label: '管理仪表板',
       icon: 'fas fa-chart-line',
-      permission: { resource: 'admin', action: 'dashboard' }
+      permission: { code: 'admin.dashboard' } // 使用 code 字段
     },
     {
       href: '/admin/users',
       label: '用户管理',
       icon: 'fas fa-users',
-      permission: { resource: 'users', action: 'view' }
+      permission: { code: 'users.view' } // 使用 code 字段
     },
     {
       href: '/admin/roles',
       label: '角色管理',
       icon: 'fas fa-user-tag',
-      permission: { resource: 'roles', action: 'view' }
+      permission: { code: 'roles.view' } // 使用 code 字段
     },
     {
       href: '/admin/permissions',
       label: '权限管理',
       icon: 'fas fa-key',
-      permission: { resource: 'permissions', action: 'view' }
+      permission: { code: 'permissions.view' } // 使用 code 字段
     },
     {
       href: '/admin/api-keys',
       label: 'API密钥管理',
       icon: 'fas fa-code',
-      permission: { resource: 'api-keys', action: 'view' }
+      permission: null // API密钥管理是个人功能，不需要权限检查
     },
     {
       href: '/admin/my-experiences',
@@ -79,7 +79,7 @@ export default function Sidebar() {
       href: '/admin/settings',
       label: '系统设置',
       icon: 'fas fa-cogs',
-      permission: { resource: 'admin', action: 'settings' }
+      permission: { code: 'admin.settings.view' } // 使用 code 字段
     },
   ];
 
@@ -91,8 +91,12 @@ export default function Sidebar() {
     // 超级管理员可以看到所有菜单
     if (user?.is_superuser) return true;
     
-    // 检查用户是否有对应权限
-    return checkPermission(item.permission.resource, item.permission.action);
+    // 检查用户是否有对应权限（使用 code 字段）
+    if (item.permission.code) {
+      return checkPermission(item.permission.code);
+    }
+    
+    return false;
   });
 
   return (

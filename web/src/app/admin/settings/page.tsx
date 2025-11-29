@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import PermissionGuard from '@/components/auth/PermissionGuard';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
 type AIServiceType = 'openai' | 'anthropic' | 'custom';
 
-export default function AdminSettingsPage() {
+function AdminSettingsContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [aiServiceType, setAiServiceType] = useState<AIServiceType>('openai');
@@ -34,50 +36,34 @@ export default function AdminSettingsPage() {
       return;
     }
 
-    // 如果没有 session，重定向到登录页
+    // 如果没有 session，不加载设置（PermissionGuard 会处理重定向）
     if (status === 'unauthenticated' || !session) {
-      router.push('/admin/login');
-      return;
-    }
-
-    // 验证管理员权限
-    const currentUser = session.user as any;
-    if (!currentUser?.is_superuser) {
-      router.push('/admin/dashboard');
       return;
     }
 
     // 加载设置
     const loadSettings = async () => {
       try {
-        const response = await fetch('/api/admin/settings', {
-          credentials: 'include'
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data && typeof data === 'object') {
-            // 先设置 aiServiceType
-            if (data.aiServiceType) {
-              setAiServiceType(data.aiServiceType);
-            }
-            // 然后设置 aiConfig，排除 aiServiceType
-            const { aiServiceType: _, ...config } = data;
-            setAiConfig(prevConfig => ({
-              ...prevConfig,
-              ...config
-            }));
+        const data = await apiFetch<any>('/api/admin/settings');
+        if (data && typeof data === 'object') {
+          // 先设置 aiServiceType
+          if (data.aiServiceType) {
+            setAiServiceType(data.aiServiceType);
           }
-        } else {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Failed to load settings:', response.status, errorData);
+          // 然后设置 aiConfig，排除 aiServiceType
+          const { aiServiceType: _, ...config } = data;
+          setAiConfig(prevConfig => ({
+            ...prevConfig,
+            ...config
+          }));
         }
       } catch (err) {
-        console.error('Failed to load settings:', err);
+        // apiFetch 已经处理了 toast 提示
       }
     };
 
     loadSettings();
-  }, [router, session, status]);
+  }, [session, status]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,19 +100,13 @@ export default function AdminSettingsPage() {
         if (aiConfig.customModel) settings.customModel = aiConfig.customModel;
       }
 
-      const response = await fetch('/api/admin/settings', {
+      await apiFetch('/api/admin/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify(settings),
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || '保存设置失败');
-      }
 
       setSuccess('设置已成功保存');
     } catch (err) {
@@ -546,7 +526,7 @@ export default function AdminSettingsPage() {
           }}>
             <button
               type="button"
-              onClick={() => router.push('/admin/dashboard')}
+              onClick={() => router.push('/admin/user-dashboard')}
               className="admin-btn admin-btn-outline"
             >
               <i className="fas fa-times"></i>
@@ -605,5 +585,13 @@ export default function AdminSettingsPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function AdminSettingsPage() {
+  return (
+    <PermissionGuard code="admin.settings.view">
+      <AdminSettingsContent />
+    </PermissionGuard>
   );
 }

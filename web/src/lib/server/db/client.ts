@@ -53,11 +53,8 @@ function transformToCamelCase(obj: any): any {
 export class DatabaseClient {
   // Execute a query with parameters
   async query<T = any>(text: string, params?: any[]): Promise<{ rows: T[]; rowCount: number | null }> {
-    const start = Date.now();
     try {
       const result = await sql.unsafe(text, params);
-      const duration = Date.now() - start;
-      console.log('Executed query', { text, duration, rows: result.length });
       return { rows: result as unknown as T[], rowCount: result.length };
     } catch (error) {
       console.error('Database query error', { text, error });

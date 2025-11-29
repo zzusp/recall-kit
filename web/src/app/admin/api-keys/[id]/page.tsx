@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
 interface ApiKey {
   id: string;
@@ -32,18 +33,10 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
   const fetchApiKey = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/api-keys/${apiKeyId}`, {
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch API key');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch<ApiKey>(`/api/api-keys/${apiKeyId}`);
       setApiKey(data);
     } catch (error) {
-      console.error('Error fetching API key:', error);
+      // apiFetch 已经处理了 toast 提示
       setApiKey(null);
     } finally {
       setLoading(false);
@@ -77,19 +70,12 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/api-keys/${apiKeyId}`, {
-        method: 'DELETE',
-        credentials: 'include'
+      await apiFetch(`/api/api-keys/${apiKeyId}`, {
+        method: 'DELETE'
       });
-
-      if (response.ok) {
-        router.push('/admin/api-keys');
-      } else {
-        toast.error('删除API密钥失败');
-      }
+      router.push('/admin/api-keys');
     } catch (error) {
-      console.error('Error deleting API key:', error);
-      toast.error('删除API密钥失败');
+      // apiFetch 已经处理了 toast 提示
     }
   };
 
@@ -238,24 +224,16 @@ function EditApiKeyModal({ apiKey, onClose, onSave }: EditApiKeyModalProps) {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/api-keys/${apiKey.id}`, {
+      await apiFetch(`/api/api-keys/${apiKey.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify(formData)
       });
-
-      if (response.ok) {
-        onSave();
-      } else {
-        const error = await response.json();
-        toast.error(error.message || '保存失败');
-      }
+      onSave();
     } catch (error) {
-      console.error('Error saving API key:', error);
-      toast.error('保存失败');
+      // apiFetch 已经处理了 toast 提示
     } finally {
       setLoading(false);
     }

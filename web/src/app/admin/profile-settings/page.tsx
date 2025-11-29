@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import PermissionGuard from '@/components/auth/PermissionGuard';
+import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
-export default function ProfileSettingsPage() {
+function ProfileSettingsContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [user, setUser] = useState<any>(null);
@@ -28,9 +30,8 @@ export default function ProfileSettingsPage() {
       return;
     }
 
-    // 如果没有 session，重定向到登录页
+    // 如果没有 session，不加载数据（PermissionGuard 会处理重定向）
     if (status === 'unauthenticated' || !session) {
-      router.push('/admin/login');
       return;
     }
 
@@ -61,29 +62,23 @@ export default function ProfileSettingsPage() {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/admin/profile-settings', {
+      await apiFetch('/api/admin/profile-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify(profileData),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || '保存个人设置失败');
-      }
-
       setSuccess('个人设置已成功保存');
       
-      // 更新本地用户信息
-      const updatedUser = await getCurrentUser();
-      if (updatedUser) {
-        setUser(updatedUser);
+      // 更新本地用户信息（从 session 中获取）
+      if (session?.user) {
+        setUser(session.user as any);
       }
 
     } catch (err) {
+      // apiFetch 已经处理了 toast 提示
       setError(err instanceof Error ? err.message : '保存个人设置失败');
     } finally {
       setIsLoading(false);
@@ -108,22 +103,16 @@ export default function ProfileSettingsPage() {
     setIsPasswordLoading(true);
 
     try {
-      const response = await fetch('/api/admin/profile-settings/password', {
+      await apiFetch('/api/admin/profile-settings/password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword,
         }),
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || '修改密码失败');
-      }
 
       setSuccess('密码修改成功');
       setPasswordData({
@@ -133,6 +122,7 @@ export default function ProfileSettingsPage() {
       });
 
     } catch (err) {
+      // apiFetch 已经处理了 toast 提示
       setError(err instanceof Error ? err.message : '修改密码失败');
     } finally {
       setIsPasswordLoading(false);
@@ -318,5 +308,13 @@ export default function ProfileSettingsPage() {
         )}
       </div>
     </>
+  );
+}
+
+export default function ProfileSettingsPage() {
+  return (
+    <PermissionGuard requireAuth={true}>
+      <ProfileSettingsContent />
+    </PermissionGuard>
   );
 }
