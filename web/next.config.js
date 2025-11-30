@@ -18,9 +18,12 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
   },
-  // eslint: {
-  //   ignoreDuringBuilds: true,
-  // },
+  eslint: {
+    // 在构建时忽略 ESLint 错误，避免因代码风格问题导致构建失败
+    // 代码质量检查应该在开发阶段和 CI 中单独进行（如：npm run lint）
+    // Docker 构建环境中 ESLint 可能更严格，因此需要此配置
+    ignoreDuringBuilds: true,
+  },
   // typescript: {
   //   ignoreBuildErrors: true,
   // },

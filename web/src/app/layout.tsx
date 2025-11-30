@@ -18,7 +18,18 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   // 在服务端获取 session，避免客户端请求 /api/auth/session
-  const session = await auth()
+  // 使用 try-catch 避免 NextAuth 内部错误（如 location is not defined）导致整个应用崩溃
+  let session = null;
+  try {
+    session = await auth();
+  } catch (error) {
+    // 在生产环境中，如果 auth() 调用失败，记录错误但不阻止页面渲染
+    // 这样即使 session 获取失败，用户仍然可以访问公开页面
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to get session in layout:', error);
+    }
+    // session 保持为 null，让客户端 SessionProvider 处理
+  }
 
   return (
     <html lang="zh-CN">

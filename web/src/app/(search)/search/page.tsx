@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ExperienceList } from '@/components/experience/ExperienceList';
 import { ExperienceRecord } from '@/lib/server/services/experience';
 import { api, ApiError } from '@/lib/client/services/api';
-import { getApiUrl } from '@/config/paths';
+import { getApiUrl, getFullPath } from '@/config/paths';
 
 export default function SearchPage() {
   return (
@@ -301,7 +301,7 @@ function SearchPageContent() {
                 onClick={async () => {
                   // 在跳转前增加查看次数
                   await incrementViewCount(experience.id);
-                  window.location.href = `/web/experience/${experience.id}`;
+                  window.location.href = getFullPath(`/experience/${experience.id}`);
                 }}
               >
                 <div className="feature-card !items-start !text-left cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300">

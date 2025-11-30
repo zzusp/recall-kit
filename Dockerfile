@@ -75,8 +75,13 @@ COPY --from=web-deps /app/.next/static ./web/.next/static
 EXPOSE 3000
 EXPOSE 3001
 
-# 复制启动脚本
-COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+# 复制启动脚本并确保使用 Unix 换行符
+COPY ./docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN apk add --no-cache dos2unix && \
+    dos2unix /app/docker-entrypoint.sh && \
+    chmod +x /app/docker-entrypoint.sh && \
+    ls -la /app/docker-entrypoint.sh
 
+# 先清空基础镜像的默认 ENTRYPOINT，然后设置我们的脚本
+ENTRYPOINT []
 CMD ["/app/docker-entrypoint.sh"]

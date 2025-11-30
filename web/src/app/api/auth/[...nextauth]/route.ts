@@ -9,4 +9,3 @@ import { handlers } from '@/lib/auth';
 // 导出路由处理器（Next.js 15 要求）
 export const GET = handlers.GET;
 export const POST = handlers.POST;
-
