@@ -84,6 +84,7 @@ COMMENT ON COLUMN public.api_keys.created_at IS 'API密钥创建时间';
 
 COMMENT ON COLUMN public.api_keys.updated_at IS 'API密钥最后更新时间';
 
+
 --
 -- Name: experience_records; Type: TABLE; Schema: public; Owner: root
 --
@@ -106,7 +107,7 @@ CREATE TABLE public.experience_records (
     deleted_at timestamp(6) with time zone,
     publish_status character varying(20) DEFAULT 'published'::character varying NOT NULL,
     is_deleted boolean DEFAULT false NOT NULL,
-    keywords TEXT[] DEFAULT ARRAY[]::TEXT[],
+    keywords text[] DEFAULT ARRAY[]::text[],
     CONSTRAINT check_publish_status CHECK (((publish_status)::text = ANY (ARRAY[('published'::character varying)::text, ('draft'::character varying)::text, ('publishing'::character varying)::text, ('rejected'::character varying)::text])))
 );
 
@@ -253,11 +254,15 @@ COMMENT ON COLUMN public.experience_records.keywords IS '经验关键字数组�
 CREATE TABLE public.permissions (
     id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
     name character varying(100) NOT NULL,
-    resource character varying(50) NOT NULL,
-    action character varying(50) NOT NULL,
+    code character varying(100),
+    type character varying(20) NOT NULL,
+    parent_id uuid,
+    page_path character varying(200),
     description text,
-    created_at timestamp(6) with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp(6) with time zone DEFAULT now() NOT NULL
+    sort_order integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    created_at timestamp(6) without time zone DEFAULT now(),
+    updated_at timestamp(6) without time zone DEFAULT now()
 );
 
 
@@ -267,56 +272,84 @@ ALTER TABLE public.permissions OWNER TO root;
 -- Name: TABLE permissions; Type: COMMENT; Schema: public; Owner: root
 --
 
-COMMENT ON TABLE public.permissions IS '权限表：定义系统中可用的各种权限';
+COMMENT ON TABLE public.permissions IS '权限表，采用树形结构存储权限信息，支持模块-页面-功能三级结构';
 
 
 --
 -- Name: COLUMN permissions.id; Type: COMMENT; Schema: public; Owner: root
 --
 
-COMMENT ON COLUMN public.permissions.id IS '主键ID，使用UUID格式';
+COMMENT ON COLUMN public.permissions.id IS '权限主键ID';
 
 
 --
 -- Name: COLUMN permissions.name; Type: COMMENT; Schema: public; Owner: root
 --
 
-COMMENT ON COLUMN public.permissions.name IS '权限名称';
+COMMENT ON COLUMN public.permissions.name IS '权限显示名称，根据type不同含义不同：module=模块名，page=页面名，function=功能名';
 
 
 --
--- Name: COLUMN permissions.resource; Type: COMMENT; Schema: public; Owner: root
+-- Name: COLUMN permissions.code; Type: COMMENT; Schema: public; Owner: root
 --
 
-COMMENT ON COLUMN public.permissions.resource IS '权限控制的资源类型';
+COMMENT ON COLUMN public.permissions.code IS '权限代码，function类型必填且唯一，用于权限检查，格式如：users.view';
 
 
 --
--- Name: COLUMN permissions.action; Type: COMMENT; Schema: public; Owner: root
+-- Name: COLUMN permissions.type; Type: COMMENT; Schema: public; Owner: root
 --
 
-COMMENT ON COLUMN public.permissions.action IS '权限允许的操作类型';
+COMMENT ON COLUMN public.permissions.type IS '权限类型：module（模块）、page（页面）、function（功能）';
+
+
+--
+-- Name: COLUMN permissions.parent_id; Type: COMMENT; Schema: public; Owner: root
+--
+
+COMMENT ON COLUMN public.permissions.parent_id IS '父权限ID，用于构建树形结构，NULL表示根节点';
+
+
+--
+-- Name: COLUMN permissions.page_path; Type: COMMENT; Schema: public; Owner: root
+--
+
+COMMENT ON COLUMN public.permissions.page_path IS '页面路径，page类型必填，用于路由权限检查，如：/admin/users';
 
 
 --
 -- Name: COLUMN permissions.description; Type: COMMENT; Schema: public; Owner: root
 --
 
-COMMENT ON COLUMN public.permissions.description IS '权限描述说明';
+COMMENT ON COLUMN public.permissions.description IS '权限描述信息';
+
+
+--
+-- Name: COLUMN permissions.sort_order; Type: COMMENT; Schema: public; Owner: root
+--
+
+COMMENT ON COLUMN public.permissions.sort_order IS '排序顺序，用于控制权限在树中的显示顺序';
+
+
+--
+-- Name: COLUMN permissions.is_active; Type: COMMENT; Schema: public; Owner: root
+--
+
+COMMENT ON COLUMN public.permissions.is_active IS '是否启用，false表示该权限已被禁用';
 
 
 --
 -- Name: COLUMN permissions.created_at; Type: COMMENT; Schema: public; Owner: root
 --
 
-COMMENT ON COLUMN public.permissions.created_at IS '权限创建时间';
+COMMENT ON COLUMN public.permissions.created_at IS '创建时间';
 
 
 --
 -- Name: COLUMN permissions.updated_at; Type: COMMENT; Schema: public; Owner: root
 --
 
-COMMENT ON COLUMN public.permissions.updated_at IS '权限最后更新时间';
+COMMENT ON COLUMN public.permissions.updated_at IS '更新时间';
 
 
 --
@@ -725,11 +758,11 @@ ALTER TABLE ONLY public.experience_records
 
 
 --
--- Name: permissions permissions_name_key; Type: CONSTRAINT; Schema: public; Owner: root
+-- Name: permissions permissions_code_key; Type: CONSTRAINT; Schema: public; Owner: root
 --
 
 ALTER TABLE ONLY public.permissions
-    ADD CONSTRAINT permissions_name_key UNIQUE (name);
+    ADD CONSTRAINT permissions_code_key UNIQUE (code);
 
 
 --
@@ -778,14 +811,6 @@ ALTER TABLE ONLY public.system_settings
 
 ALTER TABLE ONLY public.system_settings
     ADD CONSTRAINT system_settings_setting_key_key UNIQUE (setting_key);
-
-
---
--- Name: permissions unique_permission; Type: CONSTRAINT; Schema: public; Owner: root
---
-
-ALTER TABLE ONLY public.permissions
-    ADD CONSTRAINT unique_permission UNIQUE (resource, action);
 
 
 --
@@ -909,6 +934,13 @@ CREATE INDEX idx_experience_records_is_deleted ON public.experience_records USIN
 
 
 --
+-- Name: idx_experience_records_keywords; Type: INDEX; Schema: public; Owner: root
+--
+
+CREATE INDEX idx_experience_records_keywords ON public.experience_records USING gin (keywords);
+
+
+--
 -- Name: idx_experience_records_publish_status; Type: INDEX; Schema: public; Owner: root
 --
 
@@ -942,39 +974,33 @@ CREATE INDEX idx_experience_records_search ON public.experience_records USING gi
 
 CREATE INDEX idx_experience_records_user_id ON public.experience_records USING btree (user_id);
 
---
--- Name: idx_experience_records_keywords; Type: INDEX; Schema: public; Owner: root
---
-
-CREATE INDEX idx_experience_records_keywords ON public.experience_records USING GIN (keywords);
-
 
 --
--- Name: idx_permissions_action; Type: INDEX; Schema: public; Owner: root
+-- Name: idx_permissions_code; Type: INDEX; Schema: public; Owner: root
 --
 
-CREATE INDEX idx_permissions_action ON public.permissions USING btree (action);
+CREATE INDEX idx_permissions_code ON public.permissions USING btree (code) WHERE (code IS NOT NULL);
 
 
 --
--- Name: idx_permissions_created_at; Type: INDEX; Schema: public; Owner: root
+-- Name: idx_permissions_page_path; Type: INDEX; Schema: public; Owner: root
 --
 
-CREATE INDEX idx_permissions_created_at ON public.permissions USING btree (created_at DESC);
-
-
---
--- Name: idx_permissions_name; Type: INDEX; Schema: public; Owner: root
---
-
-CREATE INDEX idx_permissions_name ON public.permissions USING btree (name);
+CREATE INDEX idx_permissions_page_path ON public.permissions USING btree (page_path) WHERE (page_path IS NOT NULL);
 
 
 --
--- Name: idx_permissions_resource; Type: INDEX; Schema: public; Owner: root
+-- Name: idx_permissions_parent_id; Type: INDEX; Schema: public; Owner: root
 --
 
-CREATE INDEX idx_permissions_resource ON public.permissions USING btree (resource);
+CREATE INDEX idx_permissions_parent_id ON public.permissions USING btree (parent_id);
+
+
+--
+-- Name: idx_permissions_type; Type: INDEX; Schema: public; Owner: root
+--
+
+CREATE INDEX idx_permissions_type ON public.permissions USING btree (type);
 
 
 --
@@ -1083,6 +1109,14 @@ CREATE INDEX idx_users_username ON public.users USING btree (username);
 
 
 --
+-- Name: permissions permissions_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.permissions
+    ADD CONSTRAINT permissions_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.permissions(id) ON DELETE CASCADE;
+
+
+--
 -- Name: user_roles user_roles_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: root
 --
 
@@ -1096,4 +1130,4 @@ ALTER TABLE ONLY public.user_roles
 
 ALTER TABLE ONLY public.user_sessions
     ADD CONSTRAINT user_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
+    
