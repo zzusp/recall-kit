@@ -30,7 +30,7 @@ async function checkCircularReference(permissionId: string, newParentId: string)
     }
     visited.add(currentId);
 
-    const result = await db.query(
+    const result: { rows: Array<{ parent_id: string | null }>; rowCount: number | null } = await db.query(
       'SELECT parent_id FROM permissions WHERE id = $1',
       [currentId]
     );

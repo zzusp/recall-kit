@@ -3,7 +3,7 @@
  * 用于在 API 路由和 Server Components 中获取会话
  */
 
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 
 /**
  * 获取当前用户会话

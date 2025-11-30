@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from '@/lib/client/services/toast';
-import PermissionTree, { PermissionTreeNode } from './PermissionTree';
+import PermissionTree from './PermissionTree';
+import type { PermissionTreeNode } from './PermissionTreeNode';
 import { getApiUrl } from '@/config/paths';
 
 interface Role {

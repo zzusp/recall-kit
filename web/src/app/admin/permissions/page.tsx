@@ -4,7 +4,8 @@ import { toast } from '@/lib/client/services/toast';
 import PermissionGuard from '@/components/auth/PermissionGuard';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Permission } from '@/types/database/auth';
-import PermissionTree, { PermissionTreeNode } from '@/components/admin/PermissionTree';
+import PermissionTree from '@/components/admin/PermissionTree';
+import type { PermissionTreeNode } from '@/components/admin/PermissionTreeNode';
 import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
 interface PermissionTreeResponse {

@@ -99,7 +99,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const existingRole = existingRoleResult.rows[0];
 
     // Only superusers can modify system roles, but they cannot change system_role flag
-    if (existingRole.is_system_role && !user.is_superuser) {
+    if (existingRole.is_system_role && !currentUser.is_superuser) {
       return NextResponse.json(
         { error: 'Cannot modify system roles' },
         { status: 403 }
