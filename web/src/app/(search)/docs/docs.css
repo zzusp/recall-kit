@@ -1,0 +1,784 @@
+/* 文档页面样式 */
+.docs-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+  min-height: 100vh;
+}
+
+/* 头部样式 */
+.docs-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.docs-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.breadcrumb-link {
+  color: #4361ee;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.breadcrumb-link:hover {
+  color: #3a0ca3;
+}
+
+.breadcrumb-separator {
+  color: #cbd5e1;
+}
+
+.breadcrumb-current {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.docs-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.docs-subtitle {
+  font-size: 1.2rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* 布局样式 */
+.docs-layout {
+  display: flex;
+  gap: 2rem;
+}
+
+/* 侧边栏样式 */
+.docs-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 2rem;
+  height: fit-content;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+.docs-nav-content {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+}
+
+.docs-nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0.875rem 1rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.docs-nav-item:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.docs-nav-item.active {
+  background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
+  color: white;
+}
+
+.docs-nav-item i {
+  width: 20px;
+  text-align: center;
+  font-size: 1rem;
+}
+
+/* 主内容区域 */
+.docs-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.docs-content {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  border: 1px solid #e2e8f0;
+}
+
+.docs-section {
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.docs-section h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.docs-section h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.docs-section h4 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #334155;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.docs-section p {
+  color: #64748b;
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+
+/* 介绍卡片样式 */
+.docs-intro {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.intro-card {
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.intro-card:hover {
+  border-color: #4361ee;
+  box-shadow: 0 8px 24px rgba(67, 97, 238, 0.15);
+  transform: translateY(-4px);
+}
+
+.intro-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  color: white;
+  font-size: 1.5rem;
+}
+
+.intro-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.intro-card p {
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* 特性网格 */
+.features-grid {
+  margin-top: 2rem;
+}
+
+.feature-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.feature-item:hover {
+  border-color: #4361ee;
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.15);
+}
+
+.feature-item i {
+  width: 24px;
+  height: 24px;
+  color: #4361ee;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.feature-item h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.feature-item p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* 步骤容器 */
+.steps-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.step-item:hover {
+  border-color: #4361ee;
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.15);
+}
+
+.step-number {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.step-content h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.step-content p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* 快速命令 */
+.quick-commands {
+  margin-top: 2rem;
+}
+
+.command-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.command-item {
+  padding: 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.command-item code {
+  background: #e2e8f0;
+  color: #1e293b;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: inline-block;
+}
+
+.command-item p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* 配置部分 */
+.config-section {
+  display: grid;
+  gap: 2rem;
+}
+
+.config-steps {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.config-step {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.config-step ul {
+  margin: 0.5rem 0 0 0;
+  padding-left: 1.5rem;
+  color: #64748b;
+}
+
+.config-step li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.troubleshooting {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.troubleshooting h4 {
+  margin: 0 0 1rem 0;
+  color: #92400e;
+}
+
+.troubleshooting ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.troubleshooting li {
+  margin-bottom: 0.5rem;
+  color: #92400e;
+  line-height: 1.6;
+}
+
+/* 代码块样式 */
+.code-block {
+  background: #1e293b;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.code-block pre {
+  margin: 0;
+  color: #e2e8f0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* 示例块 */
+.example-blocks {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.example-block {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.example-block h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #475569;
+}
+
+/* IDE 列表 */
+.ide-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.ide-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.ide-item i {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.ide-item h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+}
+
+.ide-item p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* 管理功能 */
+.admin-features {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.feature-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.feature-description ul {
+  margin: 0.75rem 0 0 0;
+  padding-left: 1.5rem;
+  color: #64748b;
+}
+
+.feature-description li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+/* 部署部分 */
+.deployment-section {
+  display: grid;
+  gap: 2rem;
+}
+
+.deployment-options {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.deployment-option {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.env-config {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.env-config ul {
+  margin: 0.75rem 0 1.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.env-config li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.env-config code {
+  background: #e2e8f0;
+  color: #1e293b;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.deployment-tips {
+  background: #dcfce7;
+  border: 1px solid #22c55e;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.deployment-tips h4 {
+  margin: 0 0 1rem 0;
+  color: #166534;
+}
+
+.deployment-tips ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.deployment-tips li {
+  margin-bottom: 0.5rem;
+  color: #166534;
+  line-height: 1.6;
+}
+
+/* API 参考 */
+.api-reference {
+  display: grid;
+  gap: 2rem;
+}
+
+.api-endpoints {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.api-endpoint {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.api-method {
+  display: inline-block;
+  background: #4361ee;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.api-path {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: #1e293b;
+  color: #4cc9f0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  display: inline-block;
+}
+
+.api-params ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.api-params li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.api-params code {
+  background: #e2e8f0;
+  color: #1e293b;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.mcp-commands {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.mcp-command {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.mcp-command h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.mcp-command p {
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+}
+
+/* FAQ 部分 */
+.faq-section {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.faq-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.faq-item h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+
+.faq-answer p {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.95rem;
+}
+
+.faq-answer ol {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.faq-answer li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .docs-layout {
+    flex-direction: column;
+  }
+
+  .docs-sidebar {
+    width: 100%;
+    position: static;
+    max-height: none;
+  }
+
+  .docs-nav-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .docs-nav-item {
+    flex: 1;
+    min-width: 150px;
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .docs-container {
+    padding: 1rem;
+    margin: 1rem;
+  }
+
+  .docs-title {
+    font-size: 2rem;
+  }
+
+  .docs-content {
+    padding: 1.5rem;
+  }
+
+  .docs-intro,
+  .feature-list,
+  .steps-container {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-nav-content {
+    flex-direction: column;
+  }
+
+  .docs-nav-item {
+    min-width: auto;
+  }
+}
+
+/* 滚动条样式 */
+.docs-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.docs-sidebar::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.3);
+  border-radius: 3px;
+}
+
+.docs-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 3px;
+}
+
+.docs-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+
+.code-block::-webkit-scrollbar {
+  height: 8px;
+}
+
+.code-block::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.1);
+  border-radius: 4px;
+}
+
+.code-block::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+}
+
+.code-block::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
