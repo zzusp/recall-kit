@@ -30,7 +30,7 @@ body {
   background: white;
   border-radius: 20px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
-  margin: 2rem auto;
+  margin: 2rem 1rem 2rem 1rem;
   padding-top: 2rem;
   padding-bottom: 3rem;
   position: relative;
@@ -443,7 +443,7 @@ body {
   padding: 6rem 2rem;
   background: linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(76, 201, 240, 0.05) 100%);
   border-radius: 24px;
-  margin: 0 2rem 2rem 2rem;
+  margin: 0;
   overflow: hidden;
   min-height: 500px;
   display: flex;

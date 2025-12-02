@@ -32,12 +32,12 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       </head>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <Providers session={session}>
           {children}
         </Providers>
@@ -45,6 +45,12 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{
           __html: `
             if (typeof window !== 'undefined') {
+              // 修复 hydration mismatch：确保客户端 HTML 与服务端一致
+              // 移除可能由浏览器扩展或其他脚本添加的 data-theme 属性
+              if (document.documentElement.hasAttribute('data-theme')) {
+                document.documentElement.removeAttribute('data-theme');
+              }
+              
               window.addEventListener('error', function(e) {
                 if (e.message && e.message.includes('content_script')) {
                   console.warn('🔧 浏览器扩展错误已忽略，建议禁用扩展');

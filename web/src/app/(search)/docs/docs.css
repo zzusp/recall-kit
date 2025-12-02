@@ -1,7 +1,7 @@
 /* 文档页面样式 */
 .docs-container {
   max-width: 1400px;
-  margin: 0 auto;
+  margin: 2rem 1rem 2rem 1rem;
   padding: 2rem;
   background: white;
   border-radius: 20px;
@@ -11,44 +11,16 @@
 
 /* 头部样式 */
 .docs-header {
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
   padding-bottom: 1.5rem;
   border-bottom: 2px solid #e2e8f0;
-}
-
-.docs-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  color: #64748b;
-}
-
-.breadcrumb-link {
-  color: #4361ee;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.breadcrumb-link:hover {
-  color: #3a0ca3;
-}
-
-.breadcrumb-separator {
-  color: #cbd5e1;
-}
-
-.breadcrumb-current {
-  color: #1e293b;
-  font-weight: 500;
 }
 
 .docs-title {
   font-size: 2.5rem;
   font-weight: 700;
   color: #1e293b;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -65,6 +37,7 @@
 .docs-layout {
   display: flex;
   gap: 2rem;
+  margin-bottom: 2rem;
 }
 
 /* 侧边栏样式 */
@@ -76,6 +49,9 @@
   height: fit-content;
   max-height: calc(100vh - 4rem);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .docs-nav-content {
@@ -83,6 +59,58 @@
   border-radius: 12px;
   padding: 1rem;
   border: 1px solid #e2e8f0;
+}
+
+/* 目录样式 */
+.docs-toc {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+}
+
+.docs-toc h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.toc-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.toc-item {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  width: 100%;
+}
+
+.toc-item:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.toc-item.level-3 {
+  padding-left: 1.5rem;
+  font-size: 0.8rem;
+}
+
+.toc-item.level-4 {
+  padding-left: 2rem;
+  font-size: 0.75rem;
 }
 
 .docs-nav-item {
@@ -128,12 +156,17 @@
 .docs-content {
   background: white;
   border-radius: 12px;
-  padding: 2rem;
+  padding: 2.5rem;
   border: 1px solid #e2e8f0;
 }
 
 .docs-section {
   animation: fadeIn 0.5s ease;
+  margin-bottom: 3rem;
+}
+
+.docs-section:last-child {
+  margin-bottom: 0;
 }
 
 @keyframes fadeIn {
@@ -151,7 +184,7 @@
   font-size: 2rem;
   font-weight: 700;
   color: #1e293b;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   padding-bottom: 0.75rem;
   border-bottom: 2px solid #e2e8f0;
 }
@@ -160,37 +193,37 @@
   font-size: 1.5rem;
   font-weight: 600;
   color: #1e293b;
-  margin-top: 2rem;
-  margin-bottom: 1rem;
+  margin-top: 2.5rem;
+  margin-bottom: 1.5rem;
 }
 
 .docs-section h4 {
   font-size: 1.2rem;
   font-weight: 600;
   color: #334155;
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
 }
 
 .docs-section p {
   color: #64748b;
   line-height: 1.7;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 /* 介绍卡片样式 */
 .docs-intro {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
 }
 
 .intro-card {
   background: #f8fafc;
   border: 2px solid #e2e8f0;
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 2rem;
   text-align: center;
   transition: all 0.3s ease;
 }
@@ -209,14 +242,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1rem;
+  margin: 0 auto 1.5rem;
   color: white;
   font-size: 1.5rem;
 }
 
 .intro-card h3 {
   margin-top: 0;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .intro-card p {
@@ -227,20 +260,20 @@
 
 /* 特性网格 */
 .features-grid {
-  margin-top: 2rem;
+  margin-top: 2.5rem;
 }
 
 .feature-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .feature-item {
   display: flex;
   align-items: flex-start;
   gap: 1rem;
-  padding: 1.25rem;
+  padding: 1.5rem;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -262,7 +295,7 @@
 }
 
 .feature-item h4 {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.75rem 0;
   font-size: 1.1rem;
 }
 
@@ -271,67 +304,217 @@
   font-size: 0.9rem;
 }
 
-/* 步骤容器 */
-.steps-container {
+/* 快速开始样式 */
+.getting-started-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 2rem;
+  margin-bottom: 3rem;
 }
 
-.step-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1.5rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+.getting-started-step {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 2rem;
   transition: all 0.3s ease;
 }
 
-.step-item:hover {
+.getting-started-step:hover {
   border-color: #4361ee;
-  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.15);
+  box-shadow: 0 8px 24px rgba(67, 97, 238, 0.1);
 }
 
-.step-number {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.step-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   flex-shrink: 0;
 }
 
-.step-content h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
+.step-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
 }
 
-.step-content p {
+.getting-started-step p {
+  color: #64748b;
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+  font-size: 1.05rem;
+}
+
+.step-action {
+  margin-top: 1.5rem;
+}
+
+.action-button {
+  display: inline-block;
+  background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(67, 97, 238, 0.3);
+}
+
+.step-details {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.step-details h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.step-details ol {
   margin: 0;
+  padding-left: 1.5rem;
+}
+
+.step-details li {
+  margin-bottom: 0.75rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.step-details ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.step-details ul li {
+  margin-bottom: 0.75rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* 接下来做什么部分 */
+.getting-started-next {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 2rem;
+}
+
+.getting-started-next h3 {
+  margin: 0 0 2rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.next-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.next-step-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.next-step-card:hover {
+  border-color: #4361ee;
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.1);
+}
+
+.next-step-card h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.next-step-card p {
+  margin: 0 0 1rem 0;
+  color: #64748b;
   font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.next-step-button {
+  background: none;
+  border: 1px solid #4361ee;
+  color: #4361ee;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.next-step-button:hover {
+  background: #4361ee;
+  color: white;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .getting-started-container {
+    gap: 1.5rem;
+  }
+
+  .getting-started-step {
+    padding: 1.5rem;
+  }
+
+  .step-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .next-steps {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* 快速命令 */
 .quick-commands {
-  margin-top: 2rem;
+  margin-top: 2.5rem;
 }
 
 .command-list {
   display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
 }
 
 .command-item {
-  padding: 1.25rem;
+  padding: 1.5rem;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -356,29 +539,29 @@
 /* 配置部分 */
 .config-section {
   display: grid;
-  gap: 2rem;
+  gap: 2.5rem;
 }
 
 .config-steps {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .config-step {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1.75rem;
 }
 
 .config-step ul {
-  margin: 0.5rem 0 0 0;
+  margin: 0.75rem 0 0 0;
   padding-left: 1.5rem;
   color: #64748b;
 }
 
 .config-step li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   line-height: 1.6;
 }
 
@@ -386,8 +569,8 @@
   background: #fef3c7;
   border: 1px solid #f59e0b;
   border-radius: 12px;
-  padding: 1.5rem;
-  margin-top: 1.5rem;
+  padding: 1.75rem;
+  margin-top: 1.75rem;
 }
 
 .troubleshooting h4 {
@@ -410,9 +593,47 @@
 .code-block {
   background: #1e293b;
   border-radius: 8px;
-  padding: 1rem;
-  margin: 1rem 0;
+  margin: 1.25rem 0;
   overflow-x: auto;
+  position: relative;
+}
+
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(30, 41, 59, 0.8);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.1);
+  border-radius: 8px 8px 0 0;
+}
+
+.code-header span {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.copy-button {
+  background: rgba(67, 97, 238, 0.2);
+  border: 1px solid rgba(67, 97, 238, 0.3);
+  color: #4cc9f0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copy-button:hover {
+  background: rgba(67, 97, 238, 0.3);
+  border-color: rgba(67, 97, 238, 0.5);
+}
+
+.copy-button:active {
+  transform: scale(0.95);
 }
 
 .code-block pre {
@@ -422,24 +643,25 @@
   font-size: 0.9rem;
   line-height: 1.5;
   white-space: pre-wrap;
+  padding: 1rem;
 }
 
 /* 示例块 */
 .example-blocks {
   display: grid;
-  gap: 1rem;
-  margin: 1rem 0;
+  gap: 1.25rem;
+  margin: 1.25rem 0;
 }
 
 .example-block {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.25rem;
+  padding: 1.5rem;
 }
 
 .example-block h4 {
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 1rem 0;
   font-size: 1rem;
   color: #475569;
 }
@@ -447,15 +669,15 @@
 /* IDE 列表 */
 .ide-list {
   display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
 }
 
 .ide-item {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1.25rem;
+  padding: 1.5rem;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -487,50 +709,50 @@
 /* 管理功能 */
 .admin-features {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .feature-section {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1.75rem;
 }
 
 .feature-description ul {
-  margin: 0.75rem 0 0 0;
+  margin: 1rem 0 0 0;
   padding-left: 1.5rem;
   color: #64748b;
 }
 
 .feature-description li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   line-height: 1.6;
 }
 
 /* 部署部分 */
 .deployment-section {
   display: grid;
-  gap: 2rem;
+  gap: 2.5rem;
 }
 
 .deployment-options {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .deployment-option {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1.75rem;
 }
 
 .env-config {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1.75rem;
 }
 
 .env-config ul {
@@ -539,7 +761,7 @@
 }
 
 .env-config li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   line-height: 1.6;
 }
 
@@ -556,8 +778,8 @@
   background: #dcfce7;
   border: 1px solid #22c55e;
   border-radius: 12px;
-  padding: 1.5rem;
-  margin-top: 1.5rem;
+  padding: 1.75rem;
+  margin-top: 1.75rem;
 }
 
 .deployment-tips h4 {
@@ -571,7 +793,7 @@
 }
 
 .deployment-tips li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   color: #166534;
   line-height: 1.6;
 }
@@ -579,41 +801,70 @@
 /* API 参考 */
 .api-reference {
   display: grid;
-  gap: 2rem;
+  gap: 2.5rem;
 }
 
 .api-endpoints {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .api-endpoint {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1.75rem;
 }
 
 .api-method {
-  display: inline-block;
-  background: #4361ee;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 20px;
+  font-size: 0.825rem;
+  font-weight: 700;
+  margin-right: 1rem;
+  margin-bottom: 1rem;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+  vertical-align: top;
+  height: 40px;
+  line-height: 1;
+}
+
+.api-method:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 .api-path {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  background: #1e293b;
-  color: #4cc9f0;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: #60a5fa;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.925rem;
   margin-bottom: 1rem;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  box-shadow: 0 2px 8px rgba(30, 41, 59, 0.2);
+  transition: all 0.2s ease;
+  position: relative;
+  vertical-align: top;
+  height: 40px;
+  line-height: 1;
+}
+
+.api-path:hover {
+  border-color: rgba(96, 165, 250, 0.4);
+  box-shadow: 0 4px 12px rgba(30, 41, 59, 0.3);
 }
 
 .api-params ul {
@@ -622,7 +873,7 @@
 }
 
 .api-params li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   line-height: 1.6;
 }
 
@@ -637,18 +888,18 @@
 
 .mcp-commands {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .mcp-command {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1.75rem;
 }
 
 .mcp-command h4 {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.75rem 0;
   font-size: 1.1rem;
 }
 
@@ -660,14 +911,14 @@
 /* FAQ 部分 */
 .faq-section {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .faq-item {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1.75rem;
 }
 
 .faq-item h3 {
@@ -687,12 +938,21 @@
 }
 
 .faq-answer li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   line-height: 1.6;
 }
 
 /* 响应式设计 */
 @media (max-width: 1024px) {
+  .docs-header-content {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .docs-search {
+    width: 100%;
+  }
+
   .docs-layout {
     flex-direction: column;
   }
@@ -744,6 +1004,12 @@
   .docs-nav-item {
     min-width: auto;
   }
+
+  .code-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
 }
 
 /* 滚动条样式 */
@@ -781,4 +1047,36 @@
 
 .code-block::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
+}
+
+/* 目录路径样式 */
+.note-highlight {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  border: 1px solid #0ea5e9;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  color: #0c4a6e;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
+  line-height: 1.6;
+}
+
+.directory-path {
+  background: rgba(14, 165, 233, 0.15);
+  color: #0c4a6e;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.directory-path:hover {
+  background: rgba(14, 165, 233, 0.25);
+  border-color: rgba(14, 165, 233, 0.5);
+  transform: scale(1.02);
 }

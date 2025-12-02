@@ -1,11 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import './docs.css';
+import './docs.css?v=' + Date.now() + Math.random();
 
 export default function DocsPage() {
   const [activeSection, setActiveSection] = useState('introduction');
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedCode(text);
+      setTimeout(() => setCopiedCode(null), 2000); // 2秒后重置状态
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      // 降级方案
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopiedCode(text);
+        setTimeout(() => setCopiedCode(null), 2000);
+      } catch (err) {
+        console.error('Fallback: Failed to copy text: ', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
 
   const menuItems = [
     { id: 'introduction', label: 'Recall Kit 介绍', icon: 'fas fa-book' },
@@ -21,11 +46,6 @@ export default function DocsPage() {
   return (
     <div className="docs-container">
       <div className="docs-header">
-        <div className="docs-breadcrumb">
-          <Link href="/" className="breadcrumb-link">首页</Link>
-          <span className="breadcrumb-separator">/</span>
-          <span className="breadcrumb-current">文档</span>
-        </div>
         <h1 className="docs-title">Recall Kit 使用文档</h1>
         <p className="docs-subtitle">AI开发踩坑记录检索平台的完整使用指南</p>
       </div>
@@ -122,46 +142,128 @@ export default function DocsPage() {
             {activeSection === 'getting-started' && (
               <section className="docs-section">
                 <h2>快速开始</h2>
-                <div className="steps-container">
-                  <div className="step-item">
-                    <div className="step-number">1</div>
-                    <div className="step-content">
-                      <h3>注册账号</h3>
-                      <p>访问 Recall Kit 平台，点击"管理后台登录"进行账号注册或登录。</p>
+                
+                <div className="getting-started-container">
+                  <div className="getting-started-step">
+                    <div className="step-header">
+                      <div className="step-badge">1</div>
+                      <h3>创建账户</h3>
+                    </div>
+                    <p>访问 Recall Kit 管理后台，创建你的账户并登录系统。</p>
+                    <div className="step-action">
+                      <a href="/admin/login" className="action-button">访问管理后台</a>
                     </div>
                   </div>
-                  <div className="step-item">
-                    <div className="step-number">2</div>
-                    <div className="step-content">
-                      <h3>获取 API 密钥</h3>
-                      <p>在管理后台的"API 密钥"页面创建新的 API 密钥，用于后续的 MCP 配置。</p>
+
+                  <div className="getting-started-step">
+                    <div className="step-header">
+                      <div className="step-badge">2</div>
+                      <h3>生成 API 密钥</h3>
+                    </div>
+                    <p>在管理后台中创建 API 密钥，用于连接 MCP 服务器。</p>
+                    <div className="step-details">
+                      <h4>步骤：</h4>
+                      <ol>
+                        <li>进入"API 密钥"页面</li>
+                        <li>点击"创建新密钥"</li>
+                        <li>设置密钥名称和权限</li>
+                        <li>复制生成的密钥</li>
+                      </ol>
                     </div>
                   </div>
-                  <div className="step-item">
-                    <div className="step-number">3</div>
-                    <div className="step-content">
-                      <h3>配置 MCP</h3>
-                      <p>在你的 IDE 中配置 MCP 服务器，使用获取的 API 密钥进行身份验证。</p>
+
+                  <div className="getting-started-step">
+                    <div className="step-header">
+                      <div className="step-badge">3</div>
+                      <h3>配置 IDE</h3>
+                    </div>
+                    <p>在你的 IDE 中配置 MCP 服务器连接。</p>
+                    <div className="step-details">
+                      <h4>配置文件示例：</h4>
+                      <div className="code-block">
+                        <div className="code-header">
+                          <span>JSON</span>
+                          <button 
+                            className="copy-button"
+                            onClick={() => copyToClipboard(`{
+  "mcpServers": {
+    "recall-kit": {
+      "url": "http://www.codeva-cn.com:3101/sse?api_key=your-api-key"
+    }
+  }
+}`)}
+                          >
+                            {copiedCode === `{
+  "mcpServers": {
+    "recall-kit": {
+      "url": "http://www.codeva-cn.com:3101/sse?api_key=your-api-key"
+    }
+  }
+}` ? '已复制!' : '复制'}
+                          </button>
+                        </div>
+                        <pre>{`{
+  "mcpServers": {
+    "recall-kit": {
+      "url": "http://www.codeva-cn.com:3101/sse?api_key=your-api-key"
+    }
+  }
+}`}</pre>
+                      </div>
                     </div>
                   </div>
-                  <div className="step-item">
-                    <div className="step-number">4</div>
-                    <div className="step-content">
+
+                  <div className="getting-started-step">
+                    <div className="step-header">
+                      <div className="step-badge">4</div>
                       <h3>开始使用</h3>
-                      <p>配置完成后，即可在 IDE 中使用 AI 助手查询和提交经验记录。</p>
+                    </div>
+                    <p>在 IDE 的 MCP 中开启，你就可以开始使用 Recall Kit 了。</p>
+                    <div className="step-details">
+                      <h4>可用功能：</h4>
+                      <ul>
+                        <li>通过自然语言查询、参考相关经验</li>
+                        <li>借鉴相似场景案例的经验，实现功能或修复问题</li>
+                        <li>让 AI 助手总结对话生成经验文档到本地</li>
+                        <li>让 AI 助手提交经验文档到平台</li>
+                        <li>在平台共享和积累开发经验</li>
+                      </ul>
                     </div>
                   </div>
                 </div>
-                <div className="quick-commands">
-                  <h3>快速命令参考</h3>
-                  <div className="command-list">
-                    <div className="command-item">
-                      <code>查询相关经验</code>
-                      <p>在 IDE 中直接询问 AI 助手相关问题，它会自动查询 Recall Kit 中的相关经验</p>
+
+                <div className="getting-started-next">
+                  <h3>接下来做什么？</h3>
+                  <div className="next-steps">
+                    <div className="next-step-card">
+                      <h4>了解 MCP 配置</h4>
+                      <p>深入了解 MCP 协议和配置选项</p>
+                      <button 
+                        className="next-step-button"
+                        onClick={() => setActiveSection('mcp-configuration')}
+                      >
+                        查看详情 →
+                      </button>
                     </div>
-                    <div className="command-item">
-                      <code>提交新经验</code>
-                      <p>告诉 AI 助手"请保存这个经验"，它会将当前问题的解决方案保存到平台</p>
+                    <div className="next-step-card">
+                      <h4>IDE 使用指南</h4>
+                      <p>学习如何在 IDE 中高效使用 Recall Kit</p>
+                      <button 
+                        className="next-step-button"
+                        onClick={() => setActiveSection('ide-usage')}
+                      >
+                        查看详情 →
+                      </button>
+                    </div>
+                    <div className="next-step-card">
+                      <h4>API 参考</h4>
+                      <p>探索可用的 API 和 MCP 命令</p>
+                      <button 
+                        className="next-step-button"
+                        onClick={() => setActiveSection('api-reference')}
+                      >
+                        查看详情 →
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -192,23 +294,39 @@ export default function DocsPage() {
                       <h4>2. 配置 IDE</h4>
                       <p>在你的 IDE 中配置 MCP 服务器：</p>
                       <div className="code-block">
+                        <div className="code-header">
+                          <span>JSON</span>
+                          <button 
+                            className="copy-button"
+                            onClick={() => copyToClipboard(`{
+  "mcpServers": {
+    "recall-kit": {
+      "url": "http://www.codeva-cn.com:3101/sse?api_key=your-api-key"
+    }
+  }
+}`)}
+                          >
+                            {copiedCode === `{
+  "mcpServers": {
+    "recall-kit": {
+      "url": "http://www.codeva-cn.com:3101/sse?api_key=your-api-key"
+    }
+  }
+}` ? '已复制!' : '复制'}
+                          </button>
+                        </div>
                         <pre>{`{
   "mcpServers": {
     "recall-kit": {
-      "command": "node",
-      "args": ["mcp-server/src/index.js"],
-      "env": {
-        "RECALL_KIT_API_KEY": "your-api-key-here",
-        "RECALL_KIT_BASE_URL": "https://your-domain.com"
-      }
+      "url": "http://www.codeva-cn.com:3101/sse?api_key=your-api-key"
     }
   }
 }`}</pre>
                       </div>
                     </div>
                     <div className="config-step">
-                      <h4>3. 重启 IDE</h4>
-                      <p>配置完成后，重启你的 IDE 以加载 MCP 服务器。</p>
+                      <h4>3. 开启插件</h4>
+                      <p>配置完成后，在 IDE 的 MCP 中开启，你就可以开始使用 Recall Kit 了。</p>
                     </div>
                   </div>
                   <div className="troubleshooting">
@@ -231,29 +349,85 @@ export default function DocsPage() {
                   <p>在 IDE 中，你可以通过自然语言查询相关经验：</p>
                   <div className="example-blocks">
                     <div className="example-block">
-                      <h4>示例 1：查询特定错误</h4>
+                      <h4>示例 1：特定错误修复</h4>
                       <div className="code-block">
-                        <pre>{`我遇到了 React 的 "Cannot read property 'map' of undefined" 错误，有什么解决方案吗？`}</pre>
+                        <div className="code-header">
+                          <span>查询示例</span>
+                          <button 
+                            className="copy-button"
+                            onClick={() => copyToClipboard(`我遇到了 React 的 "Cannot read property 'map' of undefined" 错误，请修复。可以查找经验平台中相关的经验和解决方案用来参考`)}
+                          >
+                            {copiedCode === `我遇到了 React 的 "Cannot read property 'map' of undefined" 错误，请修复。可以查找经验平台中相关的经验和解决方案用来参考` ? '已复制!' : '复制'}
+                          </button>
+                        </div>
+                        <pre>{`我遇到了 React 的 "Cannot read property 'map' of undefined" 错误，请修复。可以查找经验平台中相关的经验和解决方案用来参考`}</pre>
                       </div>
                     </div>
                     <div className="example-block">
                       <h4>示例 2：查询最佳实践</h4>
                       <div className="code-block">
-                        <pre>{`Node.js 中处理异步操作的最佳实践是什么？`}</pre>
+                        <div className="code-header">
+                          <span>查询示例</span>
+                          <button 
+                            className="copy-button"
+                            onClick={() => copyToClipboard(`是否有Node.js 中处理异步操作的最佳实践的相关经验？`)}
+                          >
+                            {copiedCode === `是否有Node.js 中处理异步操作的最佳实践的相关经验？` ? '已复制!' : '复制'}
+                          </button>
+                        </div>
+                        <pre>{`是否有Node.js 中处理异步操作的最佳实践的相关经验？`}</pre>
+                      </div>
+                    </div>
+                    <div className="example-block">
+                      <h4>示例 3：经验ID查询</h4>
+                      <div className="code-block">
+                        <div className="code-header">
+                          <span>查询示例</span>
+                          <button 
+                            className="copy-button"
+                            onClick={() => copyToClipboard(`请查询经验ID为 exp-12345 的详细内容`)}
+                          >
+                            {copiedCode === `请查询经验ID为 exp-12345 的详细内容` ? '已复制!' : '复制'}
+                          </button>
+                        </div>
+                        <pre>{`请查询经验ID为 550e8400-e29b-41d4-a716-446655440000 的详细内容`}</pre>
                       </div>
                     </div>
                   </div>
-                  <h3>提交经验</h3>
-                  <p>当你解决了问题时，可以告诉 AI 助手保存经验：</p>
+                  <h3>总结经验</h3>
+                  <p>在功能实现或问题修复后，你可以让 Agent 总结当前对话的完整上下文，提取关键信息，生成指定格式的文档：</p>
                   <div className="example-blocks">
                     <div className="example-block">
-                      <h4>提交命令</h4>
+                      <h4>总结命令（支持MCP Prompt）</h4>
                       <div className="code-block">
-                        <pre>{`请将刚才的解决方案保存到 Recall Kit，包含：
-- 问题描述
-- 根本原因
-- 解决方案
-- 相关关键词`}</pre>
+                        <pre>{`/recall-kit/summarize_experience`}</pre>
+                      </div>
+                    </div>
+                    <div className="example-block">
+                      <h4>总结命令（不支持MCP Prompt）</h4>
+                      <div className="code-block">
+                        <pre>{`请按照 .recall-kit/summarize_experience.md 文件所写，总结当前对话，并生成文档`}</pre>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="note-highlight">
+                    💡 文档会自动生成在 <code className="directory-path">spec/experiences/</code> 目录下<br />
+                    &nbsp;&nbsp;你可以检查生成文档的内容，并可以修改文档内容<br />
+                    &nbsp;&nbsp;如：删除敏感信息、增改关键词等
+                  </div>
+                  <h3>提交经验</h3>
+                  <p>当你检查过文档内容之后，可以让 Agent 提交文档内容到平台：</p>
+                  <div className="example-blocks">
+                    <div className="example-block">
+                      <h4>提交命令（支持MCP Prompt）</h4>
+                      <div className="code-block">
+                        <pre>{`/recall-kit/submit_doc_experience`}</pre>
+                      </div>
+                    </div>
+                    <div className="example-block">
+                      <h4>提交命令（不支持MCP Prompt）</h4>
+                      <div className="code-block">
+                        <pre>{`请按照 .recall-kit/submit_doc_experience.md 文件所写，提交 spec/experiences/xxxxxx.md 文档到平台`}</pre>
                       </div>
                     </div>
                   </div>
@@ -383,13 +557,9 @@ cd ../mcp-server && npm start`}</pre>
                     <h4>必需配置</h4>
                     <ul>
                       <li><code>DATABASE_URL</code> - 数据库连接字符串</li>
-                      <li><code>JWT_SECRET</code> - JWT 签名密钥</li>
-                      <li><code>OPENAI_API_KEY</code> - OpenAI API 密钥（用于向量嵌入）</li>
                     </ul>
                     <h4>可选配置</h4>
                     <ul>
-                      <li><code>REDIS_URL</code> - Redis 连接字符串（缓存）</li>
-                      <li><code>SMTP_CONFIG</code> - 邮件服务配置</li>
                       <li><code>LOG_LEVEL</code> - 日志级别</li>
                     </ul>
                   </div>
@@ -438,23 +608,6 @@ npm run db:seed`}</pre>
                         </ul>
                       </div>
                     </div>
-                    <div className="api-endpoint">
-                      <h4>创建经验</h4>
-                      <div className="api-method">POST</div>
-                      <div className="api-path">/api/experiences</div>
-                      <div className="api-params">
-                        <h5>请求体：</h5>
-                        <div className="code-block">
-                          <pre>{`{
-  "title": "经验标题",
-  "problem_description": "问题描述",
-  "root_cause": "根本原因",
-  "solution": "解决方案",
-  "keywords": ["关键词1", "关键词2"]
-}`}</pre>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                   <h3>MCP API</h3>
                   <div className="mcp-commands">
@@ -466,9 +619,28 @@ npm run db:seed`}</pre>
   "tool": "query_experiences",
   "arguments": {
     "keywords": ["React", "error"],
-    "limit": 5
+    "ids": ["exp1", "exp2"],
+    "limit": 10,
+    "offset": 0,
+    "sort": "relevance"
   }
 }`}</pre>
+                      </div>
+                      <div className="api-params">
+                        <h5>参数说明：</h5>
+                        <ul>
+                          <li><code>keywords</code> - 搜索关键词数组（可选）</li>
+                          <li><code>ids</code> - 经验ID数组（可选）</li>
+                          <li><code>limit</code> - 返回数量限制（可选，默认值由配置决定）</li>
+                          <li><code>offset</code> - 偏移量（可选，默认0）</li>
+                          <li><code>sort</code> - 排序方式（可选，默认relevance）：
+                            <ul>
+                              <li><code>relevance</code> - 相关性排序</li>
+                              <li><code>query_count</code> - 查询次数排序</li>
+                              <li><code>created_at</code> - 创建时间排序</li>
+                            </ul>
+                          </li>
+                        </ul>
                       </div>
                     </div>
                     <div className="mcp-command">
@@ -536,7 +708,7 @@ npm run db:seed`}</pre>
                   <div className="faq-item">
                     <h3>Q: 支持哪些数据库？</h3>
                     <div className="faq-answer">
-                      <p><strong>A:</strong> 目前主要支持 PostgreSQL 12+ 版本。未来计划支持更多数据库类型。</p>
+                      <p><strong>A:</strong> 目前主要支持 PostgreSQL 16+ 版本。未来计划支持更多数据库类型。</p>
                     </div>
                   </div>
                   <div className="faq-item">
