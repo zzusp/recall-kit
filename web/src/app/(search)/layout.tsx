@@ -2,8 +2,8 @@ import '../globals.css'
 import Header from '@/components/Header'
 
 export const metadata = {
-  title: 'Recall Kit - AI开发踩坑记录检索平台',
-  description: '记录、分享、复用开发经验，让每一次踩坑都成为团队的智慧财富',
+  title: 'Recall Kit - AI开发经验知识库检索平台',
+  description: '记录、分享、复用开发经验，让每一次经验都成为团队的智慧财富',
 }
 
 export default function SearchLayout({

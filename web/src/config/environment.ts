@@ -10,7 +10,7 @@ export const environmentConfig = {
   app: {
     name: 'Recall Kit',
     version: process.env.npm_package_version || '1.0.0',
-    description: 'AI开发踩坑记录检索平台',
+    description: 'AI开发经验知识库检索平台',
     url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   },
   

@@ -47,7 +47,7 @@ export default function DocsPage() {
     <div className="docs-container">
       <div className="docs-header">
         <h1 className="docs-title">Recall Kit 使用文档</h1>
-        <p className="docs-subtitle">AI开发踩坑记录检索平台的完整使用指南</p>
+        <p className="docs-subtitle">AI开发经验知识库检索平台的完整使用指南</p>
       </div>
 
       <div className="docs-layout">
@@ -78,8 +78,8 @@ export default function DocsPage() {
                     </div>
                     <h3>什么是 Recall Kit？</h3>
                     <p>
-                      Recall Kit 是一个专为开发团队设计的 AI 开发踩坑记录检索平台。
-                      通过记录、分享和复用开发经验，让每一次踩坑都成为团队的智慧财富。
+                      Recall Kit 是一个专为开发团队设计的 AI 开发经验知识库检索平台。
+                      通过记录、分享和复用开发经验，让每一次经验都成为团队的智慧财富。
                     </p>
                   </div>
                   <div className="intro-card">
@@ -124,7 +124,7 @@ export default function DocsPage() {
                       <i className="fas fa-lightbulb"></i>
                       <div>
                         <h4>解决方案中心</h4>
-                        <p>共享最佳实践和解决方案，避免重复踩坑</p>
+                        <p>共享最佳实践和解决方案，避免重复问题</p>
                       </div>
                     </div>
                     <div className="feature-item">

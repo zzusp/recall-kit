@@ -24,7 +24,7 @@ export default async function HomePage() {
               <span>AI开发经验分享平台</span>
             </div>
             <h1 className="hero-title-modern">
-              让每一次踩坑
+              让每一次经验
               <br />
               <span className="gradient-text">成为团队的智慧财富</span>
             </h1>
@@ -228,7 +228,7 @@ export default async function HomePage() {
                 <i className="fas fa-lightbulb"></i>
               </div>
               <h3 className="feature-title-modern">解决方案中心</h3>
-              <p className="feature-desc-modern">共享最佳实践和解决方案，避免重复踩坑</p>
+              <p className="feature-desc-modern">共享最佳实践和解决方案，避免重复问题</p>
             </div>
             
             <div className="feature-card-modern">
@@ -264,7 +264,7 @@ export default async function HomePage() {
             <i className="fas fa-brain"></i>
             <span>Recall Kit</span>
           </div>
-          <p className="footer-text">AI开发踩坑记录检索平台</p>
+          <p className="footer-text">AI开发经验知识库检索平台</p>
           <p className="footer-copyright">© 2024 Recall Kit. All rights reserved.</p>
         </div>
       </footer>
