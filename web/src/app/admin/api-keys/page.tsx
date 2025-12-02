@@ -435,7 +435,7 @@ function ApiKeyModal({ apiKey, onClose, onSave }: ApiKeyModalProps) {
 
           <form onSubmit={handleSubmit}>
             <div className="admin-form-group">
-              <label className="admin-form-label flex items-center gap-2">
+              <label className="admin-form-label flex items-center gap-3">
                 <i className="fas fa-tag text-gray-400"></i>
                 密钥名称 *
               </label>

@@ -1601,7 +1601,8 @@ body {
 }
 
 .admin-form-label {
-  display: block;
+  display: flex;
+  align-items: center;
   margin-bottom: 0.5rem;
   font-weight: 600;
   color: #334155;
