@@ -39,7 +39,7 @@ export default function DocsPage() {
     { id: 'ide-usage', label: 'IDE 使用指南', icon: 'fas fa-code' },
     { id: 'admin-features', label: '后台管理功能', icon: 'fas fa-cog' },
     { id: 'deployment', label: '私有化部署', icon: 'fas fa-server' },
-    { id: 'api-reference', label: 'API 参考', icon: 'fas fa-api' },
+    { id: 'api-reference', label: 'API 参考', icon: 'fas fa-book-open' },
     { id: 'faq', label: '常见问题', icon: 'fas fa-question-circle' },
   ];
 
