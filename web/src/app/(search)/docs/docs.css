@@ -1,7 +1,7 @@
 /* 文档页面样式 */
 .docs-container {
-  max-width: 1400px;
-  margin: 2rem 1rem 2rem 1rem;
+  max-width: 1440px;
+  margin: 2rem auto;
   padding: 2rem;
   background: white;
   border-radius: 20px;
@@ -38,6 +38,7 @@
   display: flex;
   gap: 2rem;
   margin-bottom: 2rem;
+  padding: 0 2rem;
 }
 
 /* 侧边栏样式 */
@@ -980,7 +981,8 @@
 @media (max-width: 768px) {
   .docs-container {
     padding: 1rem;
-    margin: 1rem;
+    margin: 0.5rem;
+    border-radius: 16px;
   }
 
   .docs-title {
@@ -988,13 +990,19 @@
   }
 
   .docs-content {
-    padding: 1.5rem;
+    padding: 1rem;
+  }
+
+  .docs-layout {
+    padding: 0 0.5rem;
+    gap: 1rem;
   }
 
   .docs-intro,
   .feature-list,
   .steps-container {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .docs-nav-content {
@@ -1009,6 +1017,65 @@
     flex-direction: column;
     gap: 0.5rem;
     align-items: flex-start;
+  }
+
+  .intro-card,
+  .getting-started-step,
+  .config-step,
+  .api-endpoint,
+  .mcp-command,
+  .faq-item {
+    padding: 1rem;
+  }
+
+  .docs-section {
+    margin-bottom: 2rem;
+  }
+
+  .docs-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .docs-section h3 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .docs-container {
+    margin: 0.25rem;
+    padding: 0.5rem;
+  }
+
+  .docs-title {
+    font-size: 1.8rem;
+  }
+
+  .docs-content {
+    padding: 0.5rem;
+  }
+
+  .intro-card,
+  .getting-started-step,
+  .config-step,
+  .api-endpoint,
+  .mcp-command,
+  .faq-item {
+    padding: 0.8rem;
+  }
+
+  .step-badge {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .intro-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 1.2rem;
   }
 }
 
