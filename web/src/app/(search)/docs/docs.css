@@ -39,6 +39,7 @@
   gap: 2rem;
   margin-bottom: 2rem;
   padding: 0 2rem;
+  position: relative;
 }
 
 /* 侧边栏样式 */
@@ -46,13 +47,15 @@
   width: 280px;
   flex-shrink: 0;
   position: sticky;
-  top: 2rem;
+  top: 5rem;
   height: fit-content;
-  max-height: calc(100vh - 4rem);
+  max-height: calc(100vh - 5rem);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  margin-bottom: -2rem;
+  z-index: 10;
 }
 
 .docs-nav-content {
@@ -195,7 +198,7 @@
   font-weight: 600;
   color: #1e293b;
   margin-top: 2.5rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .docs-section h4 {
@@ -203,7 +206,7 @@
   font-weight: 600;
   color: #334155;
   margin-top: 2rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .docs-section p {
@@ -754,6 +757,40 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 1.75rem;
+}
+
+.database-setup {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.75rem;
+}
+
+/* 配置截图样式 */
+.config-image {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.config-screenshot {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.config-screenshot:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.image-caption {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: #64748b;
+  font-style: italic;
 }
 
 .env-config ul {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import './docs.css?v=' + Date.now() + Math.random();
+import './docs.css';
 
 export default function DocsPage() {
   const [activeSection, setActiveSection] = useState('introduction');
@@ -421,7 +421,7 @@ export default function DocsPage() {
                     <div className="example-block">
                       <h4>提交命令（支持MCP Prompt）</h4>
                       <div className="code-block">
-                        <pre>{`/recall-kit/submit_doc_experience`}</pre>
+                        <pre>{`/recall-kit/submit_doc_experience 提交 spec/experiences/xxxxxx.md 文档到平台`}</pre>
                       </div>
                     </div>
                     <div className="example-block">
@@ -431,27 +431,27 @@ export default function DocsPage() {
                       </div>
                     </div>
                   </div>
-                  <h3>支持的 IDE</h3>
+                  <h3>支持的工具</h3>
                   <div className="ide-list">
-                    <div className="ide-item">
-                      <i className="fas fa-code"></i>
-                      <div>
-                        <h4>VS Code</h4>
-                        <p>通过 MCP 插件集成，支持完整的查询和提交功能</p>
-                      </div>
-                    </div>
                     <div className="ide-item">
                       <i className="fas fa-rocket"></i>
                       <div>
-                        <h4>Cursor</h4>
+                        <h4>AI IDE：Cursor、Qoder、Comate、Trae、Kiro等</h4>
                         <p>原生支持 MCP 协议，无需额外配置</p>
+                      </div>
+                    </div>
+                    <div className="ide-item">
+                      <i className="fas fa-code"></i>
+                      <div>
+                        <h4>VS Code Extensions, IntelliJ IDEA Plugins：Copilot、通义千问等</h4>
+                        <p>通过 MCP 插件集成，支持完整的查询和提交功能</p>
                       </div>
                     </div>
                     <div className="ide-item">
                       <i className="fas fa-robot"></i>
                       <div>
-                        <h4>其他支持 MCP 的 IDE</h4>
-                        <p>只要支持 MCP 协议的 IDE 都可以使用 Recall Kit</p>
+                        <h4>其他支持 MCP 的 AI 工具或平台：Claude Code CLI、Gemini CLI等</h4>
+                        <p>只要支持 MCP 协议的 AI 工具都可以使用 Recall Kit</p>
                       </div>
                     </div>
                   </div>
@@ -469,8 +469,7 @@ export default function DocsPage() {
                       <p>管理用于 MCP 连接的 API 密钥，确保安全的访问控制。</p>
                       <ul>
                         <li>创建新密钥</li>
-                        <li>查看密钥使用统计</li>
-                        <li>设置密钥权限和过期时间</li>
+                        <li>查看/复制密钥信息</li>
                         <li>禁用或删除密钥</li>
                       </ul>
                     </div>
@@ -481,7 +480,8 @@ export default function DocsPage() {
                       <p>查看和管理你提交的所有经验记录。</p>
                       <ul>
                         <li>浏览个人经验列表</li>
-                        <li>编辑和更新经验内容</li>
+                        <li>发布和取消发布经验内容</li>
+                        <li>向量化和清除向量</li>
                         <li>查看经验访问统计</li>
                         <li>删除不需要的经验</li>
                       </ul>
@@ -496,6 +496,17 @@ export default function DocsPage() {
                         <li>分配用户角色和权限</li>
                         <li>重置用户密码</li>
                         <li>管理用户状态</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="feature-section">
+                    <h3>系统设置（管理员）</h3>
+                    <div className="feature-description">
+                      <p>管理系统全局配置和基础设置。</p>
+                      <ul>
+                        <li>AI 服务配置</li>
+                        <li>角色管理</li>
+                        <li>权限管理</li>
                       </ul>
                     </div>
                   </div>
@@ -526,12 +537,11 @@ export default function DocsPage() {
                       <p>使用 Docker Compose 进行快速部署：</p>
                       <div className="code-block">
                         <pre>{`# 克隆项目
-git clone https://github.com/your-org/recall-kit.git
+git clone https://github.com/zzusp/recall-kit.git
 cd recall-kit
 
-# 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件，设置必要的配置
+# 配置环境变量 DATABASE_URL
+vi docker-compose.yaml
 
 # 启动服务
 docker-compose up -d`}</pre>
@@ -541,14 +551,26 @@ docker-compose up -d`}</pre>
                       <h4>源码部署</h4>
                       <p>从源码构建和部署：</p>
                       <div className="code-block">
-                        <pre>{`# 安装依赖
-npm install
+                        <pre>{`# 安装Web依赖
+cd web && npm install
 
-# 构建前端
-cd web && npm run build
+# 构建Web
+npm run build
+
+# 编辑 .env 文件，设置必要的配置
+cp .env.example .env
+
+# 启动Web服务
+npm start
+
+# 安装后端依赖
+cd ../mcp-server && npm install
+
+# 编辑 .env 文件，设置必要的配置
+cp .env.example .env
 
 # 启动后端服务
-cd ../mcp-server && npm start`}</pre>
+npm start`}</pre>
                       </div>
                     </div>
                   </div>
@@ -564,16 +586,76 @@ cd ../mcp-server && npm start`}</pre>
                     </ul>
                   </div>
                   <h3>数据库设置</h3>
-                  <p>Recall Kit 支持 PostgreSQL 数据库：</p>
-                  <div className="code-block">
-                    <pre>{`# 创建数据库
-createdb recall_kit
+                  <div className="database-setup">
+                    <p>Recall Kit 支持 PostgreSQL 数据库（需安装 pgvector ！！！），提供两种部署方式：</p>
+                    
+                    <h4>方式一：手动部署</h4>
+                    <div className="code-block">
+                      <pre>{`# 自行安装PostgreSQL，或使用已有PostgreSQL。需注意 PostgreSQL 必须安装 pgvector ！！！
+# 创建数据库
+CREATE DATABASE "recall_kit"
+WITH
+  ENCODING = 'UTF8'
+;
 
-# 运行迁移
-npm run db:migrate
+# 初始化数据库
+执行 sql/init_ddl.sql
 
-# 导入初始数据（可选）
-npm run db:seed`}</pre>
+# 导入初始数据
+执行 sql/init_dml.sql`}</pre>
+                    </div>
+                    
+                    <h4>方式二：Docker 快速部署</h4>
+                    <p>使用 <code>sql/docker-compose.yaml</code> 文件来快速部署数据库：</p>
+                    <div className="code-block">
+                      <pre>{`# 进入sql目录
+cd sql
+
+# 配置环境变量 POSTGRES_USER、POSTGRES_PASSWORD、POSTGRES_DB等
+vi docker-compose.yaml
+
+# 启动PostgreSQL数据库
+docker-compose up -d
+
+# 等待数据库启动后，创建数据库
+CREATE DATABASE "recall_kit"
+WITH
+  ENCODING = 'UTF8'
+;
+
+# 初始化数据库
+执行 sql/init_ddl.sql
+
+# 导入初始数据
+执行 sql/init_dml.sql`}</pre>
+                    </div>
+                  </div>
+                  <h3>配置向量化API</h3>
+                  <div className="database-setup">
+                    <p>完成数据库设置后，需要配置AI服务以支持向量化功能。请按以下步骤操作：</p>
+                    
+                    <h4>1. 登录管理后台</h4>
+                    <p>使用默认超管账号登录：</p>
+                    <div className="code-block">
+                      <pre>{`账号: admin
+密码: admin`}</pre>
+                    </div>
+                    <p><strong>注意：</strong>首次登录后请立即修改默认密码以确保安全。</p>
+                    
+                    <h4>2. 进入系统设置</h4>
+                    <p>登录成功后，导航至"系统设置" → "AI服务配置"页面。</p>
+                    
+                    <h4>3. 配置AI服务</h4>
+                    <div className="config-image">
+                      <img 
+                        src="/images/embedding_api.png" 
+                        alt="AI服务配置界面" 
+                        className="config-screenshot"
+                      />
+                      <p className="image-caption">在系统设置页面配置向量化API服务</p>
+                    </div>
+                    
+                    <p>根据提示填写相应的API密钥和服务配置信息，确保服务可用后即可正常使用Recall Kit的向量化功能。</p>
                   </div>
                   <div className="deployment-tips">
                     <h4>部署建议</h4>
@@ -657,6 +739,47 @@ npm run db:seed`}</pre>
     "keywords": ["React", "state", "setState"]
   }
 }`}</pre>
+                      </div>
+                      <div className="api-params">
+                        <h5>参数说明：</h5>
+                        <ul>
+                          <li><code>title</code> - 经验标题（必填）
+                            <ul>
+                              <li>简洁明确地描述经验主题</li>
+                              <li>建议包含技术栈和问题类型</li>
+                              <li>示例："React State 更新问题"</li>
+                            </ul>
+                          </li>
+                          <li><code>problem_description</code> - 问题描述（必填）
+                            <ul>
+                              <li>详细描述遇到的具体问题</li>
+                              <li>包含错误信息或异常现象</li>
+                              <li>示例："组件状态没有正确更新"</li>
+                            </ul>
+                          </li>
+                          <li><code>root_cause</code> - 根本原因（必填）
+                            <ul>
+                              <li>分析问题产生的根本原因</li>
+                              <li>说明技术原理或设计缺陷</li>
+                              <li>示例："使用了直接修改状态的方式"</li>
+                            </ul>
+                          </li>
+                          <li><code>solution</code> - 解决方案（必填）
+                            <ul>
+                              <li>提供具体的解决步骤和代码</li>
+                              <li>说明最佳实践和注意事项</li>
+                              <li>示例："使用 setState 或不可变更新"</li>
+                            </ul>
+                          </li>
+                          <li><code>keywords</code> - 关键词数组（必填）
+                            <ul>
+                              <li>提供相关的技术关键词，便于检索</li>
+                              <li>至少包含3个关键词</li>
+                              <li>建议包含技术栈、框架、工具名称等</li>
+                              <li>示例：["React", "state", "setState"]</li>
+                            </ul>
+                          </li>
+                        </ul>
                       </div>
                     </div>
                   </div>

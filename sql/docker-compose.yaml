@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  # Postgresql 18数据库
+  postgresql:
+    image: pgvector/pgvector:pg18 # 安装过pgvector的postgresql 18镜像
+    container_name: postgresql # 容器名称
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: your_password
+      POSTGRES_DB: postgres
+    volumes:
+      - "./pgdata:/var/lib/postgresql"
+

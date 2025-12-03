@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  # 主应用（基于根目录 Dockerfile，包含 Web 和 MCP Server）
+  recall-kit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: recall-kit
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://user:password@localhost:5432/recall_kit
+    volumes:
+      - ./mcp-server/logs:/app/mcp/logs
+      - ./logs:/app/logs
+
