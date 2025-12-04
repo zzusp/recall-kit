@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { usePermissions } from '@/components/auth/PermissionGuard';
-import { logout, removeSessionToken } from '@/lib/client/services/auth';
+import { usePermissions } from '@/hooks/usePermissions';
+import { logout } from '@/lib/client/services/auth';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, checkPermission } = usePermissions();
+  const { user, hasPermission } = usePermissions();
 
   const handleSignOut = async () => {
     try {
@@ -18,7 +18,6 @@ export default function Sidebar() {
     } catch (error) {
       console.error('Logout failed:', error);
       // Still redirect even if logout fails
-      removeSessionToken();
       router.push('/admin/login');
     }
   };
@@ -35,25 +34,25 @@ export default function Sidebar() {
       href: '/admin/dashboard',
       label: '管理仪表板',
       icon: 'fas fa-chart-line',
-      permission: { code: 'admin.dashboard' } // 使用 code 字段
+      permission: 'admin.dashboard' // 使用新的权限代码格式
     },
     {
       href: '/admin/users',
       label: '用户管理',
       icon: 'fas fa-users',
-      permission: { code: 'users.view' } // 使用 code 字段
+      permission: 'users.view' // 简化的权限代码
     },
     {
       href: '/admin/roles',
       label: '角色管理',
       icon: 'fas fa-user-tag',
-      permission: { code: 'roles.view' } // 使用 code 字段
+      permission: 'roles.view'
     },
     {
       href: '/admin/permissions',
       label: '权限管理',
       icon: 'fas fa-key',
-      permission: { code: 'permissions.view' } // 使用 code 字段
+      permission: 'permissions.view'
     },
     {
       href: '/admin/api-keys',
@@ -79,7 +78,7 @@ export default function Sidebar() {
       href: '/admin/settings',
       label: '系统设置',
       icon: 'fas fa-cogs',
-      permission: { code: 'admin.settings.view' } // 使用 code 字段
+      permission: 'admin.settings.view'
     },
   ];
 
@@ -91,12 +90,8 @@ export default function Sidebar() {
     // 超级管理员可以看到所有菜单
     if (user?.is_superuser) return true;
     
-    // 检查用户是否有对应权限（使用 code 字段）
-    if (item.permission.code) {
-      return checkPermission(item.permission.code);
-    }
-    
-    return false;
+    // 使用新的权限检查Hook
+    return hasPermission(item.permission);
   });
 
   return (

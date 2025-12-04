@@ -25,7 +25,7 @@ interface Experience {
   keywords: string[];
 }
 
-export default function ExperienceDetailPage() {
+function ExperienceDetailPageContent() {
   const params = useParams();
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -492,5 +492,13 @@ function InfoItem({
         {value}
       </div>
     </div>
+  );
+}
+
+export default function ExperienceDetailPage() {
+  return (
+    <PermissionGuard requireAuth={true}>
+      <ExperienceDetailPageContent />
+    </PermissionGuard>
   );
 }

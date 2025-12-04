@@ -1,7 +1,9 @@
 import { toast } from './toast';
+import { permissionToast } from './permissionToast';
 import { signOut } from 'next-auth/react';
 import { getSessionToken } from './auth';
 import { getApiUrl, BASE_PATH, getFullPath } from '@/config/paths';
+import { getErrorMessage } from '@/config/errorMessages';
 
 /**
  * 统一的 API 错误处理
@@ -25,9 +27,8 @@ export async function handleApiError(response: Response): Promise<never> {
   switch (status) {
     case 401:
       // 未授权，重定向到登录页
-      toast.warning('登录已过期，请重新登录', {
-        title: '未授权',
-        duration: 3000
+      permissionToast.sessionExpired({
+        duration: 3000,
       });
       // 延迟跳转，让用户看到提示
       // 注意：signOut 的 callbackUrl 需要使用 getFullPath 添加 basePath
@@ -38,24 +39,26 @@ export async function handleApiError(response: Response): Promise<never> {
       
     case 403:
       // 权限不足
-      toast.warning(errorMessage || '您没有权限执行此操作', {
-        title: '权限不足',
-        duration: 5000
+      permissionToast.forbidden({
+        customMessage: errorMessage,
+        duration: 5000,
       });
       throw new Error('FORBIDDEN');
       
     case 500:
       // 服务器错误
-      toast.error(errorMessage || '服务器内部错误，请稍后重试', {
-        title: '服务器错误',
+      const serverErrorMsg = getErrorMessage.getByType('INTERNAL_ERROR');
+      toast.error(errorMessage || serverErrorMsg.message, {
+        title: serverErrorMsg.title,
         duration: 5000
       });
       throw new Error('INTERNAL_SERVER_ERROR');
       
     default:
       // 其他错误
-      toast.error(errorMessage || `请求失败 (${status})`, {
-        title: '请求错误',
+      const genericErrorMsg = getErrorMessage.common('requestFailed');
+      toast.error(errorMessage || genericErrorMsg.message, {
+        title: genericErrorMsg.title,
         duration: 5000
       });
       throw new Error(`HTTP_${status}`);
@@ -110,8 +113,9 @@ export async function apiFetch<T = any>(
         } else {
           // 业务错误，但 HTTP 状态码是 200
           const errorMessage = data.error?.message || data.message || '操作失败';
-          toast.error(errorMessage, {
-            title: '操作失败',
+          const businessErrorMsg = getErrorMessage.common(errorMessage);
+          toast.error(businessErrorMsg.message, {
+            title: businessErrorMsg.title,
             duration: 5000
           });
           throw new Error(errorMessage);

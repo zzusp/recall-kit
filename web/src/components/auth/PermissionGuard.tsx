@@ -1,160 +1,305 @@
+/**
+ * 权限守卫组件
+ * 基于新的权限检查系统
+ */
+
 'use client';
 
-import { ReactNode, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { hasPermission, hasPagePermission, hasPermissionByResourceAction, AuthUser } from '@/lib/client/services/auth';
-import { toast } from '@/lib/client/services/toast';
+import { usePermissions } from '@/hooks/usePermissions';
+import { permissionToast } from '@/lib/client/services/permissionToast';
+import { getErrorMessage } from '@/config/errorMessages';
 
-interface PermissionGuardProps {
-  children: ReactNode;
-  // 新的权限检查方式（使用 code）
+export interface PermissionGuardProps {
+  children: React.ReactNode;
+  // 权限代码（function类型）
   code?: string;
-  // 页面权限检查（使用 page_path）
+  // 页面路径（page类型）
   pagePath?: string;
-  // 兼容旧的 resource + action 方式
+  // 模块代码（module类型）
+  moduleCode?: string;
+  // 资源和操作（兼容旧方式）
   resource?: string;
   action?: string;
+  // 多个权限，满足任一即可
+  anyPermissions?: string[];
+  // 多个权限，必须全部满足
+  allPermissions?: string[];
+  // 是否需要认证
   requireAuth?: boolean;
-  fallback?: ReactNode;
+  // 无权限时的显示内容
+  fallback?: React.ReactNode;
+  // 是否显示权限不足的提示
+  showToast?: boolean;
+  // 自定义权限不足的提示信息
+  unauthorizedMessage?: string;
+  // 自定义未登录的提示信息
+  loginRequiredMessage?: string;
+  // 禁用默认消息，完全使用自定义消息
+  useCustomMessages?: boolean;
 }
 
+/**
+ * 权限守卫组件
+ * 根据用户权限控制组件的显示
+ */
 export default function PermissionGuard({
   children,
   code,
   pagePath,
+  moduleCode,
   resource,
   action,
+  anyPermissions,
+  allPermissions,
   requireAuth = true,
-  fallback
+  fallback = null,
+  showToast = true,
+  unauthorizedMessage,
+  loginRequiredMessage,
+  useCustomMessages = false,
 }: PermissionGuardProps) {
+  // 使用统一的消息配置，除非明确指定使用自定义消息
+  const defaultUnauthorizedMessage = useCustomMessages 
+    ? unauthorizedMessage || '您没有权限访问此功能'
+    : unauthorizedMessage || getErrorMessage.forbidden().message;
+    
+  const defaultLoginRequiredMessage = useCustomMessages
+    ? loginRequiredMessage || '请先登录'
+    : loginRequiredMessage || getErrorMessage.unauthorized('needLogin').message;
+  
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const {
+    hasPermission,
+    hasPagePermission,
+    hasModulePermission,
+    hasAnyPermission,
+    hasAllPermissions,
+    hasPermissionByResourceAction,
+    isAuthenticated,
+    isLoading,
+  } = usePermissions();
+  
   const hasShownToast = useRef(false);
 
-  // 检查权限（必须在所有 hooks 调用之前计算）
+  // 检查权限
   let hasAccess = true;
-  if (session?.user) {
-    const currentUser = session.user as any as AuthUser;
-
-    // 优先使用新的权限检查方式
-    if (code) {
-      hasAccess = hasPermission(currentUser, code);
-    } else if (pagePath) {
-      hasAccess = hasPagePermission(currentUser, pagePath);
-    } else if (resource && action) {
-      // 兼容旧的 resource + action 方式
-      hasAccess = hasPermissionByResourceAction(currentUser, resource, action);
-    }
+  
+  if (code) {
+    hasAccess = hasPermission(code);
+  } else if (pagePath) {
+    hasAccess = hasPagePermission(pagePath);
+  } else if (moduleCode) {
+    hasAccess = hasModulePermission(moduleCode);
+  } else if (resource && action) {
+    hasAccess = hasPermissionByResourceAction(resource, action);
+  } else if (anyPermissions && anyPermissions.length > 0) {
+    hasAccess = hasAnyPermission(anyPermissions);
+  } else if (allPermissions && allPermissions.length > 0) {
+    hasAccess = hasAllPermissions(allPermissions);
   }
 
-  // 如果没有权限，显示 toast 提示（必须在条件 return 之前调用）
+  // 显示权限不足的提示
   useEffect(() => {
-    if (!hasAccess && !hasShownToast.current && status !== 'loading') {
-      toast.warning('您没有权限访问此页面', {
-        title: '权限不足',
-        duration: 5000
+    if (!hasAccess && isAuthenticated && showToast && !hasShownToast.current && !isLoading) {
+      permissionToast.forbidden({
+        customMessage: defaultUnauthorizedMessage,
+        duration: 5000,
       });
       hasShownToast.current = true;
     }
-  }, [hasAccess, status]);
+  }, [hasAccess, isAuthenticated, showToast, defaultUnauthorizedMessage, isLoading]);
 
-  // 重置 toast 标志（当权限检查通过时）
+  // 重置toast标记
   useEffect(() => {
     if (hasAccess) {
       hasShownToast.current = false;
     }
   }, [hasAccess]);
 
-  // 如果 session 还在加载中，显示加载状态
-  if (status === 'loading') {
+  // 加载状态
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-32">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p>验证权限中...</p>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-500">验证权限中...</p>
         </div>
       </div>
     );
   }
 
-  // 如果需要认证但没有 session，重定向到登录页
-  if (requireAuth && (status === 'unauthenticated' || !session)) {
-    router.push('/admin/login');
-    return null;
-  }
-
-  // 如果没有权限，显示无权限提示页面
-  if (!hasAccess) {
-    if (fallback) {
-      return <>{fallback}</>;
+  // 需要认证但未登录
+  if (requireAuth && !isAuthenticated) {
+    if (showToast && !hasShownToast.current) {
+      permissionToast.unauthorized({
+        customMessage: defaultLoginRequiredMessage,
+        duration: 3000,
+      });
+      hasShownToast.current = true;
     }
+
+    // 可以选择重定向到登录页
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        router.push('/admin/login');
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }, [router]);
+
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-32">
         <div className="text-center">
-          <i className="fas fa-exclamation-triangle text-yellow-500 text-5xl mb-4"></i>
-          <h2 className="text-2xl font-bold mb-2">权限不足</h2>
-          <p className="text-gray-600 mb-4">您没有权限访问此页面</p>
-          <button
-            onClick={() => router.back()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            <i className="fas fa-arrow-left mr-2"></i>
-            返回上一页
-          </button>
+          <i className="fas fa-info-circle text-blue-500 text-3xl mb-2"></i>
+          <p className="text-gray-600">{defaultLoginRequiredMessage}</p>
         </div>
       </div>
     );
+  }
+
+  // 权限不足，显示fallback
+  if (!hasAccess) {
+    return <>{fallback}</>;
+  }
+
+  // 有权限，显示子组件
+  return <>{children}</>;
+}
+
+/**
+ * 简化的权限守卫组件
+ * 只需要传入权限代码
+ */
+export function SimplePermissionGuard({
+  code,
+  children,
+  fallback = null,
+}: {
+  code: string;
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
+  return (
+    <PermissionGuard code={code} fallback={fallback}>
+      {children}
+    </PermissionGuard>
+  );
+}
+
+/**
+ * 页面权限守卫组件
+ */
+export function PagePermissionGuard({
+  pagePath,
+  children,
+  fallback = null,
+}: {
+  pagePath: string;
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
+  return (
+    <PermissionGuard pagePath={pagePath} fallback={fallback}>
+      {children}
+    </PermissionGuard>
+  );
+}
+
+/**
+ * 管理员权限守卫组件
+ */
+export function AdminGuard({
+  children,
+  fallback = null,
+}: {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
+  const { isAdminOrSuperuser } = usePermissions();
+
+  if (!isAdminOrSuperuser) {
+    return <>{fallback}</>;
   }
 
   return <>{children}</>;
 }
 
-// Hook for checking permissions in components
-export function usePermissions() {
-  const { data: session, status } = useSession();
-  const user = session?.user as any as AuthUser | null;
-  const loading = status === 'loading';
+/**
+ * 超级用户权限守卫组件
+ */
+export function SuperuserGuard({
+  children,
+  fallback = null,
+}: {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
+  const { isSuperuser } = usePermissions();
 
-  const checkPermission = (codeOrResource: string, action?: string): boolean => {
-    if (!user) return false;
-    // 如果提供了 action，说明是旧的 resource + action 方式
-    if (action) {
-      return hasPermissionByResourceAction(user, codeOrResource, action);
-    }
-    // 否则使用新的 code 方式
-    return hasPermission(user, codeOrResource);
-  };
+  if (!isSuperuser()) {
+    return <>{fallback}</>;
+  }
 
-  const checkPermissionByResourceAction = (resource: string, action: string): boolean => {
-    if (!user) return false;
-    return hasPermissionByResourceAction(user, resource, action);
-  };
+  return <>{children}</>;
+}
 
-  const checkPagePermission = (pagePath: string): boolean => {
-    if (!user) return false;
-    return hasPagePermission(user, pagePath);
-  };
+/**
+ * 角色守卫组件
+ */
+export function RoleGuard({
+  roleName,
+  children,
+  fallback = null,
+}: {
+  roleName: string;
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
+  const { hasRole } = usePermissions();
 
-  const checkAnyPermission = (permissions: Array<{ resource: string; action: string }>): boolean => {
-    if (!user) return false;
-    return user.is_superuser || permissions.some(({ resource, action }) => 
-      checkPermission(resource, action)
-    );
-  };
+  if (!hasRole(roleName)) {
+    return <>{fallback}</>;
+  }
 
-  const hasRole = (roleName: string): boolean => {
-    if (!user) return false;
-    return user.roles.some(role => role.name === roleName);
-  };
+  return <>{children}</>;
+}
 
-  return {
-    user,
-    loading,
-    checkPermission,
-    checkPermissionByResourceAction,
-    checkPagePermission,
-    checkAnyPermission,
-    hasRole
-  };
+/**
+ * 多权限守卫组件（任一权限即可）
+ */
+export function AnyPermissionGuard({
+  permissions,
+  children,
+  fallback = null,
+}: {
+  permissions: string[];
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
+  return (
+    <PermissionGuard anyPermissions={permissions} fallback={fallback}>
+      {children}
+    </PermissionGuard>
+  );
+}
+
+/**
+ * 多权限守卫组件（需要所有权限）
+ */
+export function AllPermissionsGuard({
+  permissions,
+  children,
+  fallback = null,
+}: {
+  permissions: string[];
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
+  return (
+    <PermissionGuard allPermissions={permissions} fallback={fallback}>
+      {children}
+    </PermissionGuard>
+  );
 }

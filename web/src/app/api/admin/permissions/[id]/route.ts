@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
 import { getServerSession, hasPermission } from '@/lib/server/auth';
+import { ApiRouteError, ErrorMessages } from '@/lib/utils/apiResponse';
 
 export const runtime = 'nodejs';
 
@@ -84,20 +85,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // 使用 NextAuth.js 验证会话
     const session = await getServerSession();
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return ApiRouteError.unauthorized();
     }
 
     const currentUser = session.user as any;
 
     // Check if user has permission to update permissions
     if (!currentUser.is_superuser && !hasPermission(session, 'permissions.edit')) {
-      return NextResponse.json(
-        { error: '您没有权限执行此操作' },
-        { status: 403 }
-      );
+      return ApiRouteError.forbidden();
     }
 
     // Check if permission exists
@@ -272,20 +267,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // 使用 NextAuth.js 验证会话
     const session = await getServerSession();
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return ApiRouteError.unauthorized();
     }
 
     const currentUser = session.user as any;
 
     // Check if user has permission to delete permissions
     if (!currentUser.is_superuser && !hasPermission(session, 'permissions.delete')) {
-      return NextResponse.json(
-        { error: '您没有权限执行此操作' },
-        { status: 403 }
-      );
+      return ApiRouteError.forbidden();
     }
 
     // Check if permission exists

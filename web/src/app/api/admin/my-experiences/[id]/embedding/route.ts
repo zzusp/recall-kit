@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/server/auth';
-import { ApiRouteResponse } from '@/lib/utils/apiResponse';
+import { ApiRouteResponse, ApiRouteError } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/server/db/client';
 import { EmbeddingService } from '@/lib/server/services/embedding';
 
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // 使用 NextAuth.js 获取会话
     const session = await getServerSession();
     if (!session) {
-      return ApiRouteResponse.unauthorized('未授权访问');
+      return ApiRouteError.unauthorized('未授权访问');
     }
 
     const currentUser = session.user as any;
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const experienceResult = await db.query(experienceQuery, [experienceId, currentUser.id]);
     
     if (experienceResult.rows.length === 0) {
-      return ApiRouteResponse.notFound('经验记录不存在');
+      return ApiRouteError.notFound('经验记录不存在');
     }
 
     const experience = experienceResult.rows[0];
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // 检查 embedding 服务是否可用
     const isAvailable = await embeddingService.isAvailable();
     if (!isAvailable) {
-      return ApiRouteResponse.badRequest('向量化服务不可用，请检查 AI 配置');
+      return ApiRouteError.badRequest('向量化服务不可用，请检查 AI 配置');
     }
 
     // 构建要向量化的文本内容
@@ -74,14 +74,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     } catch (embeddingError) {
       console.error('Embedding generation failed:', embeddingError);
-      return ApiRouteResponse.internalError(
+      return ApiRouteError.internal(
         `向量化失败: ${embeddingError instanceof Error ? embeddingError.message : '未知错误'}`
       );
     }
 
   } catch (error) {
     console.error('Error generating embedding:', error);
-    return ApiRouteResponse.internalError('向量化操作失败', 
+    return ApiRouteError.internal('向量化操作失败', 
       process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }
@@ -93,7 +93,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     // 使用 NextAuth.js 获取会话
     const session = await getServerSession();
     if (!session) {
-      return ApiRouteResponse.unauthorized('未授权访问');
+      return ApiRouteError.unauthorized('未授权访问');
     }
 
     const currentUser = session.user as any;
@@ -108,7 +108,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const experienceResult = await db.query(experienceQuery, [experienceId, currentUser.id]);
     
     if (experienceResult.rows.length === 0) {
-      return ApiRouteResponse.notFound('经验记录不存在');
+      return ApiRouteError.notFound('经验记录不存在');
     }
 
     const experience = experienceResult.rows[0];
@@ -131,7 +131,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   } catch (error) {
     console.error('Error clearing embedding:', error);
-    return ApiRouteResponse.internalError('清除向量化数据失败', 
+    return ApiRouteError.internal('清除向量化数据失败', 
       process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }

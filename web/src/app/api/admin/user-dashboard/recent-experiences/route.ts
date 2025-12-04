@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/server/auth';
-import { ApiRouteResponse } from '@/lib/utils/apiResponse';
+import { ApiRouteResponse, ApiRouteError } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/server/db/client';
 
 export const runtime = 'nodejs';
@@ -11,16 +11,16 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession();
     
     if (!session || !session.user) {
-      return ApiRouteResponse.unauthorized('未授权访问');
+      return ApiRouteError.unauthorized('未授权访问');
     }
     
     const currentUser = session.user as any;
     
     if (!currentUser.id) {
-      return ApiRouteResponse.unauthorized('未授权访问');
+      return ApiRouteError.unauthorized('未授权访问');
     }
 
-    // 获取用户最近的经验记录
+    // 获取用户最近的已发布经验
     const query = `
       SELECT 
         er.id, er.title, er.problem_description, er.root_cause, 
@@ -29,8 +29,9 @@ export async function GET(request: NextRequest) {
         er.has_embedding, er.created_at, er.updated_at, er.deleted_at,
         COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
       FROM experience_records er
-      WHERE er.user_id = $1 AND er.is_deleted = false
-      ORDER BY er.updated_at DESC
+      WHERE er.user_id = $1 
+        AND er.publish_status = 'published'
+      ORDER BY er.created_at DESC
       LIMIT 10
     `;
 
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching recent experiences:', error);
-    return ApiRouteResponse.internalError('获取最近经验失败', 
+    return ApiRouteError.internal('获取最近经验失败', 
       process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }

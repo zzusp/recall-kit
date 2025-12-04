@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import ToastContainer from '@/components/ui/ToastContainer'
+import PermissionToastContainer from '@/components/ui/PermissionToastContainer'
 import { Providers } from './providers'
 import { auth } from '@/lib/auth'
 
@@ -42,6 +43,7 @@ export default async function RootLayout({
           {children}
         </Providers>
         <ToastContainer />
+        <PermissionToastContainer />
         <script dangerouslySetInnerHTML={{
           __html: `
             if (typeof window !== 'undefined') {

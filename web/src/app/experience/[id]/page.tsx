@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ExperienceService } from '@/lib/server/services/experience';
+import { getServerSession } from '@/lib/server/auth';
 
 interface ExperienceDetailPageProps {
   params: Promise<{
@@ -12,21 +13,31 @@ export default async function ExperienceDetailPage({ params }: ExperienceDetailP
   // Next.js 15 requires params to be awaited
   const { id } = await params;
   
+  // 获取当前用户会话
+  const session = await getServerSession();
+  const userId = session?.user?.id;
+  
   const experienceService = new ExperienceService();
   
-  // 先增加浏览次数并等待完成
-  const newViewCount = await experienceService.incrementViewCount(id);
+  // 未登录用户不能查看经验详情
+  if (!userId) {
+    return notFound();
+  }
   
-  // 获取经验记录数据
-  const experience = await experienceService.getExperienceById(id);
+  // 获取经验记录数据（带权限检查）
+  const experience = await experienceService.getExperienceById(id, userId);
 
   if (!experience) {
     notFound();
   }
-
-  // 如果更新成功，使用新的浏览次数
-  if (newViewCount > 0) {
-    experience.view_count = newViewCount;
+  
+  // 如果是已发布的经验或者是作者本人，才增加浏览次数
+  if (experience.publish_status === 'published' || experience.user_id === userId) {
+    const newViewCount = await experienceService.incrementViewCount(id);
+    // 如果更新成功，使用新的浏览次数
+    if (newViewCount > 0) {
+      experience.view_count = newViewCount;
+    }
   }
 
   return (

@@ -9,9 +9,10 @@ export interface ToastProps {
   type?: 'success' | 'error' | 'warning' | 'info';
   duration?: number;
   onClose?: (id: string) => void;
+  title?: string;
 }
 
-const Toast = ({ id, message, type = 'info', duration = 3000, onClose }: ToastProps) => {
+const Toast = ({ id, message, type = 'info', duration = 3000, onClose, title }: ToastProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
@@ -95,15 +96,27 @@ const Toast = ({ id, message, type = 'info', duration = 3000, onClose }: ToastPr
       }}
     >
       {getIcon()}
-      <p style={{ 
-        flex: 1, 
-        fontSize: '0.875rem', 
-        fontWeight: '500',
-        margin: 0,
-        ...getTextStyle()
-      }}>
-        {message}
-      </p>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {title && (
+          <h4 style={{ 
+            margin: '0 0 0.25rem 0', 
+            fontSize: '0.875rem', 
+            fontWeight: '600',
+            ...getTextStyle()
+          }}>
+            {title}
+          </h4>
+        )}
+        <p style={{ 
+          margin: 0, 
+          fontSize: '0.8125rem', 
+          fontWeight: '400',
+          lineHeight: '1.375rem',
+          ...getTextStyle()
+        }}>
+          {message}
+        </p>
+      </div>
       <button
         onClick={handleClose}
         style={{

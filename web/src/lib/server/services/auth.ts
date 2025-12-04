@@ -1,5 +1,6 @@
 import { User, Role, Permission } from '@/types/database/auth';
 import { db } from '../db/client';
+import bcrypt from 'bcryptjs';
 
 export interface AuthUser {
   id: string;
@@ -41,9 +42,8 @@ export async function login(credentials: LoginCredentials): Promise<{ user: Auth
 
   const user = userResult.rows[0];
 
-  // TODO: Implement proper password verification
-  // For now, just compare the hash (you should use bcrypt)
-  if (user.password_hash !== credentials.password) {
+  const isPasswordValid = await bcrypt.compare(credentials.password, user.password_hash);
+  if (!isPasswordValid) {
     throw new Error('用户名或密码错误');
   }
 

@@ -1,156 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/server/db/client';
-import { User, Role, Permission } from '@/types/database/auth';
-import bcrypt from 'bcryptjs';
-import { ApiRouteResponse } from '@/lib/utils/apiResponse';
-import { authConfig } from '@/config/auth';
+import { signIn, auth } from '@/lib/auth';
+import { ApiRouteResponse, ApiRouteError } from '@/lib/utils/apiResponse';
 
 export const runtime = 'nodejs';
 
-export interface AuthUser {
-  id: string;
-  username: string;
-  email: string;
-  roles: Role[];
-  permissions: Permission[];
-  is_superuser: boolean;
-}
-
-export interface LoginCredentials {
+interface LoginCredentials {
   username: string;
   password: string;
 }
 
-// Helper functions
-function generateSessionToken(): string {
-  return Array.from({ length: 32 }, () => 
-    Math.random().toString(36).charAt(2)
-  ).join('');
-}
-
+/**
+ * 登录 API
+ * 使用 NextAuth.js 的 signIn 函数进行认证
+ */
 export async function POST(request: NextRequest) {
   try {
     const credentials: LoginCredentials = await request.json();
 
     if (!credentials.username || !credentials.password) {
-      return ApiRouteResponse.badRequest('用户名和密码不能为空');
+      return ApiRouteError.badRequest('用户名和密码不能为空');
     }
 
-    // Get user by username or email
-    const userResult = await db.query(
-      'SELECT * FROM users WHERE (username = $1 OR email = $1) AND is_active = true',
-      [credentials.username]
-    );
-
-    if (userResult.rows.length === 0) {
-      return ApiRouteResponse.error('INVALID_CREDENTIALS', '用户名或密码错误', undefined, 401);
-    }
-
-    const user = userResult.rows[0];
-
-    // Verify password using bcrypt
-    const isPasswordValid = await bcrypt.compare(credentials.password, user.password_hash);
-    
-    if (!isPasswordValid) {
-      return ApiRouteResponse.error('INVALID_CREDENTIALS', '用户名或密码错误', undefined, 401);
-    }
-
-    // Get user roles and permissions
-    const userRolesResult = await db.query(`
-      SELECT r.id, r.name, r.description, r.is_system_role
-      FROM roles r
-      JOIN user_roles ur ON r.id = ur.role_id
-      WHERE ur.user_id = $1
-    `, [user.id]);
-
-    const roles = userRolesResult.rows;
-
-    // Get permissions from roles
-    let permissions: Permission[] = [];
-    if (roles.length > 0) {
-      const roleIds = roles.map(r => r.id);
-      const rolePermissionsResult = await db.query(`
-        SELECT 
-          p.id, 
-          p.name, 
-          p.code,
-          p.type,
-          p.parent_id,
-          p.page_path,
-          p.description,
-          p.sort_order,
-          p.is_active,
-          p.created_at,
-          p.updated_at
-        FROM permissions p
-        JOIN role_permissions rp ON p.id = rp.permission_id
-        WHERE rp.role_id = ANY($1)
-          AND p.is_active = true
-        ORDER BY p.type, p.sort_order
-      `, [roleIds]);
-
-      permissions = rolePermissionsResult.rows;
-    }
-
-    if (roles.length === 0) {
-      return ApiRouteResponse.forbidden('用户没有分配任何角色');
-    }
-
-    // Create session
-    const sessionToken = generateSessionToken();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
-
-    await db.query(
-      'INSERT INTO user_sessions (user_id, session_token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, sessionToken, expiresAt.toISOString()]
-    );
-
-    // Update last login
-    await db.query(
-      'UPDATE users SET last_login_at = $1 WHERE id = $2',
-      [new Date().toISOString(), user.id]
-    );
-
-    const authUser: AuthUser = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      roles,
-      permissions,
-      is_superuser: user.is_superuser
-    };
-
-    // 创建响应数据
-    const responseData = {
-      success: true,
-      data: {
-        user: authUser,
-        sessionToken
-      },
-      message: '登录成功',
-      timestamp: new Date().toISOString()
-    };
-
-    // 使用 NextResponse 设置 httpOnly cookie（更安全的方式）
-    const cookieMaxAge = authConfig.session.maxAge / 1000; // 转换为秒
-    const response = NextResponse.json(responseData, { status: 200 });
-    
-    response.cookies.set('session_token', sessionToken, {
-      httpOnly: true,
-      secure: authConfig.session.secure,
-      sameSite: authConfig.session.sameSite,
-      maxAge: cookieMaxAge,
-      path: '/',
+    // 使用 NextAuth.js 的 signIn 方法
+    // 这会触发 Credentials Provider 的 authorize 函数
+    const result = await signIn('credentials', {
+      username: credentials.username,
+      password: credentials.password,
+      redirect: false, // 不重定向，返回响应
     });
 
-    return response;
+    if (!result || result.error) {
+      return ApiRouteError.unauthorized('用户名或密码错误');
+    }
+
+    // 获取登录后的会话信息（包含角色和权限）
+    const session = await auth();
+    
+    if (!session?.user) {
+      return ApiRouteError.unauthorized('登录失败，请重试');
+    }
+
+    return ApiRouteResponse.success(session.user, '登录成功');
 
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Login error:', error);
-    }
-    return ApiRouteResponse.internalError('服务器内部错误', 
+    console.error('Login error:', error);
+    return ApiRouteError.internal('登录失败', 
       process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }

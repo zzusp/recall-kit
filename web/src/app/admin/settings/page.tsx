@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import PermissionGuard from '@/components/auth/PermissionGuard';
 import { apiFetch } from '@/lib/client/services/apiErrorHandler';
+import { usePermissions } from '@/hooks/usePermissions';
+import { toast } from '@/lib/client/services/toast';
 
 type AIServiceType = 'openai' | 'anthropic' | 'custom';
 
 function AdminSettingsContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { hasPermission } = usePermissions();
   const [aiServiceType, setAiServiceType] = useState<AIServiceType>('openai');
   const [aiConfig, setAiConfig] = useState({
     // OpenAI 配置
@@ -28,7 +31,6 @@ function AdminSettingsContent() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     // 如果 session 还在加载中，等待
@@ -67,9 +69,15 @@ function AdminSettingsContent() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 检查编辑权限
+    if (!hasPermission('admin.settings.edit')) {
+      toast.error('您没有权限编辑系统设置');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
-    setSuccess('');
 
     try {
       // 根据选择的AI服务类型，只保存相关的配置
@@ -108,7 +116,10 @@ function AdminSettingsContent() {
         body: JSON.stringify(settings),
       });
 
-      setSuccess('设置已成功保存');
+      toast.success('设置已成功保存', {
+        title: '保存成功',
+        duration: 5000
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存设置失败');
     } finally {
@@ -134,14 +145,6 @@ function AdminSettingsContent() {
         </div>
       )}
 
-      {success && (
-        <div className="admin-card" style={{ background: '#d1fae5', borderColor: '#a7f3d0' }}>
-          <div style={{ color: '#065f46', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <i className="fas fa-check-circle"></i>
-            <span>{success}</span>
-          </div>
-        </div>
-      )}
 
       <div className="admin-card">
         <div className="admin-card-header">

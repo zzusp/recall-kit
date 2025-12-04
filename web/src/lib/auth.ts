@@ -11,7 +11,7 @@ import { authConfig as config } from '@/config/auth';
  * 关于 basePath 和 URL 配置：
  * - NextAuth v5 会自动从请求头推断 URL，通常不需要手动配置 AUTH_URL
  * - 根据官方文档（https://authjs.dev/getting-started/deployment#environment-variables）：
- *   "AUTH_URL is mostly unnecessary with v5 as the host is inferred from the request headers.
+ *   "AUTH_URL is mostly unnecessary with v5 as host is inferred from request headers.
  *    However, if you are using a different base path, you can set this environment variable as well.
  *    For example, AUTH_URL=http://localhost:3000/web/auth or AUTH_URL=https://company.com/app1/auth"
  * 
@@ -22,7 +22,7 @@ import { authConfig as config } from '@/config/auth';
  *   可能导致路径被重复处理，从而出现 400 错误
  * - 不设置 AUTH_URL 时，NextAuth 可以自动推断，并且 SessionProvider 的 basePath 会正确处理，所以正常工作
  * 
- * 解决方案：不设置 AUTH_URL，让 NextAuth 从请求头自动推断，它会正确处理 basePath
+ * 解决方案：不设置 AUTH_URL，让 NextAuth 从请求头自动推断
  * - 设置 trustHost: true 可以让 NextAuth 信任反向代理的请求头，这对于 basePath 场景很重要
  * - SessionProvider 的 basePath 属性用于客户端，应该设置为包含 /api/auth 的完整路径（已在 providers.tsx 中正确设置）
  */
@@ -142,12 +142,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       // 将 token 中的信息添加到 session
-      if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).username = token.username;
-        (session.user as any).roles = token.roles;
-        (session.user as any).permissions = token.permissions;
-        (session.user as any).is_superuser = token.is_superuser;
+      // 修复：从 token 而不是 session.user 获取信息
+      if (token) {
+        session.user = {
+          id: token.id,
+          name: token.name,
+          email: token.email,
+          username: token.username,
+          roles: token.roles,
+          permissions: token.permissions,
+          is_superuser: token.is_superuser,
+        };
       }
       return session;
     },
@@ -171,4 +176,3 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 });
-

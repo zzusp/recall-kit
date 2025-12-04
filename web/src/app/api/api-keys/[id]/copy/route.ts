@@ -1,41 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFullApiKey } from '@/lib/server/services/apiKey';
 import { getServerSession } from '@/lib/server/auth';
+import { ApiRouteResponse, ApiRouteError } from '@/lib/utils/apiResponse';
 
 export const runtime = 'nodejs';
 
-// GET /api/api-keys/[id]/copy - 获取完整的API密钥用于复制
-export async function GET(
+interface RouteParams {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
+export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: RouteParams
 ) {
-  const { id } = await params;
   try {
     // 使用 NextAuth.js 验证会话
     const session = await getServerSession();
     if (!session || !session.user) {
-      return NextResponse.json(
-        { message: '未授权访问' },
-        { status: 401 }
-      );
+      return ApiRouteError.unauthorized('未授权访问');
     }
 
-    const currentUser = session.user as any;
-    const apiKey = await getFullApiKey(currentUser.id, id);
+    const { id } = await params;
+    const apiKey = await getFullApiKey(session.user.id, id);
+    
     if (!apiKey) {
-      return NextResponse.json(
-        { message: 'API密钥不存在' },
-        { status: 404 }
-      );
+      return ApiRouteError.notFound('API密钥不存在');
     }
 
-    return NextResponse.json(apiKey);
+    // 验证API密钥是否属于当前用户
+    if (apiKey.userId !== session.user.id) {
+      return ApiRouteError.forbidden('无权访问此API密钥');
+    }
 
+    // 创建一个新的API密钥用于复制
+    const newApiKey = {
+      ...apiKey,
+      name: `${apiKey.name} (副本)`,
+    };
+
+    return ApiRouteResponse.success(newApiKey, 'API密钥复制成功');
   } catch (error) {
-    console.error('Get full API key error:', error);
-    return NextResponse.json(
-      { message: '服务器内部错误' },
-      { status: 500 }
-    );
+    console.error('Copy API key error:', error);
+    return ApiRouteError.internal('复制API密钥失败', 
+      process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }

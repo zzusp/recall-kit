@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db } from '@/lib/server/db/client';
-import { getServerSession, isAdminOrSuperuser } from '@/lib/server/auth';
+import { getServerSession, hasPermission } from '@/lib/server/auth';
+import { ApiRouteResponse, ApiRouteError } from '@/lib/utils/apiResponse';
 import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';
@@ -16,88 +17,69 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // 使用 NextAuth.js 获取会话
     const session = await getServerSession();
     if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
+      return ApiRouteError.unauthorized('未授权访问');
     }
 
     const currentUser = session.user as any;
+    const { id: targetUserId } = await params;
+    // 现在还没有个人设置中的密码修改功能，所以暂时不限制
+    // if (currentUser.id === targetUserId) {
+    //   return ApiRouteError.forbidden('请使用个人设置中的密码修改功能');
+    // }
 
-    // 检查超级管理员权限
-    if (!currentUser.is_superuser && !isAdminOrSuperuser(session)) {
-      return NextResponse.json(
-        { error: '权限不足，只有超级管理员可以修改用户密码' },
-        { status: 403 }
-      );
+    const hasResetPermission =
+      currentUser.is_superuser || hasPermission(session, 'users.reset_password');
+
+    if (!hasResetPermission) {
+      return ApiRouteError.forbidden('权限不足，只有超级管理员或有 users.reset_password 权限的用户可以重置密码');
     }
 
-    // 现在读取请求体
-    const { id } = await params;
-    const body = await request.json();
-    const { newPassword } = body;
+    const { newPassword } = await request.json();
 
     // 验证必填字段
     if (!newPassword) {
-      return NextResponse.json(
-        { error: '新密码为必填项' },
-        { status: 400 }
-      );
+      return ApiRouteError.badRequest('新密码不能为空');
     }
 
-    // 验证新密码长度
-    if (newPassword.length < 6) {
-      return NextResponse.json(
-        { error: '新密码长度至少为6位' },
-        { status: 400 }
-      );
+    const { authConfig } = await import('@/config/auth');
+
+    if (newPassword.length < authConfig.password.minLength) {
+      return ApiRouteError.badRequest(`新密码长度不能少于${authConfig.password.minLength}位`);
     }
 
-    // 检查目标用户是否存在
-    const userResult = await db.query(
-      'SELECT id, username, email FROM users WHERE id = $1',
-      [id]
-    );
+    // 获取用户信息
+    const userQuery = 'SELECT id, username FROM users WHERE id = $1 AND is_active = true';
+    const userResult = await db.query(userQuery, [targetUserId]);
 
     if (userResult.rows.length === 0) {
-      return NextResponse.json(
-        { error: '用户不存在' },
-        { status: 404 }
-      );
+      return ApiRouteError.notFound('用户不存在或已被禁用');
     }
 
-    // 允许超级管理员修改任何用户的密码，包括自己的
-    // 如果用户想修改自己的密码，可以使用个人设置中的密码修改功能（需要输入当前密码）
-    // 但这里也允许直接重置，因为超级管理员有权限
-
-    const targetUser = userResult.rows[0];
-
-    // 生成新密码哈希
-    const saltRounds = 10;
-    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+    const newPasswordHash = await bcrypt.hash(
+      newPassword,
+      authConfig.password?.saltRounds ?? 12
+    );
 
     // 更新密码
     const updateQuery = `
       UPDATE users 
-      SET 
-        password_hash = $1,
-        updated_at = NOW(),
-        last_password_change = NOW()
+      SET password_hash = $1, last_password_change = NOW(), updated_at = NOW()
       WHERE id = $2
     `;
+    
+    await db.query(updateQuery, [newPasswordHash, targetUserId]);
 
-    await db.query(updateQuery, [newPasswordHash, id]);
-
-    return NextResponse.json({
-      message: `用户 ${targetUser.username} 的密码已成功重置`,
-      success: true
-    });
+    return ApiRouteResponse.success(
+      {
+        message: '密码重置成功',
+        username: userResult.rows[0].username
+      },
+      '密码重置成功'
+    );
 
   } catch (error) {
-    console.error('Error resetting user password:', error);
-    return NextResponse.json(
-      { error: '重置密码失败' },
-      { status: 500 }
-    );
+    console.error('Error resetting password:', error);
+    return ApiRouteError.internal('重置密码失败', 
+      process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }

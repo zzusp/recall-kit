@@ -97,11 +97,14 @@ function buildPermissionTreeWithChecked(
     }
   }
 
+  // 先对根节点排序
+  rootNodes.sort((a, b) => a.sort_order - b.sort_order);
+  
+  // 然后对每个节点进行排序和indeterminate计算
   rootNodes.forEach(node => {
     sortChildren(node);
     calculateIndeterminate(node);
   });
-  rootNodes.sort((a, b) => a.sort_order - b.sort_order);
 
   return rootNodes;
 }
@@ -158,7 +161,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         updated_at
       FROM permissions
       WHERE is_active = true
-      ORDER BY type, sort_order
+      ORDER BY sort_order, type
     `);
 
     const allPermissions: Permission[] = allPermissionsResult.rows;

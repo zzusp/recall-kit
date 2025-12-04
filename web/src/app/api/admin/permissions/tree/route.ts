@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/server/db/client';
 import { getServerSession, hasPermission } from '@/lib/server/auth';
 import { Permission } from '@/types/database/auth';
+import { ApiRouteError } from '@/lib/utils/apiResponse';
 
 export const runtime = 'nodejs';
 
@@ -59,20 +60,14 @@ export async function GET(request: NextRequest) {
     // 使用 NextAuth.js 验证会话
     const session = await getServerSession();
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return ApiRouteError.unauthorized();
     }
 
     const currentUser = session.user as any;
 
     // Check if user has permission to view permissions
     if (!currentUser.is_superuser && !hasPermission(session, 'permissions.view')) {
-      return NextResponse.json(
-        { error: '您没有权限查看权限' },
-        { status: 403 }
-      );
+      return ApiRouteError.forbidden();
     }
 
     // 获取所有权限
@@ -90,7 +85,7 @@ export async function GET(request: NextRequest) {
         created_at,
         updated_at
       FROM permissions
-      ORDER BY type, sort_order
+      ORDER BY sort_order, type
     `);
 
     const permissions: Permission[] = permissionsResult.rows;

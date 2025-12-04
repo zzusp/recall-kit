@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from '@/lib/client/services/toast';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import PermissionGuard from '@/components/auth/PermissionGuard';
 import { apiFetch } from '@/lib/client/services/apiErrorHandler';
 
 interface ApiKey {
@@ -19,7 +20,7 @@ interface ApiKey {
   updatedAt: string;
 }
 
-export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function ApiKeyDetailPageContent({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [apiKey, setApiKey] = useState<ApiKey | null>(null);
@@ -202,6 +203,14 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
         />
       )}
     </div>
+  );
+}
+
+export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <PermissionGuard requireAuth={true}>
+      <ApiKeyDetailPageContent params={params} />
+    </PermissionGuard>
   );
 }
 

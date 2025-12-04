@@ -170,7 +170,12 @@ export class ExperienceService {
     };
   }
 
-  async getExperienceById(id: string): Promise<ExperienceRecord | null> {
+  async getExperienceById(id: string, userId?: string): Promise<ExperienceRecord | null> {
+    // 必须提供用户ID才能查看经验
+    if (!userId) {
+      return null;
+    }
+
     const sql = `
       SELECT 
         er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
@@ -179,11 +184,40 @@ export class ExperienceService {
         er.updated_at, er.deleted_at,
         COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
       FROM experience_records er
-      WHERE er.id = $1 AND er.publish_status = 'published' AND er.is_deleted = false
+      WHERE er.id = $1 AND er.is_deleted = false
+        AND (er.publish_status = 'published' OR er.user_id = $2)
     `;
 
     try {
-      const result = await db.query(sql, [id]);
+      const result = await db.query(sql, [id, userId]);
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const record = result.rows[0];
+      return {
+        ...record,
+        keywords: Array.isArray(record.keywords) ? record.keywords.filter(Boolean) : []
+      };
+    } catch (error) {
+      throw new Error(`Failed to get experience: ${error}`);
+    }
+  }
+
+  async getExperienceByIdForUser(id: string, userId: string): Promise<ExperienceRecord | null> {
+    const sql = `
+      SELECT 
+        er.id, er.user_id, er.title, er.problem_description, er.root_cause, 
+        er.solution, er.context, er.publish_status, er.is_deleted,
+        er.query_count, er.view_count, er.created_at, 
+        er.updated_at, er.deleted_at,
+        COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
+      FROM experience_records er
+      WHERE er.id = $1 AND er.user_id = $2 AND er.is_deleted = false
+    `;
+
+    try {
+      const result = await db.query(sql, [id, userId]);
       if (result.rows.length === 0) {
         return null;
       }

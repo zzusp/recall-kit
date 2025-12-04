@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { ApiRouteResponse } from '@/lib/utils/apiResponse';
+import { ApiRouteResponse, ApiRouteError } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/server/db/client';
 
 export const runtime = 'nodejs';
@@ -17,8 +17,7 @@ export async function GET(request: NextRequest) {
         COALESCE(er.keywords, ARRAY[]::TEXT[]) as keywords
       FROM experience_records er
       LEFT JOIN users u ON er.user_id = u.id
-      WHERE er.publish_status = 'published' 
-        AND er.is_deleted = false
+      WHERE er.publish_status = 'published'
       ORDER BY (er.view_count * 0.7 + er.query_count * 0.3) DESC, er.created_at DESC
       LIMIT 10
     `;
@@ -38,7 +37,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching popular experiences:', error);
-    return ApiRouteResponse.internalError('获取热门经验失败', 
+    return ApiRouteError.internal('获取热门经验失败', 
       process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }

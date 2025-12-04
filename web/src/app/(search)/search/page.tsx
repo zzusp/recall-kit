@@ -51,7 +51,7 @@ function SearchPageContent() {
     }
 
     // 禁用缓存，确保每次获取最新数据
-    const response = await fetch(getApiUrl(`/api/experiences?${params.toString()}`), {
+    const response = await fetch(getApiUrl(`/api/search/experiences?${params.toString()}`), {
       cache: 'no-store',
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -76,7 +76,7 @@ function SearchPageContent() {
     return result.data.experiences as ExperienceRecord[];
   };
 
-  // 增加查看次数的函数
+  // 增加查看次数的函数（只有登录用户才能增加）
   const incrementViewCount = async (experienceId: string) => {
     try {
       const response = await fetch(getApiUrl(`/api/experiences/${experienceId}/view`), {
@@ -87,6 +87,10 @@ function SearchPageContent() {
       if (response.ok) {
         const result = await response.json();
         return result.success ? result.data?.newCount || 0 : 0;
+      } else if (response.status === 401) {
+        // 未授权，静默处理
+        console.log('User not logged in, skipping view count increment');
+        return 0;
       }
       return 0;
     } catch (error) {

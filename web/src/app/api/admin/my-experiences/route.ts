@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/server/auth';
-import { ApiRouteResponse, ErrorResponses } from '@/lib/utils/apiResponse';
+import { ApiRouteResponse, ApiRouteError } from '@/lib/utils/apiResponse';
 import { db } from '@/lib/server/db/client';
 
 export const runtime = 'nodejs';
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     // 使用 NextAuth.js 获取会话
     const session = await getServerSession();
     if (!session) {
-      return ApiRouteResponse.unauthorized('未授权访问');
+      return ApiRouteError.unauthorized('未授权访问');
     }
     const currentUser = session.user as any;
 
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching my experiences:', error);
-    return ApiRouteResponse.internalError('获取个人经验失败', 
+    return ApiRouteError.internal('获取个人经验失败', 
       process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     // 使用 NextAuth.js 获取会话
     const session = await getServerSession();
     if (!session) {
-      return ApiRouteResponse.unauthorized('未授权访问');
+      return ApiRouteError.unauthorized('未授权访问');
     }
     const currentUser = session.user as any;
 
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 
     // 验证必填字段
     if (!title || !problem_description || !solution) {
-      return ApiRouteResponse.badRequest('标题、问题描述和解决方案为必填项');
+      return ApiRouteError.badRequest('标题、问题描述和解决方案为必填项');
     }
 
     // 插入新的经验记录，关键字直接存储在 keywords 字段中
@@ -137,11 +137,11 @@ export async function POST(request: NextRequest) {
 
     const experience = result.rows[0];
 
-    return ApiRouteResponse.success(experience, '经验创建成功', 201);
+    return ApiRouteResponse.created(experience, '经验创建成功');
 
   } catch (error) {
     console.error('Error creating experience:', error);
-    return ApiRouteResponse.internalError('创建经验失败', 
+    return ApiRouteError.internal('创建经验失败', 
       process.env.NODE_ENV === 'development' ? error : undefined);
   }
 }
